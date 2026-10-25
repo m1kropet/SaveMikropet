@@ -200,4 +200,14 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
   // стрелок стреляет, машина при этом давит
   strong.dead=true; f.enemies=f.enemies.filter(e=>!e.dead); f.spawnCar(g); const c2=f.cars[f.cars.length-1]; ok(c2.gun,'car carries gunner');
   const tgt=f.spawn({type:'flyer',hpMul:20,spMul:0},1,c2.path,c2.d-2); const th=tgt.hp; for(let i=0;i<60;i++) f.step(1/60); ok(tgt.hp<th,'gunner shoots'); }
+// Google: разбор возврата и проверка полей id_token
+{ globalThis.window = globalThis.window || {}; require('../js/google.js'); const G=K.Google; K.CONFIG=Object.assign({},K.CONFIG,{googleClientId:'cid.apps.googleusercontent.com'});
+  ok(G.readRedirect('#access_token=a&state=s1','g1')===null,'twitch return is not google');
+  ok(G.readRedirect('#id_token=t&state=g1','g1').token==='t','google return parsed');
+  ok(G.readRedirect('#error=access_denied&state=g1','g1').error==='access_denied','google error parsed');
+  const b64=o=>Buffer.from(JSON.stringify(o)).toString('base64').replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const tok=c=>'h.'+b64(c)+'.s'; const good={sub:'123',aud:'cid.apps.googleusercontent.com',iss:'https://accounts.google.com',exp:Date.now()/1000+600,nonce:'n',email:'a@b.c',email_verified:true,name:'Аня'};
+  ok(G.decode(tok(good)).name==='Аня','jwt decode utf-8');
+  let threw=null; try{G.checkClaims(good,'n')}catch(e){threw=e} ok(!threw,'valid claims pass');
+  for (const [bad,why] of [[{aud:'other'},'aud'],[{nonce:'x'},'nonce'],[{exp:1},'exp'],[{iss:'evil.com'},'iss'],[{email_verified:false},'email']]) { let t=null; try{G.checkClaims(Object.assign({},good,bad),'n')}catch(e){t=e} ok(t,'rejects bad '+why); } }
 console.log('OK', n, 'checks');

@@ -15,6 +15,7 @@ const K = globalThis.KV;
 const PORT = +process.env.PORT || 8787;
 const TWITCH_CLIENT_ID = process.env.TWITCH_CLIENT_ID || '';
 const REQUIRE_TWITCH = process.env.REQUIRE_TWITCH === '1';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 // Хранилище тегов и рейтинга: JSON-файл (DATA_FILE), запись не чаще раза в 2 секунды.
 const DATA_FILE = process.env.DATA_FILE || path.join(ROOT, 'data', 'store.json');
 function fileStore(file) {
@@ -28,10 +29,10 @@ function fileStore(file) {
     list: async pre => new Map([...m].filter(([k]) => k.startsWith(pre)))
   };
 }
-const hub = createHub(K, { twitchClientId: TWITCH_CLIENT_ID, requireTwitch: REQUIRE_TWITCH, store: process.env.NO_STORE ? null : fileStore(DATA_FILE), voteMs: +process.env.VOTE_MS || undefined });
+const hub = createHub(K, { twitchClientId: TWITCH_CLIENT_ID, googleClientId: GOOGLE_CLIENT_ID, requireTwitch: REQUIRE_TWITCH, store: process.env.NO_STORE ? null : fileStore(DATA_FILE), voteMs: +process.env.VOTE_MS || undefined });
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.ico': 'image/x-icon' };
-const configJs = () => 'globalThis.KV = globalThis.KV || {}; globalThis.KV.CONFIG = ' + JSON.stringify({ twitchClientId: TWITCH_CLIENT_ID, requireTwitch: REQUIRE_TWITCH, serverUrl: 'auto' }) + ';';
+const configJs = () => 'globalThis.KV = globalThis.KV || {}; globalThis.KV.CONFIG = ' + JSON.stringify({ twitchClientId: TWITCH_CLIENT_ID, googleClientId: GOOGLE_CLIENT_ID, requireTwitch: REQUIRE_TWITCH, serverUrl: 'auto' }) + ';';
 const wrapHtml = html => '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body>' + html + '</body></html>';
 
 function serveFile(req, res) {

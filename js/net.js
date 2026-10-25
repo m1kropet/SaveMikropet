@@ -79,7 +79,7 @@
     },
     hello() {
       const p = this.profile || {};
-      this.send('hello', { nick: p.nick, level: p.level, squad: p.squad, token: K.Twitch && K.Twitch.token(), uid: p.uid, tag: p.tag, endless: !!p.endlessUnlocked, eye: !!p.eye });
+      this.send('hello', { nick: p.nick, level: p.level, squad: p.squad, token: K.Twitch && K.Twitch.token(), gtoken: K.Google && K.Google.token(), uid: p.uid, tag: p.tag, endless: !!p.endlessUnlocked, eye: !!p.eye });
     },
     send(op, data) {
       if (!this.ws || this.state !== 'open') return false;

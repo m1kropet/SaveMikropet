@@ -306,6 +306,19 @@
     }
   };
 
+  const G_LOGO = '<svg class="g-logo" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.8c4.3-4 6.9-9.9 6.9-17.2z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>';
+  const googleBadge = on => on ? '<span class="tw-badge gg" title="Подтверждено через Google">' + G_LOGO + '</span>' : '';
+  function googleBlock(p) {
+    if (p.google) {
+      return `<div class="card row">${p.google.avatar ? `<img class="tw-ava" alt="" referrerpolicy="no-referrer" src="${esc(p.google.avatar)}">` : `<span class="tw-ava gg">${G_LOGO}</span>`}
+        <div class="grow"><b>${esc(p.google.name || 'Google')}</b> ${googleBadge(true)}<div class="note">${esc(p.google.email)} · подтверждено ${new Date(p.google.verifiedAt).toLocaleDateString('ru-RU')}</div></div>
+        <button class="btn small" data-act="ggLogout">Отвязать</button></div>`;
+    }
+    const st = K.Google.status();
+    return `<button class="btn gg block" data-act="ggLogin">${G_LOGO} Войти через Google</button>
+      <div class="note">${st.ok ? 'Google подтвердит ваш аккаунт по почте. Никнейм в игре останется вашим — почту видите только вы.' : esc(st.reason)}</div>`;
+  }
+
   function twitchBlock(p) {
     if (p.twitch) {
       return `<div class="card row">${p.twitch.avatar ? `<img class="tw-ava" alt="" src="${esc(p.twitch.avatar)}">` : `<span class="tw-ava">${icon('twitch')}</span>`}
@@ -329,7 +342,7 @@
       return `<div class="screen">
         <div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div>
         <div class="menu-top">
-          <button class="profile-chip" data-act="settings" aria-label="Профиль и настройки"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em;text-align:left;line-height:1.1"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}</button>
+          <button class="profile-chip" data-act="settings" aria-label="Профиль и настройки"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em;text-align:left;line-height:1.1"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}${googleBadge(!!p.google)}</button>
           <span class="plaque coin" title="Монеты аккаунта">${p.coins}</span>
         </div>
         <div class="menu-main">
@@ -791,12 +804,12 @@
       const rows = [me].concat((app.session.serverLeaders || []).filter(r => !(p.twitch && r.nick === p.twitch.login)));
       rows.sort((a, b) => (desc ? 1 : -1) * (def[2](b) - def[2](a)));
       return `<div class="screen">${topbar('Лидерборд')}<div class="scroll">
-        <div class="section"><div class="banner">${K.Net.available() ? 'Рейтинг загружается с сервера: учитываются только матчи, проверенные сервером, и игроки, вошедшие через Twitch.' : 'Игровой сервер не подключён, поэтому здесь только ваш результат. Ботов в рейтинге нет — они встречаются только в дуэлях. Когда сервер заработает, появятся игроки, подтверждённые через Twitch.'}</div></div>
+        <div class="section"><div class="banner">${K.Net.available() ? 'Рейтинг загружается с сервера: учитываются только матчи, проверенные сервером, и игроки, вошедшие через Twitch или Google.' : 'Игровой сервер не подключён, поэтому здесь только ваш результат. Ботов в рейтинге нет — они встречаются только в дуэлях. Когда сервер заработает, появятся игроки, подтверждённые через Twitch или Google.'}</div></div>
         <div class="section"><div class="tabs">${LB.map(t => `<button class="btn small ${tab === t[0] ? 'brass' : ''}" data-act="tab" data-id="${t[0]}">${t[1]}</button>`).join('')}</div>
           ${rows.length > 1 ? `<div class="row"><span class="note grow">Сортировка: ${desc ? 'лучшие сверху' : 'с конца'}</span><button class="btn small" data-act="sort">Перевернуть</button></div>` : ''}</div>
         <div class="section"><div class="list">${rows.map((r, i) => `<button class="lb-row ${r.me ? 'me' : ''}" data-act="profile" data-i="${r.me ? 'me' : i}">
           <span class="num">${desc ? i + 1 : rows.length - i}</span>
-          <span style="min-width:0"><b>${esc(r.nick)}</b>${eyeBadge(r.me ? p.eye : r.eye)} <span class="ptag">${r.me ? '#' + esc(p.tag) : r.tag ? '#' + esc(r.tag) : ''}</span>${r.verified ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}<br><span class="note">ур. ${r.level} · ${r.me ? (p.twitch ? 'вы · Twitch подтверждён' : 'вы · локально') : '<span class="dot ' + (r.online ? 'on' : '') + '"></span> ' + (r.online ? 'в сети' : 'не в сети')}</span></span>
+          <span style="min-width:0"><b>${esc(r.nick)}</b>${eyeBadge(r.me ? p.eye : r.eye)} <span class="ptag">${r.me ? '#' + esc(p.tag) : r.tag ? '#' + esc(r.tag) : ''}</span>${r.verified ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}<br><span class="note">ур. ${r.level} · ${r.me ? (p.twitch ? 'вы · Twitch подтверждён' : p.google ? 'вы · Google подтверждён' : 'вы · локально') : '<span class="dot ' + (r.online ? 'on' : '') + '"></span> ' + (r.online ? 'в сети' : 'не в сети')}</span></span>
           <b class="num">${def[3](def[2](r))}</b></button>`).join('')}</div></div>
       </div></div>`;
     },
@@ -898,6 +911,7 @@
           <div class="kv"><span>Открыто башен</span><b>${p.owned.length} / ${K.HEROES.length}</b><span>Максимальная волна</span><b>${p.maxWave}</b><span>Рекорд бесконечного</span><b>${p.endless.best}${p.endless.bestTime ? ' · ' + fmtTime(p.endless.bestTime) : ''}</b><span>Дуэли: победы / поражения / ничьи</span><b>${p.duel.w} / ${p.duel.l} / ${p.duel.d}</b><span>Всего уничтожено</span><b>${p.stats.kills}</b><span>Время в игре</span><b>${fmtHours(p.playTime)}</b><span>Монеты аккаунта</span><b class="coin">${p.coins}</b></div>
         </div>
         <div class="section"><div class="eyebrow">Twitch</div>${twitchBlock(p)}</div>
+        <div class="section"><div class="eyebrow">Google</div>${googleBlock(p)}</div>
         <div class="section"><div class="eyebrow">Никнейм</div>${p.twitch ? `<div class="card note">Никнейм взят из Twitch: <b>${esc(p.twitch.display)}</b>. Чтобы сменить его вручную, отвяжите Twitch.</div>` : `<div class="row"><input type="text" id="nick" value="${esc(p.nick)}" maxlength="16" autocomplete="off"><button class="btn" data-act="nick">Сохранить</button></div><div class="err" id="nickErr"></div>`}</div>
         <div class="section"><div class="eyebrow">Игра</div>
           ${sw('sound', 'Звук')}
@@ -927,6 +941,11 @@
         const r = K.Twitch.login();
         if (!r.ok) modal(`<div class="h2">Вход через Twitch</div><div class="banner">${esc(r.reason)}</div><div class="note">Как включить: зарегистрируйте приложение на dev.twitch.tv, укажите адрес страницы игры как OAuth Redirect URL и впишите Client ID в js/config.js. Подробности в README.</div><button class="btn block" data-m="close">Понятно</button>`, { close: () => closeModal() }, { center: true });
       },
+      ggLogin(app) {
+        const r = K.Google.login();
+        if (!r.ok) modal(`<div class="h2">Вход через Google</div><div class="banner">${esc(r.reason)}</div><div class="note">Как включить: в Google Cloud Console создайте OAuth Client ID (веб-приложение), добавьте адрес игры в Authorized JavaScript origins и Authorized redirect URIs и укажите Client ID в переменной GOOGLE_CLIENT_ID на Cloudflare. Подробности в README.</div><button class="btn block" data-m="close">Понятно</button>`, { close: () => closeModal() }, { center: true });
+      },
+      ggLogout(app) { confirmBox('Отвязать Google от этого профиля?', 'Отвязать', () => { K.Google.logout(app.profile); app.persist(); app.refresh(); }); },
       twLogout(app) { confirmBox('Отвязать Twitch от этого профиля?', 'Отвязать', () => { K.Twitch.logout(app.profile); app.persist(); app.refresh(); }); },
       nick(app, d, b) {
         const scr = b.closest('.screen');
@@ -957,12 +976,12 @@
     html(app) {
       return `<div class="screen"><div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div><div class="menu-main">
         <div class="h1" style="font-size:2em">Защити <b style="color:var(--pet)">микропета</b> от <em style="color:var(--blood);font-style:normal">ковтопа</em></div>
-        <div class="banner">Чтобы играть, подтвердите аккаунт Twitch. Мы получаем только ваш ник и аватар — без доступа к каналу.</div>
-        ${twitchBlock(app.profile)}</div></div>`;
+        <div class="banner">Чтобы играть, подтвердите аккаунт через Twitch или Google. Мы получаем только ник, почту и аватар — без доступа к каналу и письмам.</div>
+        ${twitchBlock(app.profile)}${googleBlock(app.profile)}</div></div>`;
     },
     mount(el, app) { MenuArt.mount(el.querySelector('#menuArt'), app.profile.settings.effects, app.profile.settings.theme); },
     unmount() { MenuArt.unmount(); },
-    act: { twLogin(app) { S.settings.act.twLogin(app); } }
+    act: { twLogin(app) { S.settings.act.twLogin(app); }, ggLogin(app) { S.settings.act.ggLogin(app); } }
   };
 
   // Восстановление повреждённого сохранения
@@ -1019,7 +1038,7 @@
       });
       N.on('found', m => { ses.found = m; if (this.curName === 'friends') this.refresh(); });
       N.on('leaders', m => { ses.serverLeaders = m.rows; if (this.curName === 'leaders') this.refresh(); });
-      N.on('authed', m => toast('Сервер подтвердил Twitch: ' + m.login, 'good'));
+      N.on('authed', m => toast('Сервер подтвердил ' + (m.google ? 'Google' : 'Twitch') + ': ' + m.login, 'good'));
       N.on('start', m => { ses.netRoom = null; ses.queued = false; this.startMatch({ mode: m.mode, online: m, squad: m.squad }); if (m.diffName) toast('Сложность: ' + m.diffName, 'gold'); });
       N.on('close', () => { const had = ses.netRoom || ses.queued; ses.netRoom = null; ses.queued = false; if (had) { toast('Соединение с сервером закрыто', 'bad'); if (lobbyScreen()) this.refresh(); } });
     },
@@ -1066,7 +1085,7 @@
     },
     startMatch(cfg) {
       if (!this.render) { toast('Холст недоступен в этом браузере', 'bad'); return; }
-      if (K.CONFIG && K.CONFIG.requireTwitch && !this.profile.twitch) { this.go('gate'); return; }
+      if (K.CONFIG && K.CONFIG.requireTwitch && !this.profile.twitch && !this.profile.google) { this.go('gate'); return; }
       if (!cfg.squad || !cfg.squad.length) { toast('Соберите отряд хотя бы из одного героя', 'bad'); return; }
       this.go('game', cfg);
     },

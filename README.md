@@ -18,6 +18,19 @@
 
 Игра использует implicit flow: токен приходит в адресе, проверяется через `id.twitch.tv/oauth2/validate`, профиль берётся из Helix `/users`. Токен хранится только в sessionStorage. Сервер (`server/server.js`) проверяет токен заново и засчитывает рейтинг только подтверждённым игрокам. Внутри iframe (в том числе на странице Claude) Twitch не показывает окно входа — откройте игру отдельной вкладкой на своём домене.
 
+
+## Вход через Google
+
+1. Откройте https://console.cloud.google.com → создайте проект → **APIs & Services → OAuth consent screen**: тип External, укажите название игры и свою почту. Пока приложение в режиме Testing, войти смогут только добавленные тестовые пользователи; чтобы входили все — нажмите **Publish app** (для scope `openid email profile` проверка Google не нужна).
+2. **APIs & Services → Credentials → Create credentials → OAuth client ID**, тип **Web application**.
+3. **Authorized JavaScript origins:** адрес игры без пути, например `https://savemikropet.kolyahollyday134.workers.dev`.
+   **Authorized redirect URIs:** адрес страницы игры со слешем в конце, например `https://savemikropet.kolyahollyday134.workers.dev/`.
+4. Скопируйте Client ID (`…apps.googleusercontent.com`) и укажите его:
+   - Cloudflare: Workers & Pages → savemikropet → Settings → Variables and Secrets → добавить `GOOGLE_CLIENT_ID` (или раскомментировать строку в `[vars]` файла `wrangler.toml`);
+   - Node-сервер: переменная окружения `GOOGLE_CLIENT_ID`.
+
+Используется OpenID implicit flow: Google возвращает `id_token` в адресе, игра сверяет client_id, срок, nonce и подтверждённость почты, сервер проверяет токен заново через `oauth2.googleapis.com/tokeninfo`. Секретный ключ клиента не нужен. Ник в игре не меняется, почту видит только сам игрок. Вошедшие через Google попадают в общий рейтинг так же, как через Twitch; `requireTwitch: true` пускает в игру после входа любым из двух способов.
+
 ## Игровой сервер (мультиплеер)
 
 `server/server.js` — один процесс на Node.js 18+ без npm-зависимостей: раздаёт файлы игры и принимает WebSocket на `/ws`.

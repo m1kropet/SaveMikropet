@@ -15,7 +15,7 @@ export class GameHub {
     // теги и рейтинг хранятся в постоянном хранилище Durable Object
     const st = state.storage;
     const store = st ? { get: k => st.get(k), put: (k, v) => st.put(k, v), list: pre => st.list({ prefix: pre }) } : null;
-    this.hub = createHub(K, { twitchClientId: env.TWITCH_CLIENT_ID || '', requireTwitch: env.REQUIRE_TWITCH === '1', store });
+    this.hub = createHub(K, { twitchClientId: env.TWITCH_CLIENT_ID || '', googleClientId: env.GOOGLE_CLIENT_ID || '', requireTwitch: env.REQUIRE_TWITCH === '1', store });
   }
   async fetch(request) {
     const url = new URL(request.url);
@@ -41,7 +41,7 @@ export default {
     // одна общая «комната ожидания» для всех игроков мира
     if (url.pathname === '/ws' || url.pathname === '/healthz') return env.HUB.get(env.HUB.idFromName('main')).fetch(request);
     if (url.pathname === '/js/config.js') {
-      const cfg = { twitchClientId: env.TWITCH_CLIENT_ID || '', requireTwitch: env.REQUIRE_TWITCH === '1', serverUrl: 'auto' };
+      const cfg = { twitchClientId: env.TWITCH_CLIENT_ID || '', googleClientId: env.GOOGLE_CLIENT_ID || '', requireTwitch: env.REQUIRE_TWITCH === '1', serverUrl: 'auto' };
       return new Response('globalThis.KV = globalThis.KV || {}; globalThis.KV.CONFIG = ' + JSON.stringify(cfg) + ';', { headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
     if (url.pathname === '/' || url.pathname === '/index.html') {

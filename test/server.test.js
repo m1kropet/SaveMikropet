@@ -33,6 +33,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
     const th = await h.wait(m => m.op === 'tag' && m.tag !== '5U6' || m.op === 'tag'); await sleep(300);
     ok(th.tag !== '5U6' && !h.msgs.some(m => m.op === 'grant'), 'someone else cannot take 5U6 and gets no gift');
     g.ws.close(); h.ws.close(); }
+  { const g2 = client('ГуглТест'); await g2.open; g2.send('hello', { nick: 'ГуглТест', level: 1, squad: ['blaster'], uid: g2.uid, gtoken: 'fake' });
+    const er = await g2.wait(m => m.op === 'error'); ok(/Google/.test(er.reason), 'google token without server config is rejected'); g2.ws.close(); }
   a.send('findTag', { tag: '#' + tb.tag }); const fnd = await a.wait(m => m.op === 'found');
   ok(fnd.player && fnd.player.nick === 'Борис' && fnd.player.online, 'find by tag');
   // статика и подмена config.js

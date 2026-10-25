@@ -43,7 +43,7 @@
         outgoing: []
       },
       last: { map: 'lobby', diff: 'easy', duelMap: 'corridor' },
-      twitch: null,
+      twitch: null, google: null,
       createdAt: now, savedAt: now
     };
   }
@@ -96,6 +96,9 @@
     const tw = d.twitch;
     out.twitch = tw && typeof tw === 'object' && typeof tw.id === 'string' && typeof tw.login === 'string'
       ? { id: tw.id, login: tw.login, display: String(tw.display || tw.login).slice(0, 25), avatar: typeof tw.avatar === 'string' && /^https:\/\//.test(tw.avatar) ? tw.avatar : '', verifiedAt: +tw.verifiedAt || 0 } : null;
+    const gg = d.google;
+    out.google = gg && typeof gg === 'object' && typeof gg.id === 'string' && gg.id
+      ? { id: gg.id.slice(0, 64), email: String(gg.email || '').slice(0, 120), name: String(gg.name || '').slice(0, 40), avatar: typeof gg.avatar === 'string' && /^https:\/\//.test(gg.avatar) ? gg.avatar : '', verifiedAt: +gg.verifiedAt || 0 } : null;
     if (!/^[a-f0-9]{16,64}$/.test(out.uid || '')) out.uid = randUid();
     if (!/^[A-Z0-9]{3,11}$/.test(out.tag || '')) { out.tag = randTag(); out.tagVerified = false; }
     out.themes = (Array.isArray(out.themes) ? out.themes : []).filter(t => K.THEMES && K.THEMES[t]);

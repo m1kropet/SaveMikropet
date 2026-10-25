@@ -32,11 +32,20 @@
   } else {
     App.profile = loaded.data;
     App.applySettings();
-    const needGate = () => K.CONFIG && K.CONFIG.requireTwitch && !App.profile.twitch;
+    const needGate = () => K.CONFIG && K.CONFIG.requireTwitch && !App.profile.twitch && !App.profile.google;
     App.go(needGate() ? 'gate' : 'menu');
     if (!loaded.storage) K.UI.toast('Хранилище браузера недоступно: прогресс не сохранится после закрытия', 'bad');
     else if (loaded.migrated) K.UI.toast('Сохранение обновлено до новой версии', 'good');
     App.persist();
+    // возврат со страницы входа Google (проверяется первым: свой state)
+    K.Google.handleReturn(App.profile).then(r => {
+      if (!r) return;
+      if (r.error) { K.UI.toast('Google: ' + r.error, 'bad'); return; }
+      App.persist();
+      K.UI.toast('Google подтверждён: ' + (r.user.email || r.user.name), 'good');
+      if (K.Net.state === 'open') K.Net.hello();
+      App.go('menu');
+    });
     // возврат со страницы входа Twitch
     K.Twitch.handleReturn(App.profile).then(r => {
       if (!r) return;

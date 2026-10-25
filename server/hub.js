@@ -6,6 +6,7 @@ function createHub(K, opts) {
   opts = opts || {};
   const TWITCH_CLIENT_ID = opts.twitchClientId || '';
   const REQUIRE_TWITCH = !!opts.requireTwitch;
+  const GOOGLE_CLIENT_ID = opts.googleClientId || '';
   const SEND_EVERY = 0.1;
   const MAX_ROOMS = opts.maxRooms || 500;
   const later = (fn, ms) => { const t = setTimeout(fn, ms || 0); if (t && t.unref) t.unref(); return t; };
@@ -32,7 +33,7 @@ function createHub(K, opts) {
       code: r.code, mode: r.mode, state: r.state, host: r.players[0] ? r.players[0].pid : null, cfg: r.cfg,
       public: r.public || 0, startsIn: r.countdownAt ? Math.max(0, r.countdownAt - Date.now()) : null,
       vote: r.state === 'vote' ? { endsIn: Math.max(0, r.voteEnd - Date.now()), options: r.voteOptions, counts: Object.fromEntries(r.voteOptions.map(d => [d, [...r.votes.values()].filter(v => v === d).length])), voted: r.votes.size } : null,
-      players: r.players.map(p => ({ id: p.pid, name: p.name, tag: p.tag || '', color: p.color, ready: p.ready, level: p.level, verified: !!p.twitch, eye: !!p.eye, squad: p.squad, voted: !!(r.votes && r.votes.has(p)) }))
+      players: r.players.map(p => ({ id: p.pid, name: p.name, tag: p.tag || '', color: p.color, ready: p.ready, level: p.level, verified: !!(p.twitch || p.google), eye: !!p.eye, squad: p.squad, voted: !!(r.votes && r.votes.has(p)) }))
     };
   }
   const broadcastRoom = r => r.players.forEach(p => send(p, 'room', Object.assign(roomView(r), { you: p.pid, myVote: r.votes ? r.votes.get(p) || null : null })));
@@ -153,7 +154,7 @@ function createHub(K, opts) {
     r.state = 'playing'; r.sendT = 0;
     [a, b].forEach(p => {
       const o = p === a ? b : a;
-      send(p, 'start', { mode: 'duel', you: p.pid, seed, cfg: r.cfg, squad: p.squad, oppSquad: o.squad, opp: { name: o.name, level: o.level, verified: !!o.twitch }, players: (p === a ? r.duel.a : r.duel.b).players, oppPlayers: (p === a ? r.duel.b : r.duel.a).players });
+      send(p, 'start', { mode: 'duel', you: p.pid, seed, cfg: r.cfg, squad: p.squad, oppSquad: o.squad, opp: { name: o.name, level: o.level, verified: !!(o.twitch || o.google) }, players: (p === a ? r.duel.a : r.duel.b).players, oppPlayers: (p === a ? r.duel.b : r.duel.a).players });
     });
   }
   function endDuel(r, resultA, reason) {
@@ -193,12 +194,26 @@ function createHub(K, opts) {
     if (TWITCH_CLIENT_ID && v.client_id !== TWITCH_CLIENT_ID) throw new Error('Токен выдан другому приложению');
     return { id: v.user_id, login: v.login };
   }
+  // ---------- Google ----------
+  async function verifyGoogle(token) {
+    if (!GOOGLE_CLIENT_ID) throw new Error('Вход через Google на сервере не настроен');
+    const r = await fetch('https://oauth2.googleapis.com/tokeninfo?id_token=' + encodeURIComponent(token));
+    if (!r.ok) throw new Error('Вход Google недействителен');
+    const c = await r.json();
+    if (c.aud !== GOOGLE_CLIENT_ID) throw new Error('Токен Google выдан другому приложению');
+    if ((+c.exp || 0) * 1000 < Date.now()) throw new Error('Вход Google истёк — войдите заново');
+    if (c.email && String(c.email_verified) !== 'true') throw new Error('Почта Google не подтверждена');
+    return { id: String(c.sub), email: String(c.email || '') };
+  }
+  // ключ рейтинга: Twitch или Google
+  const ladderId = p => p.twitch ? p.twitch.id : p.google ? 'g' + p.google.id : null;
   async function record(p, patch) {
-    if (!p.twitch) return;
-    const key = 'ladder:' + p.twitch.id;
-    const row = ladder.get(p.twitch.id) || (await store.get(key)) || { nick: p.twitch.login, level: 1, endless: 0, duelWins: 0, time: 0 };
+    const id = ladderId(p);
+    if (!id) return;
+    const key = 'ladder:' + id;
+    const row = ladder.get(id) || (await store.get(key)) || { nick: p.twitch ? p.twitch.login : p.name, level: 1, endless: 0, duelWins: 0, time: 0 };
     Object.assign(row, patch(row), { tag: p.tag || row.tag || '', eye: !!p.eye || !!row.eye });
-    ladder.set(p.twitch.id, row);
+    ladder.set(id, row);
     await store.put(key, row);
   }
 
@@ -252,6 +267,7 @@ function createHub(K, opts) {
         p.endless = !!m.endless;
         p.eye = !!m.eye;
         if (m.token) verifyTwitch(String(m.token)).then(tw => { p.twitch = tw; p.name = cleanNick(tw.login); send(p, 'authed', tw); }, e => send(p, 'error', { reason: e.message }));
+        if (m.gtoken) verifyGoogle(String(m.gtoken)).then(g => { p.google = g; send(p, 'authed', { google: true, login: g.email }); }, e => send(p, 'error', { reason: e.message }));
         if (m.uid) ensureTag(p, String(m.uid), m.tag).then(tag => {
           if (!tag) return;
           p.tag = tag; send(p, 'tag', { tag });
@@ -278,7 +294,7 @@ function createHub(K, opts) {
         return;
       }
     }
-    if (REQUIRE_TWITCH && !p.twitch) return send(p, 'error', { reason: 'Сначала войдите через Twitch' });
+    if (REQUIRE_TWITCH && !p.twitch && !p.google) return send(p, 'error', { reason: 'Сначала войдите через Twitch или Google' });
     switch (m.op) {
       case 'squad': p.squad = cleanSquad(m.squad); if (r && r.state === 'lobby') broadcastRoom(r); break;
       case 'create': createRoom(p, m.mode); break;

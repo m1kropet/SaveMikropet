@@ -37,7 +37,7 @@ try:
     A.wait_for_selector('.tier', timeout=5000)
     A.click('.tier[data-br="0"][data-lvl="0"]'); A.click('[data-act=buy]')
     B.wait_for_function("KV.App.match.field.towers[0].up[0]===1", timeout=5000)
-    B.click('[data-act=skip]'); A.wait_for_function("KV.App.match.field.waveNum===1", timeout=5000)
+    B.click('#dock [data-act=skip]'); A.wait_for_function("KV.App.match.field.waveNum===1", timeout=5000)
     A.wait_for_timeout(2500); A.screenshot(path=OUT+'/online_team.png')
     print('enemies on A', A.evaluate("KV.App.match.field.enemies.length"), 'wave', A.evaluate("KV.App.match.field.waveNum"))
     # выход в меню, дуэль по очереди

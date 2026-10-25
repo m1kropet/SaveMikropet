@@ -179,7 +179,7 @@
     if (bossWave) {
       const bossCount = W >= 60 ? 2 : 1;
       for (let i = 0; i < bossCount; i++) {
-        spawns.push({ type: 'boss', t: t + 1.5 + i * 4, path: 0, hpMul: sc.hp * (diffKey === 'easy' ? 0.4 : 0.5), spMul: 1, flying: false, invisible: false });
+        spawns.push({ type: 'boss', t: t + 1.5 + i * 4, path: 0, hpMul: sc.hp * (diffKey === 'easy' ? 0.4 : 0.5) / 1.5, spMul: 1, flying: false, invisible: false });
       }
     }
     if (W > 40 && W % 5 === 0) {

@@ -52,7 +52,7 @@ def run():
     pg.screenshot(path=OUT+'/panel2d.png')
     pg.click('[data-act=sell]'); pg.click('[data-act=sellYes]'); assert ev("KV.App.match.field.towers.length")==0
     ev("(()=>{const f=KV.App.match.field; ['blaster','ice'].forEach((h,i)=>{const s=f.layout.spots.filter(q=>f.canPlace(q.x,q.z).ok)[i*9]; f.cmd({type:'place',hero:h,x:s.x,z:s.z,owner:'p1'});}); f.coins=2000;})()")
-    pg.click('[data-act=skip]'); pg.wait_for_timeout(2500)
+    pg.click('#dock [data-act=skip]'); pg.wait_for_timeout(2500)
     pg.click('[data-act=pause]'); pg.wait_for_selector('.modal [data-k=autoWave]')
     assert ev("KV.App.match.paused"), 'single pauses'
     pg.click('.modal [data-k=autoWave]'); pg.wait_for_timeout(100)
@@ -61,7 +61,7 @@ def run():
     ev("(()=>{const f=KV.App.match.field; for(let i=0;i<60*40;i++) f.step(1/60);})()")
     pg.wait_for_timeout(300)
     if ev("KV.App.match.field.canSkip() && KV.App.match.field.active.length>0"):
-      w0=ev("KV.App.match.field.waveNum"); pg.click('[data-act=skip]'); assert ev("KV.App.match.field.waveNum")==w0+1, 'skip during wave'
+      w0=ev("KV.App.match.field.waveNum"); pg.click('#skipTop'); assert ev("KV.App.match.field.waveNum")==w0+1, 'skip during wave'
     ev("(()=>{const f=KV.App.match.field; f.waveNum=7; f.startNextWave(false); for(let i=0;i<60*4;i++) f.step(1/60);})()")
     pg.wait_for_timeout(700); pg.screenshot(path=OUT+'/play2d.png')
     ev("KV.App.match.field.finish('win')"); pg.wait_for_selector('.result-title', timeout=5000); pg.click('[data-m=menu]')

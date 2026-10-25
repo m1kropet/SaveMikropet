@@ -2,6 +2,7 @@
    Одиночка, команда (общие деньги, цвет владельца) и дуэль с ботом под уровень игрока. */
 (function (K) {
   'use strict';
+  const fmtNum = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '\u2009');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fmtTime = s => { s = Math.max(0, Math.floor(s)); const m = Math.floor(s / 60); return (m < 10 ? '0' : '') + m + ':' + String(s % 60).padStart(2, '0'); };
   const pad4 = n => String(n).padStart(4, '0');
@@ -125,6 +126,7 @@
           <div class="hud-row">
             <div class="hud-title"><b>${modeName}</b> · ${esc(diffName)} · ${esc(f.map.name)}</div>
             ${this.mode === 'duel' ? '<button class="btn small" data-act="view" id="viewBtn">Карта соперника</button>' : this.online ? '<span class="tag" title="Сетевой матч">онлайн</span>' : '<button class="btn small" data-act="speed" id="speedBtn" aria-label="Скорость игры">×1</button>'}
+            ${this.duel ? '' : '<button class="btn small pet skip-top" data-act="skip" id="skipTop" hidden title="Следующая волна начнётся сразу">⏩ Пропуск</button>'}
             <button class="btn small icon-btn" data-act="pause" aria-label="Пауза">${K.UI.icon('pause')}</button>
           </div>
           ${this.mode === 'duel' ? `<div class="opp"><div class="side"><div class="eyebrow">Вы</div><div id="dA" class="num"></div></div><div class="timer" id="dT">00:00</div><div class="side bot"><div class="eyebrow">Соперник</div><div id="dB" class="num"></div><div class="st" id="dS"></div></div></div>` : ''}
@@ -136,6 +138,7 @@
           ${this.mode === 'team' ? `<div class="players" id="players">${cfg.players.map(p => `<button class="pchip" ${this.online ? 'disabled' : 'data-act="player"'} data-id="${p.id}" style="color:${p.color}"><i style="background:${p.color}"></i>${esc(p.name)} <span class="num pcoins" data-coins="${p.id}"></span></button>`).join('')}</div>` : ''}
         </div>
         <div class="stage" id="stage">
+          <div class="bossbar" id="bossBar" hidden><div class="bb-row"><b>Ковтоп</b><span class="num" id="bossHp"></span></div><div class="bar"><i id="bossFill"></i></div></div>
           <div class="viewing" id="viewing" hidden>Карта соперника · только просмотр</div>
           <div class="announce" id="announce"><div class="h2" id="annT"></div><div class="note" id="annS"></div></div>
           <div class="hint" id="hint"></div>
@@ -306,6 +309,25 @@
         this.$('dT').innerHTML = fmtTime(this.duel.time) + (this.duel.gap != null ? '<small>волна ' + (f.waveNum + 1) + ' через ' + Math.max(0, Math.ceil(this.duel.gap)) + ' с</small>' : w === 'opp' ? '<small>ждём соперника</small>' : '');
       }
       if (this.mode === 'team') this.root.querySelectorAll('.pchip').forEach(c => c.classList.toggle('on', c.dataset.id === this.ui.player));
+      // здоровье боссов цифрами вверху поля
+      const bosses = this.shown.enemies.filter(e => e.boss && !e.dead && e.hp > 0), bb = this.$('bossBar');
+      if (bb) {
+        bb.hidden = !bosses.length;
+        if (bosses.length) {
+          const hp = bosses.reduce((a, e) => a + Math.max(0, Math.ceil(e.hp)), 0), mx = bosses.reduce((a, e) => a + e.maxHp, 0);
+          this.$('bossHp').textContent = fmtNum(hp) + ' / ' + fmtNum(Math.ceil(mx)) + (bosses.length > 1 ? ' · ×' + bosses.length : '');
+          this.$('bossFill').style.width = (100 * hp / mx) + '%';
+          bb.classList.toggle('rage', bosses.some(e => e.enraged));
+        }
+      }
+      // пропуск волны — рядом с паузой
+      const st = this.$('skipTop');
+      if (st) {
+        const sv = this.online && this.skipVotes ? this.skipVotes : null, voted = sv && sv[0].includes(this.ui.player);
+        st.hidden = !(f.active.length && f.canSkip());
+        st.disabled = !!voted;
+        st.innerHTML = '⏩ Пропуск' + (sv && sv[1] > 1 ? ' ' + sv[0].length + '/' + sv[1] : '');
+      }
     }
 
     // ---------- Ввод ----------
@@ -477,7 +499,6 @@
         const voted = sv && sv[0].includes(ui.player);
         const votes = sv && sv[1] > 1 ? ` · ${sv[0].length}/${sv[1]}` : '';
         if (f.canStartWave() || (!f.active.length && f.canSkip())) waveBtn = `<button class="btn brass" data-act="skip" ${voted ? 'disabled' : ''}>${f.autoWave && f.autoTimer > 0 ? 'Волна ' + (f.waveNum + 1) + ' · авто ' + Math.ceil(f.autoTimer) + ' с' : 'Начать волну ' + (f.waveNum + 1)}${votes}</button>`;
-        else if (f.active.length && f.canSkip()) waveBtn = `<button class="btn pet" data-act="skip" ${voted ? 'disabled' : ''} title="Следующая волна начнётся сразу">⏩ Пропустить ожидание${votes}</button>`;
         else if (f.active.length) waveBtn = `<button class="btn" disabled>Идёт волна ${f.waveNum}</button>`;
         else waveBtn = '<button class="btn" disabled>Волн больше нет</button>';
       }

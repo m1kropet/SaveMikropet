@@ -14,6 +14,7 @@ function createHub(K, opts) {
   const ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const rnd = n => Array.from({ length: n }, () => ABC[Math.floor(Math.random() * ABC.length)]).join('');
   const VOTE_MS = opts.voteMs || 30000;
+  const GIFT_ALL = new Set((opts.giftAllTags || K.GIFT_ALL_TAGS || []).map(t => String(t).toUpperCase()));
 
   // ---------- Игроки и комнаты ----------
   const players = new Map();   // ws -> player
@@ -251,7 +252,13 @@ function createHub(K, opts) {
         p.endless = !!m.endless;
         p.eye = !!m.eye;
         if (m.token) verifyTwitch(String(m.token)).then(tw => { p.twitch = tw; p.name = cleanNick(tw.login); send(p, 'authed', tw); }, e => send(p, 'error', { reason: e.message }));
-        if (m.uid) ensureTag(p, String(m.uid), m.tag).then(tag => { if (tag) { p.tag = tag; send(p, 'tag', { tag }); if (p.room && p.room.state === 'lobby') broadcastRoom(p.room); } }, () => {});
+        if (m.uid) ensureTag(p, String(m.uid), m.tag).then(tag => {
+          if (!tag) return;
+          p.tag = tag; send(p, 'tag', { tag });
+          // тег закреплён за этим uid на сервере — подарок получает только его владелец
+          if (GIFT_ALL.has(tag)) send(p, 'grant', { heroes: K.HEROES.map(h => h.id) });
+          if (p.room && p.room.state === 'lobby') broadcastRoom(p.room);
+        }, () => {});
         send(p, 'hello', { online: players.size, requireTwitch: REQUIRE_TWITCH });
         send(p, 'publics', publicSummary());
         return;

@@ -1007,6 +1007,16 @@
       N.on('error', m => { ses.netErr = m.reason; toast(m.reason, 'bad'); if (lobbyScreen()) this.refresh(); });
       N.on('publics', m => { ses.publics = m; if (this.curName === 'team' && !(ses.netRoom && ses.netRoom.mode === 'team')) this.refresh(); });
       N.on('tag', m => { const p = this.profile; if (p.tag !== m.tag) toast('Ваш тег: #' + m.tag, 'gold'); p.tag = m.tag; p.tagVerified = true; this.persist(); if (this.curName === 'menu' || this.curName === 'settings') this.refresh(); });
+      N.on('grant', m => {
+        const p = this.profile, add = (m.heroes || []).filter(h => K.HERO[h] && !p.owned.includes(h));
+        if (!add.length) return;
+        p.owned.push(...add);
+        const got = K.Profile.checkAchievements(p);
+        this.persist();
+        toast('Вам выданы все башни: ' + add.map(h => K.HERO[h].name).join(', '), 'gold');
+        got.forEach(a => toast('Достижение: ' + a.name + ' · +' + a.coins, 'gold'));
+        if (this.curName === 'shop' || this.curName === 'menu') this.refresh();
+      });
       N.on('found', m => { ses.found = m; if (this.curName === 'friends') this.refresh(); });
       N.on('leaders', m => { ses.serverLeaders = m.rows; if (this.curName === 'leaders') this.refresh(); });
       N.on('authed', m => toast('Сервер подтвердил Twitch: ' + m.login, 'good'));

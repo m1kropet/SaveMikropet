@@ -25,6 +25,14 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   await a.wait(m => m.op === 'hello'); await b.wait(m => m.op === 'hello');
   const ta = await a.wait(m => m.op === 'tag'), tb = await b.wait(m => m.op === 'tag');
   ok(ta.tag === 'ANN' && /^[A-Z0-9]{3}$/.test(tb.tag) && tb.tag !== 'ANN', 'tags assigned');
+  // подарок: все башни игроку с тегом #5U6 (только владельцу тега)
+  { const g = client('Гость'); g.uid = 'f00d' + g.uid; await g.open; g.send('hello', { nick: 'Гость', level: 3, squad: ['blaster'], uid: g.uid, tag: '5U6' });
+    const tg = await g.wait(m => m.op === 'tag'); const gr = await g.wait(m => m.op === 'grant');
+    ok(tg.tag === '5U6' && gr.heroes.length === K.HEROES.length, 'tag 5U6 gets all towers');
+    const h = client('Хитрец'); await h.open; h.send('hello', { nick: 'Хитрец', level: 3, squad: ['blaster'], uid: h.uid, tag: '5U6' });
+    const th = await h.wait(m => m.op === 'tag' && m.tag !== '5U6' || m.op === 'tag'); await sleep(300);
+    ok(th.tag !== '5U6' && !h.msgs.some(m => m.op === 'grant'), 'someone else cannot take 5U6 and gets no gift');
+    g.ws.close(); h.ws.close(); }
   a.send('findTag', { tag: '#' + tb.tag }); const fnd = await a.wait(m => m.op === 'found');
   ok(fnd.player && fnd.player.nick === 'Борис' && fnd.player.online, 'find by tag');
   // статика и подмена config.js

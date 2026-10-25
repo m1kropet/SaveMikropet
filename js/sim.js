@@ -151,8 +151,9 @@
     return hp;
   }
 
-  // Бонус за пройденную волну: 1-я — 180, каждая следующая на 60% от 180 (= +108) больше
-  const waveBonus = W => 180 + 108 * (W - 1);
+  // Бонус за пройденную волну: 1-я — 120, каждая следующая на 50% от 120 (= +60) больше.
+  // В дуэли: 1-я — 160, каждая следующая на 40% от 160 (= +64) больше.
+  const waveBonus = (W, diffKey) => diffKey === 'duel' ? 160 + 64 * (W - 1) : 120 + 60 * (W - 1);
 
   function genWave(diffKey, W, seed, map) {
     const D = K.DIFFS[diffKey];
@@ -205,7 +206,7 @@
       }
     }
     spawns.sort((a, b) => a.t - b.t);
-    return { n: W, spawns, bonus: waveBonus(W), hpScale: sc.hp, boss: bossWave };
+    return { n: W, spawns, bonus: waveBonus(W, diffKey), hpScale: sc.hp, boss: bossWave };
   }
 
   function waveSummary(w) {

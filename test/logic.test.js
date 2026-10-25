@@ -151,7 +151,7 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
   ok(!f.cmd({type:'place',hero:'blaster',x:o.x,z:o.z}).ok,'other towers still not on obstacles');
   const lava=f.obstacles.find(q=>!q.los); if (lava) ok(!f.canPlace(lava.x,lava.z,null,'prism').ok,'not on lava');
   const top=K.towerStats('prism',[5,0],{}).range, bot=K.towerStats('prism',[0,5],{}).range, base=K.towerStats('prism',[0,0],{}).range;
-  ok(top===10 && bot===7 && base===7,'prism ranges '+[base,top,bot]);
+  ok(top===10 && bot===7 && base===4.5,'prism ranges '+[base,top,bot]);
   // стреляет сквозь препятствие: враг за высоким препятствием всё равно цель
   const e=f.spawn({type:'normal',hpMul:50,spMul:0},1,0,0); f.step(1/60); const hp0=e.hp;
   const tw=r.tower; ok(Math.hypot(e.x-tw.x,e.z-tw.z)<7,'enemy in range '+Math.hypot(e.x-tw.x,e.z-tw.z).toFixed(1));

@@ -191,64 +191,77 @@
   K.Morse = { lampLevel, timeline: morseTimeline, unit: MORSE_UNIT };
 
   // Анимированная сцена главного меню: коридор (или шахта), дверь, Ковтоп в проёме, микропет.
+  // Сцена главного меню (общая для меню и превью скинов).
+  function paintMenu(ctx, w, h, t, mine) {
+    const SP = K.Sprites, u = w / 10, HZ = 0.42;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (mine) {
+      // каменная стена, крепь и рельсы
+      ctx.fillStyle = '#231910'; ctx.fillRect(0, 0, w, h * HZ);
+      const rr = K.rng(7);
+      for (let i = 0; i < 90; i++) { ctx.fillStyle = ['#2f2216', '#1a120b', '#3a2a1b'][i % 3]; ctx.beginPath(); ctx.ellipse(rr() * w, rr() * h * HZ, u * (0.2 + rr() * 0.6), u * (0.15 + rr() * 0.4), rr() * 3, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#1a120b'; ctx.fillRect(0, h * HZ, w, h * (1 - HZ));
+      ctx.fillStyle = '#4a2e1a'; for (let k = 0; k < 9; k++) { const y = h * HZ + (h * (1 - HZ)) * (k / 9) ** 1.6; const hw = (u * 0.8) + (w * 0.42) * (k / 9) ** 1.6; ctx.fillRect(w / 2 - hw, y, hw * 2, u * 0.08 + k * 0.6); }
+      ctx.strokeStyle = '#9aa0aa'; ctx.lineWidth = Math.max(1, u * 0.05);
+      [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(w / 2 + sd * u * 0.5, h * HZ); ctx.lineTo(w / 2 + sd * w * 0.32, h); ctx.stroke(); });
+    } else {
+      for (let x = 0; x < w; x += u * 0.8) { ctx.fillStyle = Math.round(x / (u * 0.8)) % 2 ? '#15201a' : '#121a15'; ctx.fillRect(x, 0, u * 0.8, h * HZ); }
+      ctx.fillStyle = '#c9a35a22'; for (let x = 0; x < w; x += u * 0.8) ctx.fillRect(x, 0, 1, h * HZ);
+      for (let i = 0, x = 0; x < w; x += u * 0.9, i++) { ctx.fillStyle = ['#3a2316', '#33200f', '#41291a', '#2e1c10'][i % 4]; ctx.beginPath(); ctx.moveTo(w / 2 + (x - w / 2) * 0.35, h * HZ); ctx.lineTo(w / 2 + (x + u * 0.9 - w / 2) * 0.35, h * HZ); ctx.lineTo(x + u * 0.9 + (x - w / 2) * 0.6, h); ctx.lineTo(x + (x - w / 2) * 0.6, h); ctx.fill(); }
+    }
+    // дверь
+    const dx = w / 2, dw = u * 2.8, dh = u * 4.3, dy = h * HZ - dh;
+    ctx.fillStyle = '#120a05'; ctx.fillRect(dx - dw / 2 - u * 0.2, dy - u * 0.2, dw + u * 0.4, dh + u * 0.2);
+    ctx.fillStyle = '#140003'; ctx.fillRect(dx - dw / 2, dy, dw, dh);
+    const rg = ctx.createRadialGradient(dx, dy + dh * 0.6, 0, dx, dy + dh * 0.6, dh); rg.addColorStop(0, 'rgba(255,42,61,0.35)'); rg.addColorStop(1, 'rgba(255,42,61,0)'); ctx.fillStyle = rg; ctx.fillRect(dx - dw / 2, dy, dw, dh);
+    ctx.save(); ctx.beginPath(); ctx.rect(dx - dw / 2, dy, dw, dh); ctx.clip();
+    ctx.translate(dx, dy + dh * 1.02); const ks = u * 1.75; ctx.scale(ks, ks); SP.setPx(ks * 0.6); SP.kovtop(ctx, t, false, 1); ctx.restore();
+    if (mine) {
+      // вход в штольню: деревянная крепь вместо двери
+      ctx.fillStyle = '#5a3a20'; ctx.fillRect(dx - dw / 2 - u * 0.35, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx + dw / 2, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx - dw / 2 - u * 0.5, dy - u * 0.5, dw + u, u * 0.35);
+      ctx.fillStyle = '#ffb15c'; ctx.fillRect(dx - u * 0.6, dy - u * 1.05, u * 1.2, u * 0.4);
+      ctx.fillStyle = '#2a1a0c'; ctx.font = `bold ${Math.round(u * 0.28)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ШТ-0', dx, dy - u * 0.85);
+    } else {
+      ctx.fillStyle = '#2c1a10'; ctx.save(); ctx.translate(dx + dw / 2, dy); ctx.transform(1, 0.12, 0, 1, 0, 0); ctx.fillRect(0, 0, -dw * 0.32, dh); ctx.restore();
+      ctx.fillStyle = '#c9a35a'; ctx.fillRect(dx - u * 0.6, dy - u * 0.9, u * 1.2, u * 0.45);
+      ctx.fillStyle = '#1c1309'; ctx.font = `bold ${Math.round(u * 0.32)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', dx, dy - u * 0.67);
+    }
+    // лампа: мигает азбукой Морзе (секрет)
+    const fl = lampLevel(t);
+    const lc = mine ? '255,150,60' : '255,176,90';
+    ctx.strokeStyle = '#1a140e'; ctx.lineWidth = Math.max(1, u * 0.05); ctx.beginPath(); ctx.moveTo(dx, 0); ctx.lineTo(dx, u * 0.45); ctx.stroke();
+    if (mine) { ctx.fillStyle = '#3a2a1a'; ctx.fillRect(dx - u * 0.16, u * 0.42, u * 0.32, u * 0.36); }
+    const lg = ctx.createRadialGradient(dx, u * 0.6, 0, dx, u * 0.6, u * 5); lg.addColorStop(0, `rgba(${lc},${0.35 * fl})`); lg.addColorStop(1, `rgba(${lc},0)`); ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
+    SP.glowDot(ctx, dx, u * 0.6, u * 0.18, `rgba(255,210,138,${Math.max(0.12, fl)})`, u * fl);
+    // микропет на переднем плане
+    ctx.save(); ctx.translate(u * 2.3, h * HZ + u * 0.55); const ps = u * 1.0; ctx.scale(ps, ps); SP.setPx(ps * 0.6); SP.pet(ctx, t, 0, 1); ctx.restore();
+    const vg = ctx.createLinearGradient(0, 0, 0, h); vg.addColorStop(0, 'rgba(11,10,9,0.55)'); vg.addColorStop(0.4, 'rgba(11,10,9,0.1)'); vg.addColorStop(0.75, 'rgba(11,10,9,0.7)'); vg.addColorStop(1, 'rgba(11,10,9,0.95)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+  }
+
   const MenuArt = {
     mount(cv, effects, theme) {
       const mine = theme === 'mine';
-      const ctx = cv.getContext('2d'), SP = K.Sprites;
+      const ctx = cv.getContext('2d');
       const draw = t => {
         const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
         if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
-        const w = cv.width, h = cv.height, u = w / 10, HZ = 0.5;
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        if (mine) {
-          // каменная стена, крепь и рельсы
-          ctx.fillStyle = '#231910'; ctx.fillRect(0, 0, w, h * HZ);
-          const rr = K.rng(7);
-          for (let i = 0; i < 90; i++) { ctx.fillStyle = ['#2f2216', '#1a120b', '#3a2a1b'][i % 3]; ctx.beginPath(); ctx.ellipse(rr() * w, rr() * h * HZ, u * (0.2 + rr() * 0.6), u * (0.15 + rr() * 0.4), rr() * 3, 0, Math.PI * 2); ctx.fill(); }
-          ctx.fillStyle = '#1a120b'; ctx.fillRect(0, h * HZ, w, h * (1 - HZ));
-          ctx.fillStyle = '#4a2e1a'; for (let k = 0; k < 9; k++) { const y = h * HZ + (h * (1 - HZ)) * (k / 9) ** 1.6; const hw = (u * 0.8) + (w * 0.42) * (k / 9) ** 1.6; ctx.fillRect(w / 2 - hw, y, hw * 2, u * 0.08 + k * 0.6); }
-          ctx.strokeStyle = '#9aa0aa'; ctx.lineWidth = Math.max(1, u * 0.05);
-          [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(w / 2 + sd * u * 0.5, h * HZ); ctx.lineTo(w / 2 + sd * w * 0.32, h); ctx.stroke(); });
-        } else {
-          for (let x = 0; x < w; x += u * 0.8) { ctx.fillStyle = Math.round(x / (u * 0.8)) % 2 ? '#15201a' : '#121a15'; ctx.fillRect(x, 0, u * 0.8, h * HZ); }
-          ctx.fillStyle = '#c9a35a22'; for (let x = 0; x < w; x += u * 0.8) ctx.fillRect(x, 0, 1, h * HZ);
-          for (let i = 0, x = 0; x < w; x += u * 0.9, i++) { ctx.fillStyle = ['#3a2316', '#33200f', '#41291a', '#2e1c10'][i % 4]; ctx.beginPath(); ctx.moveTo(w / 2 + (x - w / 2) * 0.35, h * HZ); ctx.lineTo(w / 2 + (x + u * 0.9 - w / 2) * 0.35, h * HZ); ctx.lineTo(x + u * 0.9 + (x - w / 2) * 0.6, h); ctx.lineTo(x + (x - w / 2) * 0.6, h); ctx.fill(); }
-        }
-        // дверь
-        const dx = w / 2, dw = u * 2.8, dh = u * 4.3, dy = h * HZ - dh;
-        ctx.fillStyle = '#120a05'; ctx.fillRect(dx - dw / 2 - u * 0.2, dy - u * 0.2, dw + u * 0.4, dh + u * 0.2);
-        ctx.fillStyle = '#140003'; ctx.fillRect(dx - dw / 2, dy, dw, dh);
-        const rg = ctx.createRadialGradient(dx, dy + dh * 0.6, 0, dx, dy + dh * 0.6, dh); rg.addColorStop(0, 'rgba(255,42,61,0.35)'); rg.addColorStop(1, 'rgba(255,42,61,0)'); ctx.fillStyle = rg; ctx.fillRect(dx - dw / 2, dy, dw, dh);
-        ctx.save(); ctx.beginPath(); ctx.rect(dx - dw / 2, dy, dw, dh); ctx.clip();
-        ctx.translate(dx, dy + dh * 1.02); const ks = u * 1.75; ctx.scale(ks, ks); SP.setPx(ks * 0.6); SP.kovtop(ctx, t, false, 1); ctx.restore();
-        if (mine) {
-          // вход в штольню: деревянная крепь вместо двери
-          ctx.fillStyle = '#5a3a20'; ctx.fillRect(dx - dw / 2 - u * 0.35, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx + dw / 2, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx - dw / 2 - u * 0.5, dy - u * 0.5, dw + u, u * 0.35);
-          ctx.fillStyle = '#ffb15c'; ctx.fillRect(dx - u * 0.6, dy - u * 1.05, u * 1.2, u * 0.4);
-          ctx.fillStyle = '#2a1a0c'; ctx.font = `bold ${Math.round(u * 0.28)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ШТ-0', dx, dy - u * 0.85);
-        } else {
-          ctx.fillStyle = '#2c1a10'; ctx.save(); ctx.translate(dx + dw / 2, dy); ctx.transform(1, 0.12, 0, 1, 0, 0); ctx.fillRect(0, 0, -dw * 0.32, dh); ctx.restore();
-          ctx.fillStyle = '#c9a35a'; ctx.fillRect(dx - u * 0.6, dy - u * 0.9, u * 1.2, u * 0.45);
-          ctx.fillStyle = '#1c1309'; ctx.font = `bold ${Math.round(u * 0.32)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', dx, dy - u * 0.67);
-        }
-        // лампа: мигает азбукой Морзе (секрет)
-        const fl = lampLevel(t);
-        const lc = mine ? '255,150,60' : '255,176,90';
-        ctx.strokeStyle = '#1a140e'; ctx.lineWidth = Math.max(1, u * 0.05); ctx.beginPath(); ctx.moveTo(dx, 0); ctx.lineTo(dx, u * 0.45); ctx.stroke();
-        if (mine) { ctx.fillStyle = '#3a2a1a'; ctx.fillRect(dx - u * 0.16, u * 0.42, u * 0.32, u * 0.36); }
-        const lg = ctx.createRadialGradient(dx, u * 0.6, 0, dx, u * 0.6, u * 5); lg.addColorStop(0, `rgba(${lc},${0.35 * fl})`); lg.addColorStop(1, `rgba(${lc},0)`); ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
-        SP.glowDot(ctx, dx, u * 0.6, u * 0.18, `rgba(255,210,138,${Math.max(0.12, fl)})`, u * fl);
-        // микропет на переднем плане
-        ctx.save(); ctx.translate(u * 1.7, h * 0.4); const ps = u * 1.15; ctx.scale(ps, ps); SP.setPx(ps * 0.6); SP.pet(ctx, t, 0, 1); ctx.restore();
-        const vg = ctx.createLinearGradient(0, 0, 0, h); vg.addColorStop(0, 'rgba(11,10,9,0.55)'); vg.addColorStop(0.4, 'rgba(11,10,9,0.1)'); vg.addColorStop(0.75, 'rgba(11,10,9,0.7)'); vg.addColorStop(1, 'rgba(11,10,9,0.95)');
-        ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
+        paintMenu(ctx, cv.width, cv.height, t, mine);
       };
       const start = performance.now();
       // лампа нужна для секрета, поэтому сцена анимируется всегда
       const loop = now => { this.raf = requestAnimationFrame(loop); draw((now - start) / 1000); };
       this.raf = requestAnimationFrame(loop);
     },
-    unmount() { cancelAnimationFrame(this.raf); }
+    unmount() { cancelAnimationFrame(this.raf); },
+    preview(theme, w, h) {
+      const key = theme + w + 'x' + h;
+      this.cache = this.cache || {};
+      if (this.cache[key]) return this.cache[key];
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      paintMenu(c.getContext('2d'), w, h, 2, theme === 'mine');
+      return (this.cache[key] = c.toDataURL('image/jpeg', 0.85));
+    }
   };
 
   function twitchBlock(p) {
@@ -278,12 +291,12 @@
           <span class="plaque coin" title="Монеты аккаунта">${p.coins}</span>
         </div>
         <div class="menu-main">
-          <button class="title-btn" data-act="title" aria-label="Название игры"><div class="eyebrow" style="margin-bottom:.5em">Отель · Шахты · Номер 0000</div><div class="h1">Защити <b>микропета</b> от&nbsp;<em>ковтопа</em></div></button>
+          <div class="title-row"><button class="title-btn" data-act="title" aria-label="Название игры"><div class="eyebrow" style="margin-bottom:.5em">Отель · Шахты · Номер 0000</div><div class="h1">Защити <b>микропета</b> от&nbsp;<em>ковтопа</em></div></button>
+            <button class="btn small ghost collapse" data-act="collapse" id="collapseBtn" aria-label="Свернуть выбор режима" ${app.session.playOpen ? '' : 'hidden'}>${icon('x')} Свернуть</button></div>
           <button class="btn brass block" data-act="play" id="playBtn" style="font-size:1.15em;min-height:3.3em" ${app.session.playOpen ? 'hidden' : ''}>${icon('play')} Играть</button>
           <div class="play-modes ${app.session.playOpen ? 'open' : ''}" id="modes"><div>
             <button class="btn mode-btn" data-act="single"><img class="mode-art" alt="" src="${modeArt('single' + mt)}">Одиночка<small>3 сложности</small></button>
             <button class="btn mode-btn" data-act="team"><img class="mode-art" alt="" src="${modeArt('team' + mt)}">Команда<small>2–4 игрока</small></button>
-            <button class="btn small ghost collapse" data-act="collapse" aria-label="Свернуть выбор режима">${icon('x')} Свернуть</button>
             <button class="btn mode-btn" data-act="duel"><img class="mode-art" alt="" src="${modeArt('duel' + mt)}">Дуэль<small>карта соперника</small></button>
           </div></div>
           <div class="menu-grid">
@@ -299,8 +312,8 @@
     mount(el, app) { this.clicks = 0; this.lastClick = 0; MenuArt.mount(el.querySelector('#menuArt'), app.profile.settings.effects, app.profile.settings.theme); },
     unmount() { MenuArt.unmount(); },
     act: {
-      play(app, d, b) { app.session.playOpen = true; const sc = b.closest('.screen'); sc.querySelector('#modes').classList.add('open'); sc.querySelector('#playBtn').hidden = true; },
-      collapse(app, d, b) { app.session.playOpen = false; const sc = b.closest('.screen'); sc.querySelector('#modes').classList.remove('open'); sc.querySelector('#playBtn').hidden = false; },
+      play(app, d, b) { app.session.playOpen = true; const sc = b.closest('.screen'); sc.querySelector('#modes').classList.add('open'); sc.querySelector('#playBtn').hidden = true; sc.querySelector('#collapseBtn').hidden = false; },
+      collapse(app, d, b) { app.session.playOpen = false; const sc = b.closest('.screen'); sc.querySelector('#modes').classList.remove('open'); sc.querySelector('#playBtn').hidden = false; sc.querySelector('#collapseBtn').hidden = true; },
       single: app => app.go('single'),
       team: app => app.go('team'),
       duel: app => app.go('duel'),
@@ -565,12 +578,46 @@
   };
 
   // Магазин
+  // Скины главного меню
+  const SKINS = [
+    { id: 'hotel', name: 'Отель', desc: 'Зелёные обои, ковровая дорожка и дверь номера 0000. Оформление по умолчанию.' },
+    { id: 'mine', name: 'Шахты', desc: 'Каменная стена, крепь, рельсы и фонари. Открывается секретным кодом — подсказка мигает азбукой Морзе в главном меню.' }
+  ];
   S.shop = {
     caption(app) {
+      if ((app.session.shopTab || 'heroes') === 'skins') {
+        const p = app.profile, sk = SKINS.find(x => x.id === (app.session.skinSel || p.settings.theme || 'hotel')) || SKINS[0];
+        const owned = p.themes.includes(sk.id);
+        return `<div class="grow"><div class="rar" style="color:var(--brass-hi)">Скин главного меню</div><div class="h2">${sk.name}</div><div class="note">${owned ? (p.settings.theme === sk.id ? 'Сейчас выбран' : 'Открыт') : 'Закрыт'}</div></div><span class="plaque">${owned ? (p.settings.theme === sk.id ? 'Выбран' : 'Открыт') : icon('lock')}</span>`;
+      }
       const p = app.profile, sel = app.session.shopSel || 'blaster', H = K.HERO[sel], owned = p.owned.includes(sel);
       return `<div class="grow"><div class="rar" style="color:${H.color}">${H.rarity}</div><div class="h2">${H.name}</div><div class="note">${H.role}</div></div><span class="plaque">${owned ? 'Открыт' : H.price}</span>`;
     },
+    tabs(app) {
+      const tab = app.session.shopTab || 'heroes';
+      return `<div class="seg shop-tabs">${[['heroes', 'Герои'], ['skins', 'Скины']].map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" data-act="tab" data-id="${k}">${n}</button>`).join('')}</div>`;
+    },
+    codeBox(app) {
+      const p = app.profile;
+      return `<div class="section card code-box"><div class="eyebrow">Ввести код</div>
+            <div class="row"><input type="text" id="promo" maxlength="16" placeholder="Код" autocomplete="off" aria-label="Код"><button class="btn" data-act="code">Активировать</button></div>
+            <div class="err" id="promoErr"></div>
+            <div class="note">${p.themes.length > 1 ? 'Открытые скины: ' + p.themes.map(t => K.THEMES[t].name).join(', ') + '. Выбрать можно во вкладке «Скины».' : 'Иногда подсказки к кодам прячутся прямо в игре.'}</div></div>`;
+    },
+    skinsBody(app) {
+      const p = app.profile, cur = app.session.skinSel || p.settings.theme || 'hotel';
+      return `<div class="section"><div class="eyebrow">Скины главного меню</div><div class="skin-list">${SKINS.map(sk => {
+        const owned = p.themes.includes(sk.id), on = p.settings.theme === sk.id;
+        return `<button class="skin-card ${cur === sk.id ? 'sel' : ''} ${owned ? '' : 'locked'}" data-act="skin" data-id="${sk.id}">
+          <span class="skin-prev" style="background-image:url(${MenuArt.preview(sk.id, 320, 400)})">${owned ? '' : `<span class="skin-lock">${icon('lock')}</span>`}</span>
+          <span class="skin-meta"><b>${sk.name}</b><span class="tag ${on ? 'on' : owned ? '' : 'lock'}">${on ? 'Выбран' : owned ? 'Открыт' : 'Секрет'}</span></span></button>`;
+      }).join('')}</div></div>
+        ${(() => { const sk = SKINS.find(x => x.id === cur) || SKINS[0], owned = p.themes.includes(sk.id), on = p.settings.theme === sk.id;
+          return `<div class="section card"><div class="note">${esc(sk.desc)}</div>${owned ? `<button class="btn ${on ? 'pet' : 'brass'} block" data-act="useSkin" data-id="${sk.id}" ${on ? 'disabled' : ''}>${on ? 'Выбран ✓' : 'Выбрать'}</button>` : `<div class="banner">Присмотритесь к лампе в главном меню: она мигает азбукой Морзе. Расшифруйте английское слово и введите его ниже.</div>`}</div>`; })()}
+        ${this.codeBox(app)}`;
+    },
     body(app) {
+      if ((app.session.shopTab || 'heroes') === 'skins') return this.skinsBody(app);
       const p = app.profile;
       const sel = app.session.shopSel || 'blaster';
       const H = K.HERO[sel];
@@ -600,20 +647,19 @@
           <div class="section card"><div class="eyebrow">Верхняя ветка · ${H.base.passive ? 'жизни микропета' : 'дальность и скорость'}</div><div class="blist">${blist(H.top, 0)}</div></div>
           <div class="section card"><div class="eyebrow">Нижняя ветка · ${H.base.passive ? 'больше монет' : 'мощный урон'}</div><div class="blist">${blist(H.bottom, 1)}</div></div>
           <div class="section note">Уровни 1–2 можно купить в обеих ветках всегда. Выше 2-го уровня можно прокачать только одну ветку — вторая остаётся максимум на 2.</div>
-          <div class="section card code-box"><div class="eyebrow">Ввести код</div>
-            <div class="row"><input type="text" id="promo" maxlength="16" placeholder="Код" autocomplete="off" aria-label="Код"><button class="btn" data-act="code">Активировать</button></div>
-            <div class="err" id="promoErr"></div>
-            ${p.themes.length > 1 ? `<div class="note">Открытые оформления: ${p.themes.map(t => K.THEMES[t].name).join(', ')}. Переключить можно в настройках.</div>` : '<div class="note">Иногда подсказки к кодам прячутся прямо в игре.</div>'}</div>`;
+          ${this.codeBox(app)}`;
     },
     html(app) {
-      return `<div class="screen">${topbar('Магазин героев', '<span id="shopCoins">' + coinsChip(app.profile) + '</span>')}
+      return `<div class="screen">${topbar('Магазин', '<span id="shopCoins">' + coinsChip(app.profile) + '</span>')}
         <div class="showcase"><canvas id="showcase"></canvas><div class="cap" id="shopCap">${this.caption(app)}</div></div>
+        <div id="shopTabs">${this.tabs(app)}</div>
         <div class="scroll" id="shopBody">${this.body(app)}</div></div>`;
     },
     update(app) {
       const el = app.root;
       el.querySelector('#shopCap').innerHTML = this.caption(app);
       el.querySelector('#shopBody').innerHTML = this.body(app);
+      el.querySelector('#shopTabs').innerHTML = this.tabs(app);
       el.querySelector('#shopCoins').innerHTML = coinsChip(app.profile);
       if (this.sc) this.sc.show(app.session.shopSel || 'blaster');
     },
@@ -629,6 +675,7 @@
         const t = (now - start) / 1000, r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
         if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
         const w = cv.width, h = cv.height, s = Math.min(w, h) * 0.42;
+        if ((app.session.shopTab || 'heroes') === 'skins') { paintMenu(ctx, w, h, t, (app.session.skinSel || app.profile.settings.theme) === 'mine'); return; }
         ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, w, h);
         const g = ctx.createRadialGradient(w / 2, h * 0.45, 0, w / 2, h * 0.45, s * 1.2); g.addColorStop(0, K.HERO[this.cur].color + '44'); g.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
@@ -656,12 +703,15 @@
       },
       squadT(app) { if (toggleSquad(app, app.session.shopSel || 'blaster') !== false) S.shop.update(app); },
       sort(app, d) { app.session.shopSort = d.id; S.shop.update(app); },
+      tab(app, d) { app.session.shopTab = d.id; if (d.id === 'skins') app.session.skinSel = app.profile.settings.theme || 'hotel'; S.shop.update(app); app.root.querySelector('#shopBody').scrollTop = 0; },
+      skin(app, d) { app.session.skinSel = d.id; S.shop.update(app); },
+      useSkin(app, d) { if (!app.profile.themes.includes(d.id)) return; app.profile.settings.theme = d.id; app.persist(); app.applyFx(); K.Audio.play('buy', 0); toast('Скин «' + K.THEMES[d.id].name + '» выбран', 'good'); S.shop.update(app); },
       code(app, d, b) {
         const inp = b.closest('.screen').querySelector('#promo'), err = b.closest('.screen').querySelector('#promoErr');
         const r = K.Save.redeem(app.profile, inp.value);
         if (!r.ok) { err.textContent = r.reason; K.Audio.play('deny', 0); return; }
         app.persist(); app.applyFx(); K.Audio.play('secret', 0);
-        modal(`<div class="h2">Сигнал из шахты</div><div class="banner">Код принят! Открыто оформление «Шахты»: камень, крепь и свет фонарей. Оно уже включено — сменить можно в настройках.</div>${r.achievements.map(a => `<div class="row"><span class="tag demo">Достижение</span><span class="grow">${esc(a.name)}</span><span class="num coin">+${a.coins}</span></div>`).join('')}<button class="btn brass block" data-m="close">Отлично</button>`, { close: () => { closeModal(); S.shop.update(app); } }, { center: true });
+        modal(`<div class="h2">Сигнал из шахты</div><div class="banner">Код принят! Открыто оформление «Шахты»: камень, крепь и свет фонарей. Скин уже выбран — сменить можно во вкладке «Скины».</div>${r.achievements.map(a => `<div class="row"><span class="tag demo">Достижение</span><span class="grow">${esc(a.name)}</span><span class="num coin">+${a.coins}</span></div>`).join('')}<button class="btn brass block" data-m="close">Отлично</button>`, { close: () => { closeModal(); app.session.shopTab = 'skins'; app.session.skinSel = 'mine'; S.shop.update(app); } }, { center: true });
       }
     }
   };
@@ -795,7 +845,7 @@
           <div class="note">Автозапуск волн и скорость игры — в меню паузы во время матча.</div>
           ${sw('effects', 'Дополнительные эффекты', 'Мерцание ламп, пыль, частицы, покачивание камеры. Отключите для стабильности трансляции.')}
           <div class="toggle"><b>Качество графики</b><div class="seg" style="min-width:12em">${[['low', 'Низкое'], ['mid', 'Среднее'], ['high', 'Высокое']].map(([k, n]) => `<button class="${st.quality === k ? 'on' : ''}" data-act="q" data-id="${k}">${n}</button>`).join('')}</div></div>
-          <div class="toggle"><div><b>Оформление</b><div class="note">${p.themes.length > 1 ? 'Открыто кодом из магазина' : 'Другие оформления открываются секретными кодами'}</div></div><div class="seg" style="min-width:10em">${p.themes.map(t => `<button class="${st.theme === t ? 'on' : ''}" data-act="theme" data-id="${t}">${K.THEMES[t].name}</button>`).join('')}</div></div>
+          <div class="toggle"><div><b>Оформление</b><div class="note">${p.themes.length > 1 ? 'Скины также выбираются в магазине' : 'Другие скины открываются секретными кодами в магазине'}</div></div><div class="seg" style="min-width:10em">${p.themes.map(t => `<button class="${st.theme === t ? 'on' : ''}" data-act="theme" data-id="${t}">${K.THEMES[t].name}</button>`).join('')}</div></div>
           <div class="toggle"><div><b>Полный экран</b><div class="note">Удобно для браузерной версии</div></div><button class="btn small" data-act="full">${icon('full')} Включить</button></div>
         </div>
         <div class="section"><div class="eyebrow">Сохранение</div><div class="card kv"><span>Формат</span><b>v${inf.version}</b><span>Хранилище</span><b>${inf.storage ? 'браузер (localStorage)' : 'недоступно — прогресс не сохранится'}</b><span>Размер</span><b>${(inf.size / 1024).toFixed(1)} КБ</b><span>Последнее сохранение</span><b>${new Date(inf.savedAt).toLocaleString('ru-RU')}</b></div>

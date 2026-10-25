@@ -287,7 +287,7 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .opp-t .hero-thumb { width: 1.8em; height: 1.8em; }
 .viewing { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; text-align: center; padding: 0.35em; font-size: 0.78em; font-weight: 700; color: #ffd0d6; background: linear-gradient(transparent, #4a0a14cc); pointer-events: none; }
 .mapthumb { width: 2.7em; height: 4.5em; border-radius: 0.3em; object-fit: cover; flex: none; border: 1px solid #00000080; background: #111; }
-.mode-art { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; border-radius: 0.35em; margin-bottom: 0.25em; display: block; }
+.mode-art { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 0.35em; margin-bottom: 0.25em; display: block; }
 .menu-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 .pub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; }
@@ -303,7 +303,18 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .countdown.go b { color: var(--pet); }
 /* Теги, свернуть, голосование, код */
 .ptag { font-family: var(--f-mono); font-size: 0.78em; color: var(--brass-hi); font-weight: 700; letter-spacing: 0.04em; }
-.play-modes .collapse { grid-column: 1 / -1; order: -1; justify-self: end; min-height: 2em; }
+.title-row { position: relative; }
+.title-row .title-btn { display: block; width: 100%; }
+.title-row .collapse { position: absolute; right: 0; top: -0.55em; min-height: 2.1em; padding: 0 0.8em; }
+.shop-tabs { margin: 0.6em 1.2em 0; }
+.skin-list { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6em; margin-top: 0.5em; }
+.skin-card { display: flex; flex-direction: column; gap: 0.4em; padding: 0.45em; border-radius: 0.6em; background: var(--panel, #161210); border: 1px solid var(--line, #3a2c20); color: var(--text); cursor: pointer; text-align: left; font: inherit; }
+.skin-card.sel { border-color: var(--brass-hi); box-shadow: 0 0 0 1px var(--brass-hi) inset; }
+.skin-prev { position: relative; display: block; aspect-ratio: 4 / 5; border-radius: 0.4em; background-size: cover; background-position: center; }
+.skin-card.locked .skin-prev { filter: grayscale(0.85) brightness(0.45); }
+.skin-lock { position: absolute; inset: 0; display: grid; place-items: center; font-size: 1.8em; color: var(--text); }
+.skin-meta { display: flex; justify-content: space-between; align-items: center; gap: 0.4em; }
+.tag.on { color: var(--pet); border-color: #3e8f7c; }
 .vote-grid .diff { gap: 0.25em; }
 .vote-bar { display: flex; gap: 0.2em; }
 .vote-bar i { width: 0.6em; height: 0.6em; border-radius: 50%; border: 1px solid #3e8f7c; }

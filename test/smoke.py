@@ -97,7 +97,13 @@ def run():
     pg.fill('#promo','mines'); pg.click('[data-act=code]'); pg.wait_for_selector('text=Код принят')
     assert ev("KV.App.profile.themes.includes('mine') && KV.App.profile.settings.theme==='mine' && !!KV.App.profile.achievements.secret_morse")
     assert ev("document.getElementById('frame').classList.contains('theme-mine')")
-    pg.click('[data-m=close]'); pg.wait_for_timeout(200); pg.screenshot(path=OUT+'/shop_mine.png'); pg.click('[data-act=back]')
+    pg.click('[data-m=close]'); pg.wait_for_timeout(200); pg.screenshot(path=OUT+'/shop_mine.png')
+    # вкладка «Скины»: после кода открыта, выбор переключает тему
+    assert pg.is_visible('.skin-card[data-id=mine]') and pg.is_visible('.skin-card[data-id=hotel]')
+    pg.click('.skin-card[data-id=hotel]'); pg.click('[data-act=useSkin][data-id=hotel]'); assert ev("KV.App.profile.settings.theme==='hotel'")
+    pg.click('.skin-card[data-id=mine]'); pg.click('[data-act=useSkin][data-id=mine]'); assert ev("KV.App.profile.settings.theme==='mine'")
+    pg.click('[data-act=tab][data-id=heroes]'); assert pg.is_visible('.hero-card')
+    pg.click('[data-act=back]')
     pg.wait_for_timeout(500); pg.screenshot(path=OUT+'/menu_mine.png')
     # Twitch: без Client ID — честное объяснение
     pg.click('[data-act=settings]'); assert 'Автозапуск' not in pg.inner_text('.scroll').split('Оформление')[0] or True

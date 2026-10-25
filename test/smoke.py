@@ -42,7 +42,7 @@ def run():
     assert ev("KV.App.match.field.towers[0].up.join()")=='2,2', ev("KV.App.match.field.towers[0].up.join()")
     pg.click('.tier[data-br="0"][data-lvl="2"]'); pg.click('[data-act=buy]')
     pg.click('.tier[data-br="1"][data-lvl="2"]')
-    assert 'заблокировано' in pg.inner_text('.detail').lower()
+    assert 'закрыто' in pg.inner_text('.detail').lower()
     pg.click('[data-act=skill][data-k=vision]'); pg.click('[data-act=target]')
     assert ev("KV.App.match.field.towers[0].targeting")=='last'
     pg.screenshot(path=OUT+'/panel2d.png')

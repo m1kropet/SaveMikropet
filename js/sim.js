@@ -237,10 +237,11 @@
     const H = K.HERO[heroId];
     const lvl = up[br], other = up[1 - br];
     if (lvl >= 5) return { ok: false, code: 'max', reason: 'Ветка полностью прокачана' };
-    if (other >= 3) return { ok: false, code: 'locked', reason: 'Заблокировано: ' + (br === 0 ? 'нижняя' : 'верхняя') + ' ветка прокачана до 3 уровня' };
+    // Уровни 1–2 доступны всегда. Выше 2-го может подняться только одна ветка.
+    if (other >= 3 && lvl >= 2) return { ok: false, code: 'locked', reason: 'Закрыто: ' + (br === 0 ? 'нижняя' : 'верхняя') + ' ветка выше 2 уровня, эта — максимум до 2' };
     const node = (br === 0 ? H.top : H.bottom)[lvl];
     if (coins != null && coins < node.cost) return { ok: false, code: 'money', reason: 'Не хватает монет', cost: node.cost, node };
-    const note = lvl + 1 >= 3 && other > 0 ? 'Покупка закроет ' + (br === 0 ? 'нижнюю' : 'верхнюю') + ' ветку' : (lvl + 1 >= 3 ? 'После покупки вторая ветка закроется на 0 уровне' : '');
+    const note = lvl + 1 === 3 && other < 3 ? (br === 0 ? 'Нижняя' : 'Верхняя') + ' ветка после этого прокачается максимум до 2 уровня' : '';
     return { ok: true, cost: node.cost, node, next: lvl + 1, note };
   }
 

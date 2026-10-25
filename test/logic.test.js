@@ -10,8 +10,10 @@ const sp=(f,i)=>f.layout.spots[i];
 const S=(up,br)=>K.upgradeState('blaster',up,br,1e9);
 ok(S([1,2],0).ok && S([1,2],1).ok,'1+2 ok');
 ok(S([2,2],0).ok && S([2,2],1).ok,'2+2 ok');
-ok(!S([3,0],1).ok && S([3,0],1).code==='locked','top3 locks bottom');
-ok(!S([0,3],0).ok,'bottom3 locks top');
+ok(S([3,0],1).ok && S([3,1],1).ok,'bottom 1-2 always available');
+ok(!S([3,2],1).ok && S([3,2],1).code==='locked','bottom capped at 2 after top3');
+ok(S([0,3],0).ok && S([1,3],0).ok && !S([2,3],0).ok,'top capped at 2 after bottom3');
+ok(S([2,2],0).ok && S([2,2],1).ok,'2/2 can choose either');
 ok(S([3,2],0).ok && S([4,2],0).ok && !S([5,2],0).ok,'top continues to 5');
 ok(!S([2,3],0).ok && S([2,3],1).ok,'bottom continues');
 

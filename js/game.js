@@ -508,7 +508,7 @@
             if (after.aoeAll && !t.s.aoeAll) diffs += '<span class="up">бьёт всех в радиусе</span>';
           }
           detail = `<div class="detail"><div class="row"><b class="grow">${br === 0 ? 'Верх' : 'Низ'} ${L + 1}: ${esc(u.name)}</b>${action}</div><div class="note">${esc(u.desc)}</div>${diffs ? `<div class="diffs">${diffs}</div>` : ''}${note ? '<div>' + note + '</div>' : ''}</div>`;
-        } else detail = '<div class="note small-note">Нажмите на улучшение, чтобы выбрать его. Уровни 1–2 обеих веток совместимы, 3-й уровень закрывает вторую ветку.</div>';
+        } else detail = '<div class="note small-note">Нажмите на улучшение, чтобы выбрать его. Уровни 1–2 доступны в обеих ветках всегда. Выше 2-го можно прокачать только одну ветку.</div>';
       }
       const refund = Math.floor(t.spent * K.SELL_RATE);
       const target = TARGETS.find(x => x[0] === t.targeting)[1];

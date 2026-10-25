@@ -523,7 +523,7 @@
             <div class="cmp">${bars}</div>${action}</div>
           <div class="section card"><div class="eyebrow">Верхняя ветка · дальность и скорость</div><div class="blist">${blist(H.top, 0)}</div></div>
           <div class="section card"><div class="eyebrow">Нижняя ветка · мощный урон</div><div class="blist">${blist(H.bottom, 1)}</div></div>
-          <div class="section note">Уровни 1–2 обеих веток совместимы. Покупка 3-го уровня в одной ветке закрывает вторую.</div>`;
+          <div class="section note">Уровни 1–2 можно купить в обеих ветках всегда. Выше 2-го уровня можно прокачать только одну ветку — вторая остаётся максимум на 2.</div>`;
     },
     html(app) {
       return `<div class="screen">${topbar('Магазин героев', '<span id="shopCoins">' + coinsChip(app.profile) + '</span>')}

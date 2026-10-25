@@ -31,7 +31,7 @@ function createHub(K, opts) {
       code: r.code, mode: r.mode, state: r.state, host: r.players[0] ? r.players[0].pid : null, cfg: r.cfg,
       public: r.public || 0, startsIn: r.countdownAt ? Math.max(0, r.countdownAt - Date.now()) : null,
       vote: r.state === 'vote' ? { endsIn: Math.max(0, r.voteEnd - Date.now()), options: r.voteOptions, counts: Object.fromEntries(r.voteOptions.map(d => [d, [...r.votes.values()].filter(v => v === d).length])), voted: r.votes.size } : null,
-      players: r.players.map(p => ({ id: p.pid, name: p.name, tag: p.tag || '', color: p.color, ready: p.ready, level: p.level, verified: !!p.twitch, squad: p.squad, voted: !!(r.votes && r.votes.has(p)) }))
+      players: r.players.map(p => ({ id: p.pid, name: p.name, tag: p.tag || '', color: p.color, ready: p.ready, level: p.level, verified: !!p.twitch, eye: !!p.eye, squad: p.squad, voted: !!(r.votes && r.votes.has(p)) }))
     };
   }
   const broadcastRoom = r => r.players.forEach(p => send(p, 'room', Object.assign(roomView(r), { you: p.pid, myVote: r.votes ? r.votes.get(p) || null : null })));
@@ -136,7 +136,7 @@ function createHub(K, opts) {
   // ---------- Запуск матчей ----------
   function startTeam(r) {
     const union = [...new Set(r.players.flatMap(p => p.squad))];
-    const f = new K.Field({ map: r.cfg.map, diff: r.cfg.diff, seed: (Math.random() * 2 ** 31) >>> 0, mode: 'team', squad: union, players: r.players.map(p => ({ id: p.pid, name: p.name, color: p.color })), autoWave: !!r.cfg.autoWave, record: true });
+    const f = new K.Field({ map: r.cfg.map, diff: r.cfg.diff, seed: (Math.random() * 2 ** 31) >>> 0, mode: 'team', squad: union, players: r.players.map(p => ({ id: p.pid, name: p.name, color: p.color, eye: !!p.eye })), autoWave: !!r.cfg.autoWave, record: true });
     f.squad = union; // в команде доступны герои всех участников
     r.field = f; r.state = 'playing'; r.sendT = 0; r.countdownAt = null; r.skipVotes = new Set(); r.skipWave = -1;
     if (r.public) broadcastPublics();
@@ -196,7 +196,7 @@ function createHub(K, opts) {
     if (!p.twitch) return;
     const key = 'ladder:' + p.twitch.id;
     const row = ladder.get(p.twitch.id) || (await store.get(key)) || { nick: p.twitch.login, level: 1, endless: 0, duelWins: 0, time: 0 };
-    Object.assign(row, patch(row), { tag: p.tag || row.tag || '' });
+    Object.assign(row, patch(row), { tag: p.tag || row.tag || '', eye: !!p.eye || !!row.eye });
     ladder.set(p.twitch.id, row);
     await store.put(key, row);
   }
@@ -249,6 +249,7 @@ function createHub(K, opts) {
         p.name = cleanNick(m.nick); p.level = Math.max(1, Math.min(999, m.level | 0)); p.squad = cleanSquad(m.squad);
         if (!p.squad.length) p.squad = ['blaster', 'ice'];
         p.endless = !!m.endless;
+        p.eye = !!m.eye;
         if (m.token) verifyTwitch(String(m.token)).then(tw => { p.twitch = tw; p.name = cleanNick(tw.login); send(p, 'authed', tw); }, e => send(p, 'error', { reason: e.message }));
         if (m.uid) ensureTag(p, String(m.uid), m.tag).then(tag => { if (tag) { p.tag = tag; send(p, 'tag', { tag }); if (p.room && p.room.state === 'lobby') broadcastRoom(p.room); } }, () => {});
         send(p, 'hello', { online: players.size, requireTwitch: REQUIRE_TWITCH });

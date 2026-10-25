@@ -40,6 +40,7 @@
     shield: '<path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"/>',
     twitch: '<path d="M5 3h15v11l-5 5h-4l-3 3v-3H4V6z"/><path d="M11 8v4M16 8v4"/>'
   };
+  const eyeBadge = on => on ? '<span class="eye-badge" title="Глаз Ковтопа" aria-label="Глаз Ковтопа"><svg viewBox="0 0 24 12" width="1.45em" height="0.75em" aria-hidden="true"><path d="M1 6C4 1.5 8 0.5 12 0.5S20 1.5 23 6C20 10.5 16 11.5 12 11.5S4 10.5 1 6Z" fill="#120406" stroke="#ff2a3d" stroke-width="1.3"/><circle cx="12" cy="6" r="3.6" fill="#ff2a3d"/><circle cx="12" cy="6" r="1.5" fill="#120406"/><circle cx="13.2" cy="4.9" r="0.7" fill="#fff"/></svg></span>' : '';
   const icon = n => `<svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ICONS.dot}</svg>`;
 
   // ---------- Модальные окна и уведомления ----------
@@ -87,7 +88,7 @@
     while (box.children.length > 3) box.firstChild.remove();
   }
 
-  K.UI = { icon, modal, closeModal, confirm: confirmBox, toast, esc };
+  K.UI = { icon, eyeBadge, modal, closeModal, confirm: confirmBox, toast, esc };
 
   // ---------- Общие фрагменты ----------
   const topbar = (title, right) => `<div class="topbar"><button class="btn small icon-btn" data-act="back" aria-label="Назад">${icon('back')}</button><div class="h2">${esc(title)}</div>${right || ''}</div>`;
@@ -198,8 +199,26 @@
   K.Morse = { lampLevel, lampRed, timeline: morseTimeline, unit: MORSE_UNIT };
 
   // Анимированная сцена главного меню: коридор (или шахта), дверь, Ковтоп в проёме, микропет.
+  // Секрет Ковтопа: по нажатию на его экран показываются пять случайных двузначных чисел.
+  let kovShow = null, kovTv = null;
+  const KOV_SLOT = 1.4, KOV_ON = 1.05, KOV_LEAD = 0.6;
+  function kovDigits(t) {
+    if (!kovShow) return undefined;
+    const x = t - kovShow.t0 - KOV_LEAD;
+    if (x < 0) return '--';
+    const i = Math.floor(x / KOV_SLOT);
+    if (i >= kovShow.nums.length) { kovShow = null; return undefined; }
+    return x - i * KOV_SLOT < KOV_ON ? kovShow.nums[i] : '--';
+  }
+  function randomPairs() {
+    const out = [], buf = new Uint32Array(5);
+    if (globalThis.crypto && crypto.getRandomValues) crypto.getRandomValues(buf); else for (let i = 0; i < 5; i++) buf[i] = Math.floor(Math.random() * 2 ** 32);
+    for (let i = 0; i < 5; i++) out.push(String(10 + (buf[i] % 90)));
+    return out;
+  }
+
   // Сцена главного меню (общая для меню и превью скинов).
-  function paintMenu(ctx, w, h, t, mine) {
+  function paintMenu(ctx, w, h, t, mine, live) {
     const SP = K.Sprites, u = w / 10, HZ = 0.42;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     if (mine) {
@@ -222,7 +241,9 @@
     ctx.fillStyle = '#140003'; ctx.fillRect(dx - dw / 2, dy, dw, dh);
     const rg = ctx.createRadialGradient(dx, dy + dh * 0.6, 0, dx, dy + dh * 0.6, dh); rg.addColorStop(0, 'rgba(255,42,61,0.35)'); rg.addColorStop(1, 'rgba(255,42,61,0)'); ctx.fillStyle = rg; ctx.fillRect(dx - dw / 2, dy, dw, dh);
     ctx.save(); ctx.beginPath(); ctx.rect(dx - dw / 2, dy, dw, dh); ctx.clip();
-    ctx.translate(dx, dy + dh * 1.02); const ks = u * 1.75; ctx.scale(ks, ks); SP.setPx(ks * 0.6); SP.kovtop(ctx, t, false, 1); ctx.restore();
+    const ks = u * 1.75, kx = dx, ky = dy + dh * 1.02;
+    if (live) kovTv = { x0: kx - 0.42 * ks, x1: kx + 0.42 * ks, y0: ky - 1.7 * ks, y1: ky - 1.0 * ks };
+    ctx.translate(kx, ky); ctx.scale(ks, ks); SP.setPx(ks * 0.6); SP.kovtop(ctx, t, false, 1, live ? kovDigits(t) : undefined); ctx.restore();
     if (mine) {
       // вход в штольню: деревянная крепь вместо двери
       ctx.fillStyle = '#5a3a20'; ctx.fillRect(dx - dw / 2 - u * 0.35, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx + dw / 2, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx - dw / 2 - u * 0.5, dy - u * 0.5, dw + u, u * 0.35);
@@ -253,7 +274,8 @@
       const draw = t => {
         const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
         if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
-        paintMenu(ctx, cv.width, cv.height, t, mine);
+        this.lastT = t;
+        paintMenu(ctx, cv.width, cv.height, t, mine, true);
       };
       const start = performance.now();
       // лампа нужна для секрета, поэтому сцена анимируется всегда
@@ -261,6 +283,19 @@
       this.raf = requestAnimationFrame(loop);
     },
     unmount() { cancelAnimationFrame(this.raf); },
+    // нажатие по экрану (canvas-координаты в CSS-пикселях); true — попали в телевизор Ковтопа
+    hitTv(cv, clientX, clientY) {
+      if (!kovTv) return false;
+      const r = cv.getBoundingClientRect(), sx = cv.width / r.width, sy = cv.height / r.height;
+      const x = (clientX - r.left) * sx, y = (clientY - r.top) * sy;
+      return x >= kovTv.x0 && x <= kovTv.x1 && y >= kovTv.y0 && y <= kovTv.y1;
+    },
+    kovStart() {
+      if (kovShow) return null; // пока числа идут, новый показ не начинается
+      const nums = randomPairs();
+      kovShow = { t0: this.lastT || 0, nums };
+      return nums.join('');
+    },
     preview(theme, w, h) {
       const key = theme + w + 'x' + h;
       this.cache = this.cache || {};
@@ -294,7 +329,7 @@
       return `<div class="screen">
         <div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div>
         <div class="menu-top">
-          <button class="profile-chip" data-act="settings" aria-label="Профиль и настройки"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em;text-align:left;line-height:1.1"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}</button>
+          <button class="profile-chip" data-act="settings" aria-label="Профиль и настройки"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em;text-align:left;line-height:1.1"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}</button>
           <span class="plaque coin" title="Монеты аккаунта">${p.coins}</span>
         </div>
         <div class="menu-main">
@@ -316,7 +351,20 @@
         <div class="foot">Локальная версия · прогресс хранится в этом браузере</div>
       </div>`;
     },
-    mount(el, app) { this.clicks = 0; this.lastClick = 0; MenuArt.mount(el.querySelector('#menuArt'), app.profile.settings.effects, app.profile.settings.theme); },
+    mount(el, app) {
+      this.clicks = 0; this.lastClick = 0;
+      const cv = el.querySelector('#menuArt');
+      MenuArt.mount(cv, app.profile.settings.effects, app.profile.settings.theme);
+      // секрет: нажатие на экран-лицо Ковтопа
+      el.addEventListener('pointerdown', e => {
+        if (e.target.closest('button, input, a, .modal')) return;
+        if (!MenuArt.hitTv(cv, e.clientX, e.clientY)) return;
+        const code = MenuArt.kovStart();
+        if (!code) return;
+        app.profile.kovCode = code; app.persist();
+        K.Audio.play('boss', 0);
+      });
+    },
     unmount() { MenuArt.unmount(); },
     act: {
       play(app, d, b) { app.session.playOpen = true; const sc = b.closest('.screen'); sc.querySelector('#modes').classList.add('open'); sc.querySelector('#playBtn').hidden = true; sc.querySelector('#collapseBtn').hidden = false; },
@@ -378,7 +426,7 @@
       start(app) {
         const p = app.profile;
         if (p.last.diff === 'endless' && !p.endlessUnlocked) p.last.diff = 'hard';
-        app.startMatch({ mode: 'single', map: p.last.map, diff: p.last.diff, squad: p.squad.slice(), players: [{ id: 'p1', name: p.nick, color: K.PLAYER_COLORS[0] }] });
+        app.startMatch({ mode: 'single', map: p.last.map, diff: p.last.diff, squad: p.squad.slice(), players: [{ id: 'p1', name: p.nick, color: K.PLAYER_COLORS[0], eye: !!p.eye }] });
       }
     }
   };
@@ -411,7 +459,7 @@
         <div class="card countdown ${full ? 'go' : ''}"><b id="cd">${full ? 'Старт через 5 с' : 'Ждём игроков: ' + room.players.length + ' из ' + room.public}</b>
         <div class="pub-dots big">${Array.from({ length: room.public }, (_, i) => `<i class="${i < room.players.length ? 'on' : ''}"></i>`).join('')}</div></div></div>
       <div class="section"><div class="eyebrow">Игроки</div><div class="list">${room.players.map(x => `<div class="card row"><i class="dot" style="background:${x.color}"></i>
-        <b class="grow">${esc(x.name)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="ptag">${x.tag ? '#' + esc(x.tag) : ''}</span> <span class="mute">ур. ${x.level}</span>${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b></div>`).join('')}
+        <b class="grow">${esc(x.name)}${eyeBadge(x.eye)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="ptag">${x.tag ? '#' + esc(x.tag) : ''}</span> <span class="mute">ур. ${x.level}</span>${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b></div>`).join('')}
         ${Array.from({ length: room.public - room.players.length }, () => '<div class="card row note">Свободное место…</div>').join('')}</div></div>
       <div class="section"><div class="eyebrow">Ваш отряд в этом матче</div>${squadPicker(app.profile)}</div>`;
   }
@@ -439,7 +487,7 @@
         <button class="btn small" data-act="copyCode" data-code="${room.code}">Скопировать</button><button class="btn small danger" data-act="netLeave">Выйти</button></div>
         <div class="note">Отправьте код ${room.mode === 'duel' ? 'сопернику' : 'друзьям'}: в разделе «${room.mode === 'duel' ? 'Дуэль' : 'Команда'}» они вводят его в поле «Войти по коду».</div></div>
       <div class="section"><div class="eyebrow">Игроки · ${room.players.length} из ${full}</div><div class="list">${room.players.map(x => `<div class="card row"><i class="dot" style="background:${x.color}"></i>
-        <b class="grow">${esc(x.name)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="ptag">${x.tag ? '#' + esc(x.tag) : ''}</span> <span class="mute">ур. ${x.level}</span>${x.id === room.host ? ' <span class="tag">хост</span>' : ''}${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b>
+        <b class="grow">${esc(x.name)}${eyeBadge(x.eye)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="ptag">${x.tag ? '#' + esc(x.tag) : ''}</span> <span class="mute">ур. ${x.level}</span>${x.id === room.host ? ' <span class="tag">хост</span>' : ''}${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b>
         <span class="tag ${x.ready ? '' : 'lock'}" style="${x.ready ? 'color:var(--pet);border-color:#3e8f7c' : ''}">${x.ready ? 'готов' : 'не готов'}</span></div>`).join('')}</div>
         <button class="btn block ${me.ready ? 'pet' : 'brass'}" data-act="netReady">${me.ready ? 'Готов ✓ · отменить' : 'Я готов'}</button></div>
       ${host ? `<div class="section"><div class="eyebrow">Карта</div><div class="list">${mapPicker(room.cfg.map, true, 'netMap')}</div></div>
@@ -489,7 +537,7 @@
           <div class="note">Игроки по очереди строят на этом экране, кошелёк общий.</div></div>`;
         else {
           const players = room.players.map(pl => `<div class="card row"><i class="dot" style="background:${pl.color}"></i>
-            ${pl.host ? `<b class="grow">${esc(p.nick)} <span class="tag">хост</span></b>` : `<input type="text" class="grow" id="pn_${pl.id}" data-pid="${pl.id}" value="${esc(pl.name)}" maxlength="16" aria-label="Имя игрока">`}
+            ${pl.host ? `<b class="grow">${esc(p.nick)}${eyeBadge(p.eye)} <span class="tag">хост</span></b>` : `<input type="text" class="grow" id="pn_${pl.id}" data-pid="${pl.id}" value="${esc(pl.name)}" maxlength="16" aria-label="Имя игрока">`}
             <button class="btn small ${pl.ready ? 'pet' : ''}" data-act="ready" data-id="${pl.id}">${pl.ready ? 'Готов ✓' : 'Не готов'}</button>
             ${pl.host ? '' : `<button class="btn small icon-btn" data-act="kick" data-id="${pl.id}" aria-label="Убрать игрока">${icon('x')}</button>`}</div>`).join('');
           local = `<div class="section"><div class="row"><div class="eyebrow grow">На одном устройстве · ${room.players.length} из 4</div><button class="btn small" data-act="leave">Закрыть</button></div>
@@ -541,7 +589,7 @@
       start(app) {
         const room = app.session.room, p = app.profile;
         if (!room || !room.canStart()) return;
-        const players = room.players.map(pl => ({ id: pl.id, name: pl.host ? p.nick : pl.name, color: pl.color }));
+        const players = room.players.map(pl => ({ id: pl.id, name: pl.host ? p.nick : pl.name, color: pl.color, eye: pl.host ? !!p.eye : false }));
         room.players.forEach(pl => { pl.ready = false; });
         app.startMatch({ mode: 'team', map: p.last.map, diff: p.last.diff, squad: p.squad.slice(), players });
       }
@@ -718,6 +766,10 @@
         const r = K.Save.redeem(app.profile, inp.value);
         if (!r.ok) { err.textContent = r.reason; K.Audio.play('deny', 0); return; }
         app.persist(); app.applyFx(); K.Audio.play('secret', 0);
+        if (r.reward === 'eye') {
+          modal(`<div class="h2">Взгляд Ковтопа</div><div class="banner">Вы запомнили все пять чисел. Теперь рядом с вашим именем всегда горит глаз Ковтопа ${eyeBadge(true)}</div>${r.achievements.map(a => `<div class="row"><span class="tag demo">Достижение</span><span class="grow">${esc(a.name)}</span><span class="num coin">+${a.coins}</span></div>`).join('')}<button class="btn brass block" data-m="close">Жутковато</button>`, { close: () => { closeModal(); S.shop.update(app); } }, { center: true });
+          return;
+        }
         modal(`<div class="h2">Сигнал из шахты</div><div class="banner">Код принят! Открыто оформление «Шахты»: камень, крепь и свет фонарей. Скин уже выбран — сменить можно во вкладке «Скины».</div>${r.achievements.map(a => `<div class="row"><span class="tag demo">Достижение</span><span class="grow">${esc(a.name)}</span><span class="num coin">+${a.coins}</span></div>`).join('')}<button class="btn brass block" data-m="close">Отлично</button>`, { close: () => { closeModal(); app.session.shopTab = 'skins'; app.session.skinSel = 'mine'; S.shop.update(app); } }, { center: true });
       }
     }
@@ -744,7 +796,7 @@
           ${rows.length > 1 ? `<div class="row"><span class="note grow">Сортировка: ${desc ? 'лучшие сверху' : 'с конца'}</span><button class="btn small" data-act="sort">Перевернуть</button></div>` : ''}</div>
         <div class="section"><div class="list">${rows.map((r, i) => `<button class="lb-row ${r.me ? 'me' : ''}" data-act="profile" data-i="${r.me ? 'me' : i}">
           <span class="num">${desc ? i + 1 : rows.length - i}</span>
-          <span style="min-width:0"><b>${esc(r.nick)}</b> <span class="ptag">${r.me ? '#' + esc(p.tag) : r.tag ? '#' + esc(r.tag) : ''}</span>${r.verified ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}<br><span class="note">ур. ${r.level} · ${r.me ? (p.twitch ? 'вы · Twitch подтверждён' : 'вы · локально') : '<span class="dot ' + (r.online ? 'on' : '') + '"></span> ' + (r.online ? 'в сети' : 'не в сети')}</span></span>
+          <span style="min-width:0"><b>${esc(r.nick)}</b>${eyeBadge(r.me ? p.eye : r.eye)} <span class="ptag">${r.me ? '#' + esc(p.tag) : r.tag ? '#' + esc(r.tag) : ''}</span>${r.verified ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}<br><span class="note">ур. ${r.level} · ${r.me ? (p.twitch ? 'вы · Twitch подтверждён' : 'вы · локально') : '<span class="dot ' + (r.online ? 'on' : '') + '"></span> ' + (r.online ? 'в сети' : 'не в сети')}</span></span>
           <b class="num">${def[3](def[2](r))}</b></button>`).join('')}</div></div>
       </div></div>`;
     },
@@ -842,7 +894,7 @@
       const achs = K.ACHIEVEMENTS.map(a => { const got = !!p.achievements[a.id]; return `<div class="ach ${got ? 'got' : ''}"><span class="medal">${got ? icon('star') : icon('lock')}</span><div class="grow"><b>${a.secret && !got ? '???' : esc(a.name)}</b><div class="note">${a.secret && !got ? 'Тайное достижение' : esc(a.desc)}</div></div><span class="num note">+${a.coins}</span></div>`; }).join('');
       return `<div class="screen">${topbar('Профиль и настройки')}<div class="scroll">
         <div class="section card">
-          <div class="row"><div class="lvl" style="--p:${Math.round(100 * p.xp / need)};font-size:1.3em"><span>${p.level}</span></div><div class="grow"><div class="h2">${esc(p.nick)} <span class="ptag">#${esc(p.tag)}</span></div><div class="note">Тег выдаётся один раз и не меняется${p.tagVerified ? '' : ' (подтвердится при подключении к серверу)'} · Опыт ${p.xp} / ${need} · до уровня ${need - p.xp}</div><div class="bar" style="margin-top:.3em"><i style="width:${100 * p.xp / need}%"></i></div></div></div>
+          <div class="row"><div class="lvl" style="--p:${Math.round(100 * p.xp / need)};font-size:1.3em"><span>${p.level}</span></div><div class="grow"><div class="h2">${esc(p.nick)}${eyeBadge(p.eye)} <span class="ptag">#${esc(p.tag)}</span></div><div class="note">Тег выдаётся один раз и не меняется${p.tagVerified ? '' : ' (подтвердится при подключении к серверу)'} · Опыт ${p.xp} / ${need} · до уровня ${need - p.xp}</div><div class="bar" style="margin-top:.3em"><i style="width:${100 * p.xp / need}%"></i></div></div></div>
           <div class="kv"><span>Открыто башен</span><b>${p.owned.length} / ${K.HEROES.length}</b><span>Максимальная волна</span><b>${p.maxWave}</b><span>Рекорд бесконечного</span><b>${p.endless.best}${p.endless.bestTime ? ' · ' + fmtTime(p.endless.bestTime) : ''}</b><span>Дуэли: победы / поражения / ничьи</span><b>${p.duel.w} / ${p.duel.l} / ${p.duel.d}</b><span>Всего уничтожено</span><b>${p.stats.kills}</b><span>Время в игре</span><b>${fmtHours(p.playTime)}</b><span>Монеты аккаунта</span><b class="coin">${p.coins}</b></div>
         </div>
         <div class="section"><div class="eyebrow">Twitch</div>${twitchBlock(p)}</div>

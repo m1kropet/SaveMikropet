@@ -17,6 +17,7 @@
       // тег #XXX: выдаётся один раз и не меняется; сервер подтверждает уникальность
       uid: randUid(), tag: randTag(), tagVerified: false,
       themes: ['hotel'], codes: [],
+      eye: false, kovCode: '',
       nick: 'Постоялец' + Math.floor(100 + Math.random() * 900),
       level: 1, xp: 0, coins: 150,
       owned: STARTERS.slice(), squad: STARTERS.slice(),
@@ -66,6 +67,7 @@
     out.friends = Object.assign({}, def.friends, d.friends || {});
     out.last = Object.assign({}, def.last, d.last || {});
     out.achievements = d.achievements && typeof d.achievements === 'object' ? d.achievements : {};
+    out.eye = !!d.eye; out.kovCode = /^\d{10}$/.test(d.kovCode || '') ? d.kovCode : '';
     const num = (x, min, max, dflt) => (typeof x === 'number' && isFinite(x) ? Math.max(min, Math.min(max, x)) : dflt);
     out.level = Math.floor(num(out.level, 1, 999, 1));
     out.xp = Math.floor(num(out.xp, 0, 1e9, 0));
@@ -169,7 +171,8 @@
     team_win: p => p.stats.team > 0,
     time_1h: p => p.playTime >= 3600,
     secret_title: p => p.stats.secret,
-    secret_morse: p => p.themes.includes('mine')
+    secret_morse: p => p.themes.includes('mine'),
+    secret_eye: p => !!p.eye
   };
 
   // Каждое достижение выдаётся ровно один раз — награда не фармится.
@@ -222,14 +225,21 @@
 
   // Секретный код из магазина: открывает оформление «Шахты».
   function redeem(p, code) {
-    const c = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+    const c = String(code || '').trim().toUpperCase().replace(/[\s\-]+/g, '');
     if (!c) return { ok: false, reason: 'Введите код' };
+    // 10 цифр — пять чисел с экрана Ковтопа (последний показ)
+    if (/^\d{10}$/.test(c)) {
+      if (p.eye) return { ok: false, reason: 'Глаз Ковтопа уже у вас' };
+      if (!p.kovCode || c !== p.kovCode) return { ok: false, reason: 'Код не подошёл' };
+      p.eye = true; p.kovCode = '';
+      return { ok: true, reward: 'eye', achievements: checkAchievements(p) };
+    }
     if (c !== K.SECRET_CODE) return { ok: false, reason: 'Код не подошёл' };
     if (p.codes.includes(c)) return { ok: false, reason: 'Этот код уже активирован' };
     p.codes.push(c);
     if (!p.themes.includes('mine')) p.themes.push('mine');
     p.settings.theme = 'mine';
-    return { ok: true, achievements: checkAchievements(p) };
+    return { ok: true, reward: 'mine', achievements: checkAchievements(p) };
   }
 
   K.Save = { load, save, recover, info, defaults, sanitize, VERSION, KEY, MIGRATIONS, redeem };

@@ -139,7 +139,7 @@
             <div class="stat hp" id="hHpBox"><div class="eyebrow">Микропет</div><div class="v" id="hHp"></div><div class="bar"><i id="hHpBar"></i></div></div>
             <div class="stat"><div class="eyebrow">${this.mode === 'team' ? 'Ваши монеты' : 'Монеты'}</div><div class="v coin mcoin" id="hCoins"></div></div>
           </div>
-          ${this.mode === 'team' ? `<div class="players" id="players">${cfg.players.map(p => `<button class="pchip" ${this.online ? 'disabled' : 'data-act="player"'} data-id="${p.id}" style="color:${p.color}"><i style="background:${p.color}"></i>${esc(p.name)} <span class="num pcoins" data-coins="${p.id}"></span></button>`).join('')}</div>` : ''}
+          ${this.mode === 'team' ? `<div class="players" id="players">${cfg.players.map(p => `<button class="pchip" ${this.online ? 'disabled' : 'data-act="player"'} data-id="${p.id}" style="color:${p.color}"><i style="background:${p.color}"></i>${esc(p.name)}${K.UI.eyeBadge(p.eye)} <span class="num pcoins" data-coins="${p.id}"></span></button>`).join('')}</div>` : ''}
         </div>
         <div class="stage" id="stage">
           <div class="viewing" id="viewing" hidden>Карта соперника · только просмотр</div>

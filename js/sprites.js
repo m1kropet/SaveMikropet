@@ -137,7 +137,10 @@
     ctx.fillStyle = '#050507'; ctx.fillRect(-0.31, -1.57, 0.62, 0.46);
     ctx.save(); ctx.scale(0.01, 0.01); ctx.fillStyle = '#e8e8e8'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.fillText('NOW SERVING', 0, -148); ctx.restore();
     ctx.save(); ctx.shadowColor = '#ff2a2a'; ctx.shadowBlur = PX * 0.25; ctx.fillStyle = enraged && Math.floor(t * 6) % 2 ? '#ffd0d0' : '#ff2a2a';
-    if (eta != null) {
+    if (typeof eta === 'string') {
+      // экран показывает произвольные две цифры (секрет в меню); '--' — пустой экран
+      if (/^\d\d$/.test(eta)) { digit(ctx, -0.2, -1.43, 0.16, 0.26, +eta[0]); digit(ctx, 0.04, -1.43, 0.16, 0.26, +eta[1]); }
+    } else if (eta != null) {
       const v = Math.max(0, Math.min(99, Math.ceil(eta)));
       digit(ctx, -0.2, -1.43, 0.16, 0.26, Math.floor(v / 10)); digit(ctx, 0.04, -1.43, 0.16, 0.26, v % 10);
     } else {

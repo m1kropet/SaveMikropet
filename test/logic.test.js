@@ -162,4 +162,10 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
 { const f=new K.Field({map:'mine',diff:'normal',seed:4,squad:['prism','blaster','ice','storm'],autoWave:true,record:false}); const b=new K.Bot(f,0.9);
   for(let i=0;i<60*60*6 && !f.over;i++){ f.coins=Math.max(f.coins,2000); b.tick(1/60); f.step(1/60); }
   ok(f.towers.filter(t=>t.hero==='prism').every(t=>f.obstacles.some(o=>o.x===t.x&&o.z===t.z)),'bot puts prism only on obstacles'); }
+// секрет Ковтопа: 10 цифр последнего показа дают глаз возле имени
+{ require('../js/save.js'); const p=K.Save.sanitize({}); ok(p.eye===false,'no eye by default');
+  ok(!K.Save.redeem(p,'1234567890').ok,'no code shown yet');
+  p.kovCode='7535822169'; ok(!K.Save.redeem(p,'7535822160').ok,'wrong digits');
+  const r=K.Save.redeem(p,'75 35 82 21 69'); ok(r.ok && p.eye && r.reward==='eye' && p.achievements.secret_eye,'eye granted');
+  ok(!K.Save.redeem(p,'7535822169').ok,'eye only once'); ok(K.Save.sanitize(JSON.parse(JSON.stringify(p))).eye===true,'eye persists'); }
 console.log('OK', n, 'checks');

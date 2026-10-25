@@ -225,7 +225,8 @@
     { id: 'team_win', name: 'Вместе теплее', desc: 'Победить в командном режиме', coins: 80, xp: 100 },
     { id: 'time_1h', name: 'Свой человек', desc: 'Провести в игре 1 час', coins: 80, xp: 100 },
     { id: 'secret_title', name: 'Ковтоп видит тебя', desc: 'Найти тайну в названии игры', coins: 30, xp: 40, secret: true },
-    { id: 'secret_morse', name: 'Сигнал из шахты', desc: 'Расшифровать мигание лампы и ввести код в магазине', coins: 100, xp: 100, secret: true }
+    { id: 'secret_morse', name: 'Сигнал из шахты', desc: 'Расшифровать мигание лампы и ввести код в магазине', coins: 100, xp: 100, secret: true },
+    { id: 'secret_eye', name: 'Взгляд Ковтопа', desc: 'Запомнить пять чисел с экрана Ковтопа и ввести их в магазине', coins: 150, xp: 150, secret: true }
   ];
 
   const DEMO_PLAYERS = [

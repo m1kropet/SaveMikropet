@@ -38,7 +38,7 @@
    npx wrangler login
    npx wrangler deploy
    ```
-3. Wrangler выдаст ссылку вида `https://mikropet.<ваш-поддомен>.workers.dev` — по ней можно играть с любого устройства, онлайн-режимы подключатся автоматически.
+3. Wrangler выдаст ссылку вида `https://savemikropet.<ваш-поддомен>.workers.dev` — по ней можно играть с любого устройства, онлайн-режимы подключатся автоматически.
 
 Устройство: `worker/worker.js` раздаёт файлы игры, а все WebSocket-подключения ведёт в один Durable Object `GameHub` с тем же хабом (`server/hub.js`), что и Node-сервер. Twitch: добавьте `TWITCH_CLIENT_ID` в `[vars]` файла `wrangler.toml`, а Redirect URL в приложении Twitch укажите равным выданной ссылке. Ограничения бесплатного тарифа Durable Objects — на сайте Cloudflare; для небольшой компании игроков их хватает с запасом.
 

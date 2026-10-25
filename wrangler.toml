@@ -1,5 +1,5 @@
 # Cloudflare Workers: npx wrangler deploy
-name = "mikropet"
+name = "savemikropet"
 main = "worker/worker.js"
 compatibility_date = "2025-01-01"
 

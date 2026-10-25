@@ -35,6 +35,9 @@
     cog: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
     full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
     check: '<path d="M5 12l5 5 9-10"/>',
+    heal: '<rect x="4" y="9" width="16" height="6" rx="3"/><path d="M12 9v6M9 12h6"/>',
+    heart: '<path d="M12 20s-7-4.5-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.5-7 10-7 10z"/>',
+    shield: '<path d="M12 3l7 3v5c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6z"/>',
     twitch: '<path d="M5 3h15v11l-5 5h-4l-3 3v-3H4V6z"/><path d="M11 8v4M16 8v4"/>'
   };
   const icon = n => `<svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[n] || ICONS.dot}</svg>`;
@@ -132,11 +135,12 @@
   function modeArt(kind) {
     if (artCache[kind]) return artCache[kind];
     const w = 240, h = 150, HZ = 0.62, c = document.createElement('canvas'); c.width = w; c.height = h;
-    const ctx = c.getContext('2d'), SP = K.Sprites;
+    const ctx = c.getContext('2d'), SP = K.Sprites, mine = kind.endsWith(':mine');
+    kind = kind.split(':')[0];
     const g = ctx.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#1a1210'); g.addColorStop(1, '#070505');
     ctx.fillStyle = g; ctx.fillRect(0, 0, w, h);
-    for (let x = 0; x < w; x += 16) { ctx.fillStyle = x % 32 ? '#15201a' : '#121a15'; ctx.fillRect(x, 0, 16, h * HZ); }
-    ctx.fillStyle = '#2e1c10'; ctx.fillRect(0, h * HZ, w, h * 0.38);
+    for (let x = 0; x < w; x += 16) { ctx.fillStyle = mine ? (x % 32 ? '#2a1e14' : '#231910') : (x % 32 ? '#15201a' : '#121a15'); ctx.fillRect(x, 0, 16, h * HZ); }
+    ctx.fillStyle = mine ? '#1a120b' : '#2e1c10'; ctx.fillRect(0, h * HZ, w, h * 0.38);
     const light = (x, y, r, col) => { const lg = ctx.createRadialGradient(x, y, 0, x, y, r); lg.addColorStop(0, col); lg.addColorStop(1, 'rgba(0,0,0,0)'); ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h); };
     const fig = (fn, x, y, s) => { ctx.save(); ctx.translate(x, y); ctx.scale(s, s); SP.setPx(s); fn(); ctx.restore(); };
     if (kind === 'single') {
@@ -157,22 +161,59 @@
       fig(() => SP.kovtop(ctx, 0.8, false, 1), 182, 146, 34);
       ctx.fillStyle = '#c9a35a'; ctx.font = 'bold 20px Unbounded, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('VS', 120, 40);
     }
-    artCache[kind] = c.toDataURL('image/jpeg', 0.85);
-    return artCache[kind];
+    const key = kind + (mine ? ':mine' : '');
+    artCache[key] = c.toDataURL('image/jpeg', 0.85);
+    return artCache[key];
   }
 
-  // Анимированная сцена главного меню: коридор, дверь, Ковтоп в проёме, микропет.
+  // Лампа в меню мигает азбукой Морзе: ровный свет, пауза, затем слово кода.
+  const MORSE = { A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..' };
+  const MORSE_UNIT = 0.32;
+  const morseTimeline = (() => {
+    const seg = [[6, 1], [2.2, 0]]; // 6 с ровного света, затем темнота
+    K.SECRET_CODE.split('').forEach((ch, li) => {
+      if (li) seg.push([MORSE_UNIT * 3, 0]);
+      MORSE[ch].split('').forEach((sym, si) => {
+        if (si) seg.push([MORSE_UNIT, 0]);
+        seg.push([MORSE_UNIT * (sym === '.' ? 1 : 3), 1]);
+      });
+    });
+    seg.push([2.2, 0]);
+    const total = seg.reduce((a, x) => a + x[0], 0);
+    return { seg, total };
+  })();
+  function lampLevel(t) {
+    let x = t % morseTimeline.total;
+    for (const [d, on] of morseTimeline.seg) { if (x < d) return on ? 1 : 0.04; x -= d; }
+    return 1;
+  }
+
+  K.Morse = { lampLevel, timeline: morseTimeline, unit: MORSE_UNIT };
+
+  // Анимированная сцена главного меню: коридор (или шахта), дверь, Ковтоп в проёме, микропет.
   const MenuArt = {
-    mount(cv, effects) {
+    mount(cv, effects, theme) {
+      const mine = theme === 'mine';
       const ctx = cv.getContext('2d'), SP = K.Sprites;
       const draw = t => {
         const r = cv.getBoundingClientRect(), dpr = Math.min(2, window.devicePixelRatio || 1);
         if (cv.width !== Math.round(r.width * dpr)) { cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr); }
         const w = cv.width, h = cv.height, u = w / 10, HZ = 0.5;
         ctx.setTransform(1, 0, 0, 1, 0, 0);
-        for (let x = 0; x < w; x += u * 0.8) { ctx.fillStyle = Math.round(x / (u * 0.8)) % 2 ? '#15201a' : '#121a15'; ctx.fillRect(x, 0, u * 0.8, h * HZ); }
-        ctx.fillStyle = '#c9a35a22'; for (let x = 0; x < w; x += u * 0.8) ctx.fillRect(x, 0, 1, h * HZ);
-        for (let i = 0, x = 0; x < w; x += u * 0.9, i++) { ctx.fillStyle = ['#3a2316', '#33200f', '#41291a', '#2e1c10'][i % 4]; ctx.beginPath(); ctx.moveTo(w / 2 + (x - w / 2) * 0.35, h * HZ); ctx.lineTo(w / 2 + (x + u * 0.9 - w / 2) * 0.35, h * HZ); ctx.lineTo(x + u * 0.9 + (x - w / 2) * 0.6, h); ctx.lineTo(x + (x - w / 2) * 0.6, h); ctx.fill(); }
+        if (mine) {
+          // каменная стена, крепь и рельсы
+          ctx.fillStyle = '#231910'; ctx.fillRect(0, 0, w, h * HZ);
+          const rr = K.rng(7);
+          for (let i = 0; i < 90; i++) { ctx.fillStyle = ['#2f2216', '#1a120b', '#3a2a1b'][i % 3]; ctx.beginPath(); ctx.ellipse(rr() * w, rr() * h * HZ, u * (0.2 + rr() * 0.6), u * (0.15 + rr() * 0.4), rr() * 3, 0, Math.PI * 2); ctx.fill(); }
+          ctx.fillStyle = '#1a120b'; ctx.fillRect(0, h * HZ, w, h * (1 - HZ));
+          ctx.fillStyle = '#4a2e1a'; for (let k = 0; k < 9; k++) { const y = h * HZ + (h * (1 - HZ)) * (k / 9) ** 1.6; const hw = (u * 0.8) + (w * 0.42) * (k / 9) ** 1.6; ctx.fillRect(w / 2 - hw, y, hw * 2, u * 0.08 + k * 0.6); }
+          ctx.strokeStyle = '#9aa0aa'; ctx.lineWidth = Math.max(1, u * 0.05);
+          [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(w / 2 + sd * u * 0.5, h * HZ); ctx.lineTo(w / 2 + sd * w * 0.32, h); ctx.stroke(); });
+        } else {
+          for (let x = 0; x < w; x += u * 0.8) { ctx.fillStyle = Math.round(x / (u * 0.8)) % 2 ? '#15201a' : '#121a15'; ctx.fillRect(x, 0, u * 0.8, h * HZ); }
+          ctx.fillStyle = '#c9a35a22'; for (let x = 0; x < w; x += u * 0.8) ctx.fillRect(x, 0, 1, h * HZ);
+          for (let i = 0, x = 0; x < w; x += u * 0.9, i++) { ctx.fillStyle = ['#3a2316', '#33200f', '#41291a', '#2e1c10'][i % 4]; ctx.beginPath(); ctx.moveTo(w / 2 + (x - w / 2) * 0.35, h * HZ); ctx.lineTo(w / 2 + (x + u * 0.9 - w / 2) * 0.35, h * HZ); ctx.lineTo(x + u * 0.9 + (x - w / 2) * 0.6, h); ctx.lineTo(x + (x - w / 2) * 0.6, h); ctx.fill(); }
+        }
         // дверь
         const dx = w / 2, dw = u * 2.8, dh = u * 4.3, dy = h * HZ - dh;
         ctx.fillStyle = '#120a05'; ctx.fillRect(dx - dw / 2 - u * 0.2, dy - u * 0.2, dw + u * 0.4, dh + u * 0.2);
@@ -180,21 +221,32 @@
         const rg = ctx.createRadialGradient(dx, dy + dh * 0.6, 0, dx, dy + dh * 0.6, dh); rg.addColorStop(0, 'rgba(255,42,61,0.35)'); rg.addColorStop(1, 'rgba(255,42,61,0)'); ctx.fillStyle = rg; ctx.fillRect(dx - dw / 2, dy, dw, dh);
         ctx.save(); ctx.beginPath(); ctx.rect(dx - dw / 2, dy, dw, dh); ctx.clip();
         ctx.translate(dx, dy + dh * 1.02); const ks = u * 1.75; ctx.scale(ks, ks); SP.setPx(ks * 0.6); SP.kovtop(ctx, t, false, 1); ctx.restore();
-        ctx.fillStyle = '#2c1a10'; ctx.save(); ctx.translate(dx + dw / 2, dy); ctx.transform(1, 0.12, 0, 1, 0, 0); ctx.fillRect(0, 0, -dw * 0.32, dh); ctx.restore();
-        ctx.fillStyle = 'linear'; ctx.fillStyle = '#c9a35a'; ctx.fillRect(dx - u * 0.6, dy - u * 0.9, u * 1.2, u * 0.45);
-        ctx.fillStyle = '#1c1309'; ctx.font = `bold ${Math.round(u * 0.32)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', dx, dy - u * 0.67);
-        // лампа
-        const fl = effects ? (Math.sin(t * 0.7) > 0.97 ? 0.3 : 1) : 1;
-        const lg = ctx.createRadialGradient(dx, u * 0.6, 0, dx, u * 0.6, u * 5); lg.addColorStop(0, `rgba(255,176,90,${0.35 * fl})`); lg.addColorStop(1, 'rgba(255,176,90,0)'); ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
-        SP.glowDot(ctx, dx, u * 0.6, u * 0.18, `rgba(255,210,138,${fl})`, u);
+        if (mine) {
+          // вход в штольню: деревянная крепь вместо двери
+          ctx.fillStyle = '#5a3a20'; ctx.fillRect(dx - dw / 2 - u * 0.35, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx + dw / 2, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx - dw / 2 - u * 0.5, dy - u * 0.5, dw + u, u * 0.35);
+          ctx.fillStyle = '#ffb15c'; ctx.fillRect(dx - u * 0.6, dy - u * 1.05, u * 1.2, u * 0.4);
+          ctx.fillStyle = '#2a1a0c'; ctx.font = `bold ${Math.round(u * 0.28)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ШТ-0', dx, dy - u * 0.85);
+        } else {
+          ctx.fillStyle = '#2c1a10'; ctx.save(); ctx.translate(dx + dw / 2, dy); ctx.transform(1, 0.12, 0, 1, 0, 0); ctx.fillRect(0, 0, -dw * 0.32, dh); ctx.restore();
+          ctx.fillStyle = '#c9a35a'; ctx.fillRect(dx - u * 0.6, dy - u * 0.9, u * 1.2, u * 0.45);
+          ctx.fillStyle = '#1c1309'; ctx.font = `bold ${Math.round(u * 0.32)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', dx, dy - u * 0.67);
+        }
+        // лампа: мигает азбукой Морзе (секрет)
+        const fl = lampLevel(t);
+        const lc = mine ? '255,150,60' : '255,176,90';
+        ctx.strokeStyle = '#1a140e'; ctx.lineWidth = Math.max(1, u * 0.05); ctx.beginPath(); ctx.moveTo(dx, 0); ctx.lineTo(dx, u * 0.45); ctx.stroke();
+        if (mine) { ctx.fillStyle = '#3a2a1a'; ctx.fillRect(dx - u * 0.16, u * 0.42, u * 0.32, u * 0.36); }
+        const lg = ctx.createRadialGradient(dx, u * 0.6, 0, dx, u * 0.6, u * 5); lg.addColorStop(0, `rgba(${lc},${0.35 * fl})`); lg.addColorStop(1, `rgba(${lc},0)`); ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
+        SP.glowDot(ctx, dx, u * 0.6, u * 0.18, `rgba(255,210,138,${Math.max(0.12, fl)})`, u * fl);
         // микропет на переднем плане
-        ctx.save(); ctx.translate(u * 1.9, h * 0.5); const ps = u * 1.3; ctx.scale(ps, ps); SP.setPx(ps * 0.6); SP.pet(ctx, t, 0, 1); ctx.restore();
+        ctx.save(); ctx.translate(u * 1.7, h * 0.4); const ps = u * 1.15; ctx.scale(ps, ps); SP.setPx(ps * 0.6); SP.pet(ctx, t, 0, 1); ctx.restore();
         const vg = ctx.createLinearGradient(0, 0, 0, h); vg.addColorStop(0, 'rgba(11,10,9,0.55)'); vg.addColorStop(0.4, 'rgba(11,10,9,0.1)'); vg.addColorStop(0.75, 'rgba(11,10,9,0.7)'); vg.addColorStop(1, 'rgba(11,10,9,0.95)');
         ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
       };
-      let start = performance.now();
+      const start = performance.now();
+      // лампа нужна для секрета, поэтому сцена анимируется всегда
       const loop = now => { this.raf = requestAnimationFrame(loop); draw((now - start) / 1000); };
-      if (effects) this.raf = requestAnimationFrame(loop); else requestAnimationFrame(() => draw(0.6));
+      this.raf = requestAnimationFrame(loop);
     },
     unmount() { cancelAnimationFrame(this.raf); }
   };
@@ -218,19 +270,21 @@
       const p = app.profile;
       const need = K.Profile.xpNeed(p.level);
       const inc = p.friends.incoming.length;
+      const mt = p.settings.theme === 'mine' ? ':mine' : '';
       return `<div class="screen">
         <div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div>
         <div class="menu-top">
-          <button class="profile-chip" data-act="settings" aria-label="Профиль и настройки"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em"><b>${esc(p.nick)}</b></span>${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}</button>
+          <button class="profile-chip" data-act="settings" aria-label="Профиль и настройки"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em;text-align:left;line-height:1.1"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}</button>
           <span class="plaque coin" title="Монеты аккаунта">${p.coins}</span>
         </div>
         <div class="menu-main">
           <button class="title-btn" data-act="title" aria-label="Название игры"><div class="eyebrow" style="margin-bottom:.5em">Отель · Шахты · Номер 0000</div><div class="h1">Защити <b>микропета</b> от&nbsp;<em>ковтопа</em></div></button>
-          <button class="btn brass block" data-act="play" style="font-size:1.15em;min-height:3.3em">${icon('play')} Играть</button>
+          <button class="btn brass block" data-act="play" id="playBtn" style="font-size:1.15em;min-height:3.3em" ${app.session.playOpen ? 'hidden' : ''}>${icon('play')} Играть</button>
           <div class="play-modes ${app.session.playOpen ? 'open' : ''}" id="modes"><div>
-            <button class="btn mode-btn" data-act="single"><img class="mode-art" alt="" src="${modeArt('single')}">Одиночка<small>3 сложности</small></button>
-            <button class="btn mode-btn" data-act="team"><img class="mode-art" alt="" src="${modeArt('team')}">Команда<small>2–4 игрока</small></button>
-            <button class="btn mode-btn" data-act="duel"><img class="mode-art" alt="" src="${modeArt('duel')}">Дуэль<small>карта соперника</small></button>
+            <button class="btn mode-btn" data-act="single"><img class="mode-art" alt="" src="${modeArt('single' + mt)}">Одиночка<small>3 сложности</small></button>
+            <button class="btn mode-btn" data-act="team"><img class="mode-art" alt="" src="${modeArt('team' + mt)}">Команда<small>2–4 игрока</small></button>
+            <button class="btn small ghost collapse" data-act="collapse" aria-label="Свернуть выбор режима">${icon('x')} Свернуть</button>
+            <button class="btn mode-btn" data-act="duel"><img class="mode-art" alt="" src="${modeArt('duel' + mt)}">Дуэль<small>карта соперника</small></button>
           </div></div>
           <div class="menu-grid">
             <button class="btn" data-act="shop">${icon('shop')} Магазин</button>
@@ -242,10 +296,11 @@
         <div class="foot">Локальная версия · прогресс хранится в этом браузере</div>
       </div>`;
     },
-    mount(el, app) { this.clicks = 0; this.lastClick = 0; MenuArt.mount(el.querySelector('#menuArt'), app.profile.settings.effects); },
+    mount(el, app) { this.clicks = 0; this.lastClick = 0; MenuArt.mount(el.querySelector('#menuArt'), app.profile.settings.effects, app.profile.settings.theme); },
     unmount() { MenuArt.unmount(); },
     act: {
-      play(app, d, b) { app.session.playOpen = !app.session.playOpen; b.closest('.screen').querySelector('#modes').classList.toggle('open', app.session.playOpen); },
+      play(app, d, b) { app.session.playOpen = true; const sc = b.closest('.screen'); sc.querySelector('#modes').classList.add('open'); sc.querySelector('#playBtn').hidden = true; },
+      collapse(app, d, b) { app.session.playOpen = false; const sc = b.closest('.screen'); sc.querySelector('#modes').classList.remove('open'); sc.querySelector('#playBtn').hidden = false; },
       single: app => app.go('single'),
       team: app => app.go('team'),
       duel: app => app.go('duel'),
@@ -327,20 +382,34 @@
         const w = (pub.sizes && pub.sizes[n]) || 0;
         return `<button class="pub-card" data-act="pubJoin" data-size="${n}"><b>${PUB_NAMES[n]}</b><span class="pub-dots">${Array.from({ length: n }, (_, i) => `<i class="${i < w ? 'on' : ''}"></i>`).join('')}</span><span class="note">${w ? 'ждут ' + w + ' из ' + n : 'пусто — будьте первым'}</span></button>`;
       }).join('')}</div>
-      <div class="note">Как только лобби заполнится, через 5 секунд все игроки попадут в совместную игру. Карта выбирается случайно, сложность — «Нормально».${pub.online ? ' Сейчас на сервере: ' + pub.online + '.' : ''}</div></div>`;
+      <div class="note">Как только лобби заполнится, через 5 секунд начнётся голосование за сложность (30 секунд), затем совместная игра. Карта выбирается случайно.${pub.online ? ' Сейчас на сервере: ' + pub.online + '.' : ''}</div></div>`;
   }
   function publicLobby(app, room) {
     const M = K.MAP[room.cfg.map];
     const full = room.players.length >= room.public;
-    return `<div class="section"><div class="row"><div class="grow"><div class="eyebrow">Публичное лобби · ${PUB_NAMES[room.public].toLowerCase()}</div><b>${esc(M ? M.name : '')}</b> <span class="mute">· Нормально</span></div><button class="btn small danger" data-act="netLeave">Выйти</button></div>
+    return `<div class="section"><div class="row"><div class="grow"><div class="eyebrow">Публичное лобби · ${PUB_NAMES[room.public].toLowerCase()}</div><b>${esc(M ? M.name : '')}</b> <span class="mute">· сложность выберете голосованием</span></div><button class="btn small danger" data-act="netLeave">Выйти</button></div>
         <div class="card countdown ${full ? 'go' : ''}"><b id="cd">${full ? 'Старт через 5 с' : 'Ждём игроков: ' + room.players.length + ' из ' + room.public}</b>
         <div class="pub-dots big">${Array.from({ length: room.public }, (_, i) => `<i class="${i < room.players.length ? 'on' : ''}"></i>`).join('')}</div></div></div>
       <div class="section"><div class="eyebrow">Игроки</div><div class="list">${room.players.map(x => `<div class="card row"><i class="dot" style="background:${x.color}"></i>
-        <b class="grow">${esc(x.name)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="mute">ур. ${x.level}</span>${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b></div>`).join('')}
+        <b class="grow">${esc(x.name)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="ptag">${x.tag ? '#' + esc(x.tag) : ''}</span> <span class="mute">ур. ${x.level}</span>${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b></div>`).join('')}
         ${Array.from({ length: room.public - room.players.length }, () => '<div class="card row note">Свободное место…</div>').join('')}</div></div>
       <div class="section"><div class="eyebrow">Ваш отряд в этом матче</div>${squadPicker(app.profile)}</div>`;
   }
+  // Голосование за сложность: 30 секунд, при равенстве — случайная из выбранных.
+  function voteView(app, room) {
+    const v = room.vote, mine = room.myVote;
+    const total = room.players.length;
+    return `<div class="section"><div class="row"><div class="grow"><div class="eyebrow">Голосование за сложность</div><b>${esc((K.MAP[room.cfg.map] || {}).name || '')}</b></div><button class="btn small danger" data-act="netLeave">Выйти</button></div>
+      <div class="card countdown go"><b id="vcd">Осталось ${Math.ceil(v.endsIn / 1000)} с</b><span class="note">Проголосовали ${v.voted} из ${total}. Когда проголосуют все, игра начнётся сразу.</span></div></div>
+      <div class="section"><div class="diff-grid vote-grid">${v.options.map(d => {
+        const D = K.DIFFS[d], n = v.counts[d] || 0;
+        return `<button class="btn pick diff ${mine === d ? 'on' : ''}" data-act="voteDiff" data-id="${d}"><b>${D.name}</b><span class="num">${isFinite(D.waves) ? D.waves + ' волн' : '∞ волн'} · ♥${D.petHp}</span><span class="vote-bar">${Array.from({ length: total }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span></button>`;
+      }).join('')}</div>
+      <div class="note">${v.options.includes('endless') ? 'Бесконечный режим доступен, потому что он открыт у кого-то из игроков. ' : ''}При равенстве голосов выбирается случайная из отмеченных сложностей.</div></div>
+      <div class="section"><div class="eyebrow">Игроки</div><div class="list">${room.players.map(x => `<div class="card row"><i class="dot" style="background:${x.color}"></i><b class="grow">${esc(x.name)} <span class="ptag">${x.tag ? '#' + esc(x.tag) : ''}</span></b><span class="tag ${x.voted ? '' : 'lock'}" style="${x.voted ? 'color:var(--pet);border-color:#3e8f7c' : ''}">${x.voted ? 'голос отдан' : 'выбирает'}</span></div>`).join('')}</div></div>`;
+  }
   function netLobby(app, room) {
+    if (room.state === 'vote' && room.vote) return voteView(app, room);
     if (room.public) return publicLobby(app, room);
     const p = app.profile, me = room.players.find(x => x.id === room.you) || {}, host = room.host === room.you;
     const full = room.mode === 'duel' ? 2 : 4, need = room.mode === 'duel' ? 2 : 2;
@@ -350,28 +419,28 @@
         <button class="btn small" data-act="copyCode" data-code="${room.code}">Скопировать</button><button class="btn small danger" data-act="netLeave">Выйти</button></div>
         <div class="note">Отправьте код ${room.mode === 'duel' ? 'сопернику' : 'друзьям'}: в разделе «${room.mode === 'duel' ? 'Дуэль' : 'Команда'}» они вводят его в поле «Войти по коду».</div></div>
       <div class="section"><div class="eyebrow">Игроки · ${room.players.length} из ${full}</div><div class="list">${room.players.map(x => `<div class="card row"><i class="dot" style="background:${x.color}"></i>
-        <b class="grow">${esc(x.name)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="mute">ур. ${x.level}</span>${x.id === room.host ? ' <span class="tag">хост</span>' : ''}${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b>
+        <b class="grow">${esc(x.name)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="ptag">${x.tag ? '#' + esc(x.tag) : ''}</span> <span class="mute">ур. ${x.level}</span>${x.id === room.host ? ' <span class="tag">хост</span>' : ''}${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b>
         <span class="tag ${x.ready ? '' : 'lock'}" style="${x.ready ? 'color:var(--pet);border-color:#3e8f7c' : ''}">${x.ready ? 'готов' : 'не готов'}</span></div>`).join('')}</div>
         <button class="btn block ${me.ready ? 'pet' : 'brass'}" data-act="netReady">${me.ready ? 'Готов ✓ · отменить' : 'Я готов'}</button></div>
       ${host ? `<div class="section"><div class="eyebrow">Карта</div><div class="list">${mapPicker(room.cfg.map, true, 'netMap')}</div></div>
-        ${room.mode === 'team' ? `<div class="section"><div class="eyebrow">Сложность</div>${diffPicker(p, room.cfg.diff, 'netDiff')}
+        ${room.mode === 'team' ? `<div class="section"><div class="note">Сложность выберете голосованием после старта: 30 секунд на выбор.</div>
           <div class="toggle"><div><b>Автозапуск волн</b></div><button class="switch" role="switch" aria-checked="${!!room.cfg.autoWave}" data-act="netAuto" aria-label="Автозапуск волн"></button></div></div>` : ''}
         <div class="section"><button class="btn brass block" data-act="netStart" ${can ? '' : 'disabled'}>${can ? 'Начать матч' : room.players.length < need ? 'Ждём игроков…' : 'Ждём, пока все будут готовы'}</button></div>`
-      : `<div class="section card note">Хост выбрал: ${esc(M ? M.name : room.cfg.map)}${room.mode === 'team' ? ' · ' + D.name + (room.cfg.autoWave ? ' · волны сами' : '') : ''}. Матч начнёт хост, когда все будут готовы.</div>`}
+      : `<div class="section card note">Хост выбрал: ${esc(M ? M.name : room.cfg.map)}${room.mode === 'team' ? (room.cfg.autoWave ? ' · волны сами' : '') + '. Сложность выберете голосованием после старта' : ''}. Матч начнёт хост, когда все будут готовы.</div>`}
       <div class="section"><div class="eyebrow">Ваш отряд в этом матче</div>${squadPicker(p)}</div>`;
   }
   const netActs = {
     async netCreate(app, d) { if (await netConnect(app)) K.Net.send('create', { mode: d.mode }); },
     async netJoin(app, d, b) {
       const inp = b.closest('.screen').querySelector('#netCode');
-      const code = inp.value.trim().toUpperCase();
-      if (!K.Net.validCode(code)) { app.session.netErr = 'Код выглядит так: KV-7Q3M'; app.refresh(); return; }
+      const code = K.Net.cleanCode(inp.value);
+      if (!K.Net.validCode(code)) { app.session.netErr = 'Код — 4 латинские буквы или цифры, например 7Q3M'; app.refresh(); return; }
       if (await netConnect(app)) K.Net.send('join', { code });
     },
     netLeave(app) { K.Net.send('leave'); app.session.netRoom = null; app.refresh(); },
     netReady(app) { const r = app.session.netRoom; const me = r && r.players.find(x => x.id === r.you); K.Net.send('ready', { ready: !(me && me.ready) }); },
     netMap(app, d) { const r = app.session.netRoom; K.Net.send('config', { cfg: Object.assign({}, r.cfg, { map: d.id }) }); },
-    netDiff(app, d) { const r = app.session.netRoom; K.Net.send('config', { cfg: Object.assign({}, r.cfg, { diff: d.id }) }); },
+    voteDiff(app, d) { K.Net.send('voteDiff', { diff: d.id }); },
     netAuto(app) { const r = app.session.netRoom; K.Net.send('config', { cfg: Object.assign({}, r.cfg, { autoWave: !r.cfg.autoWave }) }); },
     netStart() { K.Net.send('start'); },
     async pubJoin(app, d) { if (await netConnect(app)) { K.Net.send('squad', { squad: app.profile.squad }); K.Net.send('publicJoin', { size: +d.size }); } },
@@ -392,7 +461,7 @@
       else if (nr && nr.mode === 'team') online = netLobby(app, nr);
       else online = publicLobbies(app) + `<div class="section"><div class="eyebrow">Своя комната с друзьями</div>
           <button class="btn brass block" data-act="netCreate" data-mode="team">Создать онлайн-комнату</button>
-          <div class="row"><input type="text" id="netCode" maxlength="7" placeholder="KV-XXXX" autocomplete="off" aria-label="Код комнаты"><button class="btn" data-act="netJoin">Войти по коду</button></div>
+          <div class="row"><input type="text" id="netCode" maxlength="4" placeholder="XXXX" style="text-transform:uppercase;font-family:var(--f-mono)" autocomplete="off" aria-label="Код комнаты"><button class="btn" data-act="netJoin">Войти по коду</button></div>
           ${netStatus(app)}<div class="note">Деньги общие, сервер проверяет каждую покупку, у каждого свой цвет башен.</div></div>`;
       let local = '';
       if (!(nr && nr.mode === 'team')) {
@@ -419,7 +488,9 @@
       if (K.Net.available() && K.Net.state === 'off' && !this.tried) { this.tried = true; netConnect(app).then(ok => { if (ok) K.Net.send('publics'); }); }
       this.cdTimer = setInterval(() => {
         const cd = document.getElementById('cd'), end = app.session.countdownEnd;
-        if (cd && end) { const left = Math.max(0, Math.ceil((end - Date.now()) / 1000)); cd.textContent = left > 0 ? 'Лобби заполнено! Старт через ' + left + ' с' : 'Запускаем матч…'; }
+        if (cd && end) { const left = Math.max(0, Math.ceil((end - Date.now()) / 1000)); cd.textContent = left > 0 ? 'Лобби заполнено! Голосование через ' + left + ' с' : 'Начинаем голосование…'; }
+        const vcd = document.getElementById('vcd'), vend = app.session.voteEnd;
+        if (vcd && vend) { const left = Math.max(0, Math.ceil((vend - Date.now()) / 1000)); vcd.textContent = left > 0 ? 'Осталось ' + left + ' с' : 'Подводим итоги…'; }
       }, 200);
       if (params && params.invite) {
         app.session.inviteFor = params.invite;
@@ -469,7 +540,7 @@
       else online = `<div class="section"><div class="eyebrow">Онлайн против живого игрока</div>
           <button class="btn brass block" data-act="netQueue">Поиск случайного соперника</button>
           <button class="btn block" data-act="netCreate" data-mode="duel">Вызвать друга — создать дуэль</button>
-          <div class="row"><input type="text" id="netCode" maxlength="7" placeholder="KV-XXXX" autocomplete="off" aria-label="Код дуэли"><button class="btn" data-act="netJoin">Войти по коду</button></div>
+          <div class="row"><input type="text" id="netCode" maxlength="4" placeholder="XXXX" style="text-transform:uppercase;font-family:var(--f-mono)" autocomplete="off" aria-label="Код дуэли"><button class="btn" data-act="netJoin">Войти по коду</button></div>
           ${netStatus(app)}</div>`;
       return `<div class="screen">${topbar('Дуэль', coinsChip(p))}<div class="scroll">
         <div class="section"><div class="kv card"><span>Победы / поражения / ничьи</span><b>${D.w} / ${D.l} / ${D.d}</b><span>Максимальная волна</span><b>${D.maxWave}</b></div></div>
@@ -505,25 +576,34 @@
       const H = K.HERO[sel];
       const owned = p.owned.includes(sel), inSquad = p.squad.includes(sel);
       const maxOf = k => Math.max(...K.HEROES.map(h => k === 'dps' ? h.base.dmg * h.base.rate : h.base[k] || 0));
-      const bars = [['Урон', 'dmg'], ['Скорострельность', 'rate'], ['Дальность', 'range'], ['DPS', 'dps']].map(([n, k]) => {
+      const bars = (H.base.passive ? [] : [['Урон', 'dmg'], ['Скорострельность', 'rate'], ['Дальность', 'range'], ['DPS', 'dps']]).map(([n, k]) => {
         const v = k === 'dps' ? H.base.dmg * H.base.rate : H.base[k];
         return `<span>${n}</span><div class="bar"><i style="width:${Math.round(100 * v / maxOf(k))}%;background:${H.color}"></i></div><b class="num">${k === 'rate' ? v.toFixed(2) : Math.round(v * 10) / 10}</b>`;
       }).join('');
-      const traits = [H.base.aa && 'ПВО с рождения', H.base.vision && 'Вижен с рождения', H.base.splash && 'Урон по области', H.base.slow && 'Замедление', H.base.chain && 'Цепь ' + H.base.chain, H.base.income && 'Доход +' + H.base.income + '/волну'].filter(Boolean);
+      const traits = [H.base.passive && 'Не атакует', H.base.aa && 'ПВО с рождения', H.base.vision && 'Вижен с рождения', H.base.splash && 'Урон по области', H.base.slow && 'Замедление', H.base.chain && 'Цепь ' + H.base.chain, H.base.income && 'Доход +' + H.base.income + '/волну'].filter(Boolean);
       const blist = (arr, br) => arr.map((u, i) => `<div class="it"><span style="color:${br ? '#ffb7c0' : 'var(--brass-hi)'}">${icon(u.icon)}</span><span class="grow"><b>${i + 1}. ${esc(u.name)}</b><br><span class="mute">${esc(u.desc)}</span></span><span class="num">${u.cost}</span></div>`).join('');
       let action;
       if (!owned) action = `<button class="btn brass block" data-act="buy" ${p.coins < H.price ? 'disabled' : ''}>Купить за <span class="num coin">${H.price}</span></button>${p.coins < H.price ? `<div class="note">Не хватает ${H.price - p.coins} монет. Монеты дают за волны, победы и достижения.</div>` : ''}`;
       else action = `<button class="btn ${inSquad ? 'pet' : ''} block" data-act="squadT">${inSquad ? 'В отряде ✓ · убрать' : 'Добавить в отряд'}</button>`;
-      return `<div class="section"><div class="list">${K.HEROES.map(h => `<button class="hero-card ${sel === h.id ? 'on' : ''} ${p.owned.includes(h.id) ? '' : 'locked'}" data-act="sel" data-id="${h.id}">
+      // сортировка: по редкости или по цене
+      const sort = app.session.shopSort || 'rarity';
+      const ro = h => K.RARITY_ORDER.indexOf(h.rarity);
+      const list = K.HEROES.slice().sort(sort === 'rarity' ? (a, b) => ro(a) - ro(b) || a.price - b.price : sort === 'cheap' ? (a, b) => a.price - b.price || ro(a) - ro(b) : (a, b) => b.price - a.price || ro(b) - ro(a));
+      const sortBar = `<div class="row"><span class="eyebrow grow">Сортировка</span><div class="seg" style="min-width:14em">${[['rarity', 'Редкость'], ['cheap', 'Дешевле'], ['dear', 'Дороже']].map(([k, n]) => `<button class="${sort === k ? 'on' : ''}" data-act="sort" data-id="${k}">${n}</button>`).join('')}</div></div>`;
+      return `<div class="section">${sortBar}<div class="list">${list.map(h => `<button class="hero-card ${sel === h.id ? 'on' : ''} ${p.owned.includes(h.id) ? '' : 'locked'}" data-act="sel" data-id="${h.id}">
             <span class="hero-thumb" style="background-image:url(${K.thumbs[h.id] || ''})"></span>
             <span class="grow" style="min-width:0"><span class="rar" style="color:${h.color}">${h.rarity}</span><br><b>${h.name}</b><br><span class="note">${h.role}</span></span>
             <span style="text-align:right">${p.owned.includes(h.id) ? (p.squad.includes(h.id) ? '<span class="tag" style="color:var(--pet);border-color:#3e8f7c">в отряде</span>' : '<span class="tag">открыт</span>') : `<span class="tag lock">${icon('lock')}</span><br><span class="num coin">${h.price}</span>`}</span></button>`).join('')}</div></div>
           <div class="section card"><div class="note">${esc(H.desc)}</div>
             <div class="chips">${traits.map(t => `<span class="tag">${t}</span>`).join('')}<span class="tag">Установка: ${H.cost}</span></div>
             <div class="cmp">${bars}</div>${action}</div>
-          <div class="section card"><div class="eyebrow">Верхняя ветка · дальность и скорость</div><div class="blist">${blist(H.top, 0)}</div></div>
-          <div class="section card"><div class="eyebrow">Нижняя ветка · мощный урон</div><div class="blist">${blist(H.bottom, 1)}</div></div>
-          <div class="section note">Уровни 1–2 можно купить в обеих ветках всегда. Выше 2-го уровня можно прокачать только одну ветку — вторая остаётся максимум на 2.</div>`;
+          <div class="section card"><div class="eyebrow">Верхняя ветка · ${H.base.passive ? 'жизни микропета' : 'дальность и скорость'}</div><div class="blist">${blist(H.top, 0)}</div></div>
+          <div class="section card"><div class="eyebrow">Нижняя ветка · ${H.base.passive ? 'больше монет' : 'мощный урон'}</div><div class="blist">${blist(H.bottom, 1)}</div></div>
+          <div class="section note">Уровни 1–2 можно купить в обеих ветках всегда. Выше 2-го уровня можно прокачать только одну ветку — вторая остаётся максимум на 2.</div>
+          <div class="section card code-box"><div class="eyebrow">Ввести код</div>
+            <div class="row"><input type="text" id="promo" maxlength="16" placeholder="Код" autocomplete="off" aria-label="Код"><button class="btn" data-act="code">Активировать</button></div>
+            <div class="err" id="promoErr"></div>
+            ${p.themes.length > 1 ? `<div class="note">Открытые оформления: ${p.themes.map(t => K.THEMES[t].name).join(', ')}. Переключить можно в настройках.</div>` : '<div class="note">Иногда подсказки к кодам прячутся прямо в игре.</div>'}</div>`;
     },
     html(app) {
       return `<div class="screen">${topbar('Магазин героев', '<span id="shopCoins">' + coinsChip(app.profile) + '</span>')}
@@ -574,7 +654,15 @@
         got.forEach(a => toast('Достижение: ' + a.name + ' · +' + a.coins, 'gold'));
         S.shop.update(app);
       },
-      squadT(app) { if (toggleSquad(app, app.session.shopSel || 'blaster') !== false) S.shop.update(app); }
+      squadT(app) { if (toggleSquad(app, app.session.shopSel || 'blaster') !== false) S.shop.update(app); },
+      sort(app, d) { app.session.shopSort = d.id; S.shop.update(app); },
+      code(app, d, b) {
+        const inp = b.closest('.screen').querySelector('#promo'), err = b.closest('.screen').querySelector('#promoErr');
+        const r = K.Save.redeem(app.profile, inp.value);
+        if (!r.ok) { err.textContent = r.reason; K.Audio.play('deny', 0); return; }
+        app.persist(); app.applyFx(); K.Audio.play('secret', 0);
+        modal(`<div class="h2">Сигнал из шахты</div><div class="banner">Код принят! Открыто оформление «Шахты»: камень, крепь и свет фонарей. Оно уже включено — сменить можно в настройках.</div>${r.achievements.map(a => `<div class="row"><span class="tag demo">Достижение</span><span class="grow">${esc(a.name)}</span><span class="num coin">+${a.coins}</span></div>`).join('')}<button class="btn brass block" data-m="close">Отлично</button>`, { close: () => { closeModal(); S.shop.update(app); } }, { center: true });
+      }
     }
   };
 
@@ -599,7 +687,7 @@
           ${rows.length > 1 ? `<div class="row"><span class="note grow">Сортировка: ${desc ? 'лучшие сверху' : 'с конца'}</span><button class="btn small" data-act="sort">Перевернуть</button></div>` : ''}</div>
         <div class="section"><div class="list">${rows.map((r, i) => `<button class="lb-row ${r.me ? 'me' : ''}" data-act="profile" data-i="${r.me ? 'me' : i}">
           <span class="num">${desc ? i + 1 : rows.length - i}</span>
-          <span style="min-width:0"><b>${esc(r.nick)}</b>${r.verified ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}<br><span class="note">ур. ${r.level} · ${r.me ? (p.twitch ? 'вы · Twitch подтверждён' : 'вы · локально') : '<span class="dot ' + (r.online ? 'on' : '') + '"></span> ' + (r.online ? 'в сети' : 'не в сети')}</span></span>
+          <span style="min-width:0"><b>${esc(r.nick)}</b> <span class="ptag">${r.me ? '#' + esc(p.tag) : r.tag ? '#' + esc(r.tag) : ''}</span>${r.verified ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}<br><span class="note">ур. ${r.level} · ${r.me ? (p.twitch ? 'вы · Twitch подтверждён' : 'вы · локально') : '<span class="dot ' + (r.online ? 'on' : '') + '"></span> ' + (r.online ? 'в сети' : 'не в сети')}</span></span>
           <b class="num">${def[3](def[2](r))}</b></button>`).join('')}</div></div>
       </div></div>`;
     },
@@ -627,25 +715,49 @@
       const p = app.profile, F = p.friends;
       const q = (app.session.fq || '').trim().toLowerCase();
       const known = new Set([...F.list.map(x => x.nick), ...F.outgoing.map(x => x.nick), ...F.incoming.map(x => x.nick)]);
-      const results = q ? K.DEMO_PLAYERS.filter(d => d.nick.toLowerCase().includes(q)) : [];
+      const net = K.Net.available();
+      const isTag = /^#?[a-z0-9]{3,11}$/i.test(q) && q.startsWith('#');
+      const results = q && !net ? K.DEMO_PLAYERS.filter(d => d.nick.toLowerCase().includes(q)) : [];
+      const found = app.session.found;
       const online = n => hash(n) % 3 === 0;
+      let res = '';
+      if (q && net) {
+        if (!found || found.tag !== q.replace('#', '').toUpperCase()) res = '<div class="note">Ищем…</div>';
+        else if (!found.player) res = '<div class="note">Игрока с таким тегом нет.</div>';
+        else { const f = found.player; res = `<div class="card row"><span class="dot ${f.online ? 'on' : ''}"></span><b class="grow">${esc(f.nick)} <span class="ptag">#${esc(f.tag)}</span></b><span class="note">ур. ${f.level}</span>${known.has(f.nick) ? '<span class="tag">уже в списке</span>' : `<button class="btn small" data-act="request" data-n="${esc(f.nick)}" data-tag="${esc(f.tag)}">Добавить</button>`}</div>`; }
+      } else if (q) res = results.length ? results.map(d => `<div class="card row"><b class="grow">${esc(d.nick)}</b><span class="tag demo">демо</span>${known.has(d.nick) ? '<span class="tag">уже в списке</span>' : `<button class="btn small" data-act="request" data-n="${esc(d.nick)}">Добавить</button>`}</div>`).join('') : '<div class="note">Никого не нашлось.</div>';
       return `<div class="screen">${topbar('Друзья')}<div class="scroll">
-        <div class="section"><div class="banner">Игроки здесь — демонстрационные профили, чтобы показать работу интерфейса. Настоящие заявки, статусы и приглашения требуют игрового сервера.</div></div>
-        <div class="section"><div class="eyebrow">Поиск по никнейму</div><div class="row"><input type="text" id="fq" value="${esc(app.session.fq || '')}" placeholder="Например, Фонарик" autocomplete="off"><button class="btn" data-act="search">Найти</button></div>
-          <div class="list">${q ? (results.length ? results.map(d => `<div class="card row"><b class="grow">${esc(d.nick)}</b><span class="tag demo">демо</span>${known.has(d.nick) ? '<span class="tag">уже в списке</span>' : `<button class="btn small" data-act="request" data-n="${esc(d.nick)}">Добавить</button>`}</div>`).join('') : '<div class="note">Никого не нашлось.</div>') : ''}</div></div>
+        <div class="section card row"><div class="grow"><div class="eyebrow">Ваш тег</div><span class="plaque" style="font-size:1.2em">#${esc(p.tag)}</span></div><button class="btn small" data-act="copyTag">Скопировать</button></div>
+        ${net ? '' : '<div class="section"><div class="banner">Сервер не подключён: игроки ниже — демонстрационные профили. Поиск по тегу работает, когда игра открыта с сервера.</div></div>'}
+        <div class="section"><div class="eyebrow">${net ? 'Поиск по тегу' : 'Поиск по никнейму'}</div><div class="row"><input type="text" id="fq" value="${esc(app.session.fq || '')}" placeholder="${net ? '#GRJ' : 'Например, Фонарик'}" autocomplete="off" style="${net ? 'text-transform:uppercase;font-family:var(--f-mono)' : ''}"><button class="btn" data-act="search">Найти</button></div>
+          <div class="list">${res}</div></div>
         ${F.incoming.length ? `<div class="section"><div class="eyebrow">Заявки в друзья · ${F.incoming.length}</div><div class="list">${F.incoming.map(r => `<div class="card row"><b class="grow">${esc(r.nick)}</b><button class="btn small pet" data-act="accept" data-n="${esc(r.nick)}">Принять</button><button class="btn small" data-act="decline" data-n="${esc(r.nick)}">Отклонить</button></div>`).join('')}</div></div>` : ''}
         ${F.outgoing.length ? `<div class="section"><div class="eyebrow">Отправленные</div><div class="list">${F.outgoing.map(r => `<div class="card row"><b class="grow">${esc(r.nick)}</b><span class="note">ожидает ответа · нужен сервер</span><button class="btn small" data-act="cancelReq" data-n="${esc(r.nick)}">Отозвать</button></div>`).join('')}</div></div>` : ''}
-        <div class="section"><div class="eyebrow">Список друзей · ${F.list.length}</div><div class="list">${F.list.length ? F.list.map(f => `<div class="card"><div class="row"><span class="dot ${online(f.nick) ? 'on' : ''}"></span><b class="grow">${esc(f.nick)}</b><span class="note">${online(f.nick) ? 'в сети' : 'не в сети'} · демо</span></div>
+        <div class="section"><div class="eyebrow">Список друзей · ${F.list.length}</div><div class="list">${F.list.length ? F.list.map(f => `<div class="card"><div class="row"><span class="dot ${online(f.nick) ? 'on' : ''}"></span><b class="grow">${esc(f.nick)} ${f.tag ? '<span class="ptag">#' + esc(f.tag) + '</span>' : ''}</b><span class="note">${f.tag ? '' : (online(f.nick) ? 'в сети' : 'не в сети') + ' · демо'}</span></div>
           <div class="row" style="margin-top:.5em;flex-wrap:wrap"><button class="btn small" data-act="fprofile" data-n="${esc(f.nick)}">Профиль</button><button class="btn small" data-act="invite" data-n="${esc(f.nick)}">В команду</button><button class="btn small" data-act="challenge" data-n="${esc(f.nick)}">Дуэль</button><button class="btn small danger" data-act="remove" data-n="${esc(f.nick)}">Удалить</button></div></div>`).join('') : '<div class="note">Пока пусто. Найдите игроков через поиск.</div>'}</div></div>
       </div></div>`;
     },
     mount(el, app) {
       const inp = el.querySelector('#fq');
-      if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') { app.session.fq = inp.value; app.refresh(); } });
+      if (inp) inp.addEventListener('keydown', e => { if (e.key === 'Enter') S.friends.doSearch(app, inp.value); });
+    },
+    async doSearch(app, v) {
+      v = String(v || '').trim();
+      if (K.Net.available()) {
+        v = '#' + v.replace(/^#/, '').toUpperCase();
+        app.session.fq = v; app.session.found = null; app.refresh();
+        if (!/^#[A-Z0-9]{3,11}$/.test(v)) { app.session.found = { tag: v.slice(1), player: null }; app.refresh(); return; }
+        if (await netConnect(app)) K.Net.send('findTag', { tag: v });
+      } else { app.session.fq = v; app.refresh(); }
     },
     act: {
-      search(app, d, b) { app.session.fq = b.closest('.screen').querySelector('#fq').value; app.refresh(); },
-      request(app, d) { const F = app.profile.friends; if (!F.outgoing.some(x => x.nick === d.n)) F.outgoing.push({ nick: d.n, at: Date.now() }); app.persist(); toast('Заявка сохранена. Отправится, когда появится сервер.', 'gold'); app.refresh(); },
+      search(app, d, b) { S.friends.doSearch(app, b.closest('.screen').querySelector('#fq').value); },
+      copyTag(app) { const t = '#' + app.profile.tag; if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(() => toast('Тег скопирован', 'good'), () => toast('Ваш тег: ' + t, 'gold')); else toast('Ваш тег: ' + t, 'gold'); },
+      request(app, d) {
+        const F = app.profile.friends;
+        if (d.tag) { if (!F.list.some(x => x.nick === d.n)) F.list.push({ nick: d.n, tag: d.tag, since: Date.now() }); app.persist(); toast(d.n + ' добавлен в друзья', 'good'); app.refresh(); return; }
+        if (!F.outgoing.some(x => x.nick === d.n)) F.outgoing.push({ nick: d.n, at: Date.now() }); app.persist(); toast('Заявка сохранена. Отправится, когда появится сервер.', 'gold'); app.refresh();
+      },
       cancelReq(app, d) { const F = app.profile.friends; F.outgoing = F.outgoing.filter(x => x.nick !== d.n); app.persist(); app.refresh(); },
       accept(app, d) { const F = app.profile.friends; F.incoming = F.incoming.filter(x => x.nick !== d.n); if (!F.list.some(x => x.nick === d.n)) F.list.push({ nick: d.n, since: Date.now() }); app.persist(); toast(d.n + ' теперь в друзьях', 'good'); app.refresh(); },
       decline(app, d) { const F = app.profile.friends; F.incoming = F.incoming.filter(x => x.nick !== d.n); app.persist(); app.refresh(); },
@@ -673,16 +785,17 @@
       const achs = K.ACHIEVEMENTS.map(a => { const got = !!p.achievements[a.id]; return `<div class="ach ${got ? 'got' : ''}"><span class="medal">${got ? icon('star') : icon('lock')}</span><div class="grow"><b>${a.secret && !got ? '???' : esc(a.name)}</b><div class="note">${a.secret && !got ? 'Тайное достижение' : esc(a.desc)}</div></div><span class="num note">+${a.coins}</span></div>`; }).join('');
       return `<div class="screen">${topbar('Профиль и настройки')}<div class="scroll">
         <div class="section card">
-          <div class="row"><div class="lvl" style="--p:${Math.round(100 * p.xp / need)};font-size:1.3em"><span>${p.level}</span></div><div class="grow"><div class="h2">${esc(p.nick)}</div><div class="note">Опыт ${p.xp} / ${need} · до уровня ${need - p.xp}</div><div class="bar" style="margin-top:.3em"><i style="width:${100 * p.xp / need}%"></i></div></div></div>
+          <div class="row"><div class="lvl" style="--p:${Math.round(100 * p.xp / need)};font-size:1.3em"><span>${p.level}</span></div><div class="grow"><div class="h2">${esc(p.nick)} <span class="ptag">#${esc(p.tag)}</span></div><div class="note">Тег выдаётся один раз и не меняется${p.tagVerified ? '' : ' (подтвердится при подключении к серверу)'} · Опыт ${p.xp} / ${need} · до уровня ${need - p.xp}</div><div class="bar" style="margin-top:.3em"><i style="width:${100 * p.xp / need}%"></i></div></div></div>
           <div class="kv"><span>Открыто башен</span><b>${p.owned.length} / ${K.HEROES.length}</b><span>Максимальная волна</span><b>${p.maxWave}</b><span>Рекорд бесконечного</span><b>${p.endless.best}${p.endless.bestTime ? ' · ' + fmtTime(p.endless.bestTime) : ''}</b><span>Дуэли: победы / поражения / ничьи</span><b>${p.duel.w} / ${p.duel.l} / ${p.duel.d}</b><span>Всего уничтожено</span><b>${p.stats.kills}</b><span>Время в игре</span><b>${fmtHours(p.playTime)}</b><span>Монеты аккаунта</span><b class="coin">${p.coins}</b></div>
         </div>
         <div class="section"><div class="eyebrow">Twitch</div>${twitchBlock(p)}</div>
         <div class="section"><div class="eyebrow">Никнейм</div>${p.twitch ? `<div class="card note">Никнейм взят из Twitch: <b>${esc(p.twitch.display)}</b>. Чтобы сменить его вручную, отвяжите Twitch.</div>` : `<div class="row"><input type="text" id="nick" value="${esc(p.nick)}" maxlength="16" autocomplete="off"><button class="btn" data-act="nick">Сохранить</button></div><div class="err" id="nickErr"></div>`}</div>
         <div class="section"><div class="eyebrow">Игра</div>
           ${sw('sound', 'Звук')}
-          ${sw('autoWave', 'Автозапуск волн', 'Следующая волна стартует через 3 с после предыдущей. В дуэли волны всегда автоматические.')}
+          <div class="note">Автозапуск волн и скорость игры — в меню паузы во время матча.</div>
           ${sw('effects', 'Дополнительные эффекты', 'Мерцание ламп, пыль, частицы, покачивание камеры. Отключите для стабильности трансляции.')}
           <div class="toggle"><b>Качество графики</b><div class="seg" style="min-width:12em">${[['low', 'Низкое'], ['mid', 'Среднее'], ['high', 'Высокое']].map(([k, n]) => `<button class="${st.quality === k ? 'on' : ''}" data-act="q" data-id="${k}">${n}</button>`).join('')}</div></div>
+          <div class="toggle"><div><b>Оформление</b><div class="note">${p.themes.length > 1 ? 'Открыто кодом из магазина' : 'Другие оформления открываются секретными кодами'}</div></div><div class="seg" style="min-width:10em">${p.themes.map(t => `<button class="${st.theme === t ? 'on' : ''}" data-act="theme" data-id="${t}">${K.THEMES[t].name}</button>`).join('')}</div></div>
           <div class="toggle"><div><b>Полный экран</b><div class="note">Удобно для браузерной версии</div></div><button class="btn small" data-act="full">${icon('full')} Включить</button></div>
         </div>
         <div class="section"><div class="eyebrow">Сохранение</div><div class="card kv"><span>Формат</span><b>v${inf.version}</b><span>Хранилище</span><b>${inf.storage ? 'браузер (localStorage)' : 'недоступно — прогресс не сохранится'}</b><span>Размер</span><b>${(inf.size / 1024).toFixed(1)} КБ</b><span>Последнее сохранение</span><b>${new Date(inf.savedAt).toLocaleString('ru-RU')}</b></div>
@@ -700,6 +813,7 @@
         app.persist(); app.refresh();
       },
       q(app, d) { app.profile.settings.quality = d.id; app.persist(); app.refresh(); },
+      theme(app, d) { if (app.profile.themes.includes(d.id)) { app.profile.settings.theme = d.id; app.persist(); app.applyFx(); app.refresh(); } },
       twLogin(app) {
         const r = K.Twitch.login();
         if (!r.ok) modal(`<div class="h2">Вход через Twitch</div><div class="banner">${esc(r.reason)}</div><div class="note">Как включить: зарегистрируйте приложение на dev.twitch.tv, укажите адрес страницы игры как OAuth Redirect URL и впишите Client ID в js/config.js. Подробности в README.</div><button class="btn block" data-m="close">Понятно</button>`, { close: () => closeModal() }, { center: true });
@@ -737,7 +851,7 @@
         <div class="banner">Чтобы играть, подтвердите аккаунт Twitch. Мы получаем только ваш ник и аватар — без доступа к каналу.</div>
         ${twitchBlock(app.profile)}</div></div>`;
     },
-    mount(el, app) { MenuArt.mount(el.querySelector('#menuArt'), app.profile.settings.effects); },
+    mount(el, app) { MenuArt.mount(el.querySelector('#menuArt'), app.profile.settings.effects, app.profile.settings.theme); },
     unmount() { MenuArt.unmount(); },
     act: { twLogin(app) { S.settings.act.twLogin(app); } }
   };
@@ -774,6 +888,7 @@
       N.on('room', m => {
         ses.netRoom = m; ses.queued = false; ses.netErr = '';
         ses.countdownEnd = m.startsIn != null ? Date.now() + m.startsIn : null;
+        ses.voteEnd = m.vote ? Date.now() + m.vote.endsIn : null;
         if (!lobbyScreen() && this.curName !== 'game') this.go(m.mode === 'duel' ? 'duel' : 'team'); else if (this.curName !== 'game') this.refresh();
         if (m.mode === 'team' && ses.inviteFor) { toast('Отправьте код ' + m.code + ' игроку ' + ses.inviteFor, 'gold'); ses.inviteFor = null; }
       });
@@ -782,9 +897,11 @@
       N.on('unqueued', () => { ses.queued = false; if (lobbyScreen()) this.refresh(); });
       N.on('error', m => { ses.netErr = m.reason; toast(m.reason, 'bad'); if (lobbyScreen()) this.refresh(); });
       N.on('publics', m => { ses.publics = m; if (this.curName === 'team' && !(ses.netRoom && ses.netRoom.mode === 'team')) this.refresh(); });
+      N.on('tag', m => { const p = this.profile; if (p.tag !== m.tag) toast('Ваш тег: #' + m.tag, 'gold'); p.tag = m.tag; p.tagVerified = true; this.persist(); if (this.curName === 'menu' || this.curName === 'settings') this.refresh(); });
+      N.on('found', m => { ses.found = m; if (this.curName === 'friends') this.refresh(); });
       N.on('leaders', m => { ses.serverLeaders = m.rows; if (this.curName === 'leaders') this.refresh(); });
       N.on('authed', m => toast('Сервер подтвердил Twitch: ' + m.login, 'good'));
-      N.on('start', m => { ses.netRoom = null; ses.queued = false; this.startMatch({ mode: m.mode, online: m, squad: m.squad }); });
+      N.on('start', m => { ses.netRoom = null; ses.queued = false; this.startMatch({ mode: m.mode, online: m, squad: m.squad }); if (m.diffName) toast('Сложность: ' + m.diffName, 'gold'); });
       N.on('close', () => { const had = ses.netRoom || ses.queued; ses.netRoom = null; ses.queued = false; if (had) { toast('Соединение с сервером закрыто', 'bad'); if (lobbyScreen()) this.refresh(); } });
     },
     init(root, render) {
@@ -839,7 +956,11 @@
       if (!ok && !this.warnedStorage) { this.warnedStorage = true; toast('Браузер не даёт сохранять: прогресс сохранится только до закрытия вкладки', 'bad'); }
     },
     applySettings() { K.Audio.setEnabled(this.profile.settings.sound); this.applyFx(); },
-    applyFx() { document.getElementById('frame').classList.toggle('no-fx', !this.profile.settings.effects); }
+    applyFx() {
+      const fr = document.getElementById('frame');
+      fr.classList.toggle('no-fx', !this.profile.settings.effects);
+      fr.classList.toggle('theme-mine', this.profile.settings.theme === 'mine');
+    }
   };
 
   K.App = App;

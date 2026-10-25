@@ -19,7 +19,7 @@
       case 'chain': return { t: 'chain', tower: towerRef(ev.tower), pts: ev.pts.map(p => ({ x: r2(p.x), z: r2(p.z) })) };
       case 'pulse': return { t: 'pulse', tower: towerRef(ev.tower), r: ev.r };
       case 'boom': case 'impact': case 'blocked': return { t: ev.t, x: r2(ev.x), z: r2(ev.z), r: ev.r, kind: ev.kind, crit: ev.crit };
-      case 'freeze': case 'stun': case 'heal': case 'summon': case 'enrage': case 'spawn': case 'leak': return { t: ev.t, e: enemyRef(ev.e) };
+      case 'freeze': case 'stun': case 'heal': case 'summon': case 'enrage': case 'spawn': case 'leak': case 'shield': return { t: ev.t, e: enemyRef(ev.e) };
       case 'die': return { t: 'die', e: enemyRef(ev.e), reward: ev.reward, bonus: ev.bonus };
       case 'wave': return { t: 'wave', n: ev.n, boss: ev.boss };
       case 'waveClear': return { t: 'waveClear', n: ev.n, bonus: ev.bonus, income: ev.income };
@@ -32,8 +32,8 @@
   function snapField(f, opts) {
     opts = opts || {};
     const s = {
-      t: r2(f.time), c: Math.floor(f.coins), hp: f.hp, mh: f.maxHp, wn: f.waveNum, fw: isFinite(f.finalWave) ? f.finalWave : -1,
-      act: f.active.length, at: r2(f.autoTimer), ov: f.over ? 1 : 0, rs: f.result, wc: f.wavesCleared, k: f.kills, er: Math.floor(f.earned), lk: f.leaks, mt: f.maxTierHit ? 1 : 0,
+      t: r2(f.time), w: Object.fromEntries(Object.entries(f.wallets).map(([k, v]) => [k, Math.floor(v)])), eb: Object.fromEntries(Object.entries(f.earnedBy).map(([k, v]) => [k, Math.floor(v)])), sk: f.canSkip() ? 1 : 0, sh: f.shieldLeft, hp: f.hp, mh: f.maxHp, wn: f.waveNum, fw: isFinite(f.finalWave) ? f.finalWave : -1,
+      act: f.active.length, at: r2(f.autoTimer), ov: f.over ? 1 : 0, rs: f.result, wc: f.wavesCleared, k: f.kills, lk: f.leaks, mt: f.maxTierHit ? 1 : 0,
       tw: f.towers.map(t => [t.id, HEROES.indexOf(t.hero), r2(t.x), r2(t.z), t.owner, t.up[0], t.up[1], (t.skills.vision ? 1 : 0) | (t.skills.aa ? 2 : 0), TARGETS.indexOf(t.targeting), r2(t.aim), t.blocked ? 1 : 0, t.spent, Math.round(t.dealt), t.kills]),
       en: f.enemies.filter(e => !e.dead).map(e => [e.id, TYPES.indexOf(e.type), r2(e.x), r2(e.z), Math.ceil(e.hp), e.maxHp,
         (e.flying ? 1 : 0) | (e.invisible ? 2 : 0) | (e.revealed ? 4 : 0) | (e.boss ? 8 : 0) | (e.elite ? 16 : 0) | (e.enraged ? 32 : 0) | (e.stunT > 0 ? 64 : 0) | (e.hitT > 0 ? 128 : 0) | (e.dashing ? 256 : 0) | (e.burnT > 0 ? 512 : 0) | (e.slowT > 0 ? 1024 : 0),
@@ -58,14 +58,15 @@
       if (this.over) return { ok: false, reason: 'Матч окончен' };
       if (!this.send) return { ok: false, reason: 'Нет соединения с сервером' };
       // быстрая проверка на клиенте для подсказок; окончательное решение — за сервером
-      if (c.type === 'place') { const can = this.canPlace(c.x, c.z); if (!can.ok) return can; if (this.coins < K.HERO[c.hero].cost) return { ok: false, reason: 'Не хватает монет' }; }
+      if (c.type === 'place') { const can = this.canPlace(c.x, c.z); if (!can.ok) return can; if (this.wallet(this.me) < K.HERO[c.hero].cost) return { ok: false, reason: 'Не хватает монет' }; }
       this.send(c);
       return { ok: true, pending: true };
     }
+    canSkip() { return !!this.skipOk && !this.over; }
     step() { /* время идёт на сервере */ }
     advance() {}
     apply(s) {
-      Object.assign(this, { time: s.t, coins: s.c, hp: s.hp, maxHp: s.mh, waveNum: s.wn, finalWave: s.fw < 0 ? Infinity : s.fw, autoTimer: s.at, wavesCleared: s.wc, kills: s.k, earned: s.er, leaks: s.lk, maxTierHit: !!s.mt });
+      Object.assign(this, { time: s.t, wallets: s.w, earnedBy: s.eb, skipOk: !!s.sk, shieldLeft: s.sh, hp: s.hp, maxHp: s.mh, waveNum: s.wn, finalWave: s.fw < 0 ? Infinity : s.fw, autoTimer: s.at, wavesCleared: s.wc, kills: s.k, leaks: s.lk, maxTierHit: !!s.mt });
       this.active = new Array(s.act).fill({ n: s.wn });
       if (s.ov && !this.over) { this.over = true; this.result = s.rs; }
       // башни

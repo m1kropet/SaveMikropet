@@ -196,7 +196,7 @@
 
     pick(px, py, field) {
       const p = this.toWorld(px, py);
-      let best = null, bd = 0.5;
+      let best = null, bd = K.TOWER_R + 0.15;
       for (const t of field.towers) { const d = Math.hypot(t.x - p.x, t.z - p.z); if (d < bd) { bd = d; best = t; } }
       return best ? { type: 'tower', id: best.id, x: p.x, z: p.z } : { type: 'ground', x: p.x, z: p.z };
     }
@@ -237,6 +237,7 @@
           case 'heal': this.spark(ev.e.x, ev.e.z, '#6bff8a', 12, 1.5, 0.6, 1); break;
           case 'summon': case 'enrage': this.fx.push({ k: 'boom', x: ev.e.x, z: ev.e.z, r: 1.6, color: '#ff2a3d', t: 0, life: 0.6 }); this.spark(ev.e.x, ev.e.z, '#ff2a3d', 24, 3, 0.7, 1); if (ev.t === 'enrage') this.shake = 0.5; break;
           case 'die': this.spark(ev.e.x, ev.e.z, ev.e.boss ? '#ff2a3d' : '#d9d2ff', ev.e.boss ? 60 : 12, ev.e.boss ? 4 : 2.4, 0.6, 0.5); this.fx.push({ k: 'text', x: ev.e.x, z: ev.e.z, text: '+' + ev.reward, color: '#ffc53d', t: 0, life: 0.8 }); if (ev.e.boss) this.shake = 0.8; break;
+          case 'shield': { const e = this.field.end; this.fx.push({ k: 'ring', x: e.x, z: e.z, r0: 0.4, r1: 1.6, color: '#ffb7d0', t: 0, life: 0.6 }); this.spark(e.x, e.z, '#ffb7d0', 14, 2, 0.5, 0.8); break; }
           case 'leak': this.petHit = 0.6; this.shake = Math.max(this.shake, 0.3); break;
           case 'obstacle': this.obsAnim.set(ev.o, 0); this.spark(ev.o.x, ev.o.z, '#d9c9b0', 24, 2.4, 0.6); break;
         }
@@ -349,7 +350,7 @@
         hole(L.x, L.z, L.r, Math.max(0, fl));
       });
       hole(end.x, end.z, 2.6, 1);
-      field.towers.forEach(tw => hole(tw.x, tw.z, 1.5, 0.85));
+      field.towers.forEach(tw => hole(tw.x, tw.z, 1.9, 0.85));
       this.fx.forEach(f => { if (f.k === 'boom') hole(f.x, f.z, f.r + 1, 0.6 * (1 - f.t / f.life)); });
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(this.dark, 0, 0, this.canvas.width, this.canvas.height);
@@ -373,7 +374,7 @@
       }
       for (const tw of field.towers) {
         if (!tw.blocked) continue;
-        ctx.save(); ctx.translate(tw.x + 0.3, tw.z - 0.5);
+        ctx.save(); ctx.translate(tw.x + K.TOWER_R * 0.75, tw.z - K.TOWER_R * 1.1);
         ctx.fillStyle = 'rgba(0,0,0,0.7)'; S2.circle(ctx, 0, 0, 0.16); ctx.fill();
         ctx.strokeStyle = '#ffcf5a'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.ellipse(0, 0, 0.11, 0.06, 0, 0, TAU); ctx.stroke();
         ctx.beginPath(); ctx.moveTo(-0.11, 0.09); ctx.lineTo(0.11, -0.09); ctx.stroke();

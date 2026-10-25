@@ -179,7 +179,7 @@
     if (bossWave) {
       const bossCount = W >= 60 ? 2 : 1;
       for (let i = 0; i < bossCount; i++) {
-        spawns.push({ type: 'boss', t: t + 1.5 + i * 4, path: 0, hpMul: sc.hp * (diffKey === 'easy' ? 0.55 : 0.75), spMul: 1, flying: false, invisible: false });
+        spawns.push({ type: 'boss', t: t + 1.5 + i * 4, path: 0, hpMul: sc.hp * (diffKey === 'easy' ? 0.4 : 0.5), spMul: 1, flying: false, invisible: false });
       }
     }
     if (W > 40 && W % 5 === 0) {
@@ -188,7 +188,7 @@
       }
     }
     spawns.sort((a, b) => a.t - b.t);
-    return { n: W, spawns, bonus: 25 + 5 * W, hpScale: sc.hp, boss: bossWave };
+    return { n: W, spawns, bonus: 40 + 8 * W, hpScale: sc.hp, boss: bossWave };
   }
 
   function waveSummary(w) {
@@ -208,7 +208,8 @@
       chain: b.chain || 0, chainRange: b.chainRange || 0, pierce: 0, critC: 0, critM: 1,
       slow: b.slow || 0, slowDur: b.slowDur || 0, freezeC: 0, freezeDur: 0,
       stunC: b.stunC || 0, stunDur: b.stunDur || 0, burn: 0, aoeAll: false, execute: 0,
-      income: b.income || 0, killBonus: b.killBonus || 0, bonusSlowed: 0,
+      income: b.income || 0, bonusSlowed: 0, bossFreeze: false, passive: !!b.passive,
+      heal: 0, petMax: 0, shield: 0, interest: 0, interestCap: 0,
       vision: !!b.vision || !!(skills && skills.vision), aa: !!b.aa || !!(skills && skills.aa),
       proj: b.proj, projSpeed: b.projSpeed || 0
     };
@@ -219,8 +220,8 @@
         if (k === 'dmgMul') dmgMul *= v;
         else if (k === 'rateMul') rateMul *= v;
         else if (k === 'multi') s.multi += v;
-        else if (k === 'critM' || k === 'slow' || k === 'freezeDur' || k === 'stunDur' || k === 'execute') s[k] = Math.max(s[k], v);
-        else if (k === 'aoeAll') s.aoeAll = !!v;
+        else if (k === 'critM' || k === 'slow' || k === 'freezeDur' || k === 'stunDur' || k === 'execute' || k === 'interestCap') s[k] = Math.max(s[k], v);
+        else if (k === 'aoeAll' || k === 'bossFreeze') s[k] = !!v;
         else s[k] += v;
       }
     };
@@ -263,7 +264,13 @@
       this.rand = rng(this.seed ^ 0x9e3779b9);
       this.pathRand = rng(this.seed ^ 0x51ed27);
       this.time = 0;
-      this.coins = this.D.startCoins;
+      // У каждого игрока свой кошелёк. me — чей кошелёк показывать (и чей у бота).
+      this.me = o.me || this.players[0].id;
+      this.wallets = {};
+      this.earnedBy = {};
+      this.players.forEach(p => { this.wallets[p.id] = this.D.startCoins; this.earnedBy[p.id] = 0; });
+      this.baseMaxHp = this.D.petHp;
+      this.shieldLeft = 0;
       this.maxHp = this.D.petHp;
       this.hp = this.maxHp;
       this.waveNum = 0;
@@ -277,7 +284,6 @@
       this.projectiles = [];
       this.events = [];
       this.kills = 0;
-      this.earned = 0;
       this.leaks = 0;
       this.over = false;
       this.result = null;
@@ -302,25 +308,52 @@
         if (this.nonces.size > 500) this.nonces = new Set([...this.nonces].slice(-200));
       }
       switch (c.type) {
-        case 'place': return this.place(c.hero, +c.x, +c.z, c.owner || 'p1');
-        case 'upgrade': return this.upgrade(c.tower, c.branch);
-        case 'skill': return this.buySkill(c.tower, c.skill);
-        case 'sell': return this.sell(c.tower);
-        case 'target': return this.setTargeting(c.tower, c.mode);
+        case 'place': return this.place(c.hero, +c.x, +c.z, this.actor(c));
+        case 'upgrade': return this.upgrade(c.tower, c.branch, this.actor(c));
+        case 'skill': return this.buySkill(c.tower, c.skill, this.actor(c));
+        case 'sell': return this.sell(c.tower, this.actor(c));
+        case 'target': return this.setTargeting(c.tower, c.mode, this.actor(c));
         case 'wave': return this.startNextWave(true);
+        case 'skip': return this.skip();
         default: return { ok: false, reason: 'Неизвестная команда' };
       }
     }
 
-    trySpend(n) {
-      if (!(n >= 0) || this.coins < n) return false;
-      this.coins -= n;
+    actor(c) { return c.owner && this.wallets[c.owner] != null ? c.owner : this.me; }
+    get coins() { return this.wallets[this.me] || 0; }
+    set coins(v) { this.wallets[this.me] = v; }
+    get earned() { return this.earnedBy[this.me] || 0; }
+    set earned(v) { this.earnedBy[this.me] = v; }
+    wallet(pid) { return this.wallets[pid] || 0; }
+    trySpend(n, pid) {
+      pid = pid || this.me;
+      if (!(n >= 0) || !(this.wallets[pid] >= n)) return false;
+      this.wallets[pid] -= n;
       return true;
     }
-    gain(n) {
+    gain(n, pid) {
       if (!(n > 0)) return;
-      this.coins += n;
-      this.earned += n;
+      pid = pid || this.me;
+      if (this.wallets[pid] == null) return;
+      this.wallets[pid] += n;
+      this.earnedBy[pid] = (this.earnedBy[pid] || 0) + n;
+    }
+    // Награда делится поровну между игроками команды.
+    gainShared(n) {
+      const ids = Object.keys(this.wallets);
+      const each = Math.ceil(n / ids.length);
+      ids.forEach(id => this.gain(each, id));
+    }
+    ownCheck(t, pid) {
+      if (Object.keys(this.wallets).length > 1 && t.owner !== pid) return { ok: false, reason: 'Это башня другого игрока' };
+      return null;
+    }
+    // Жизни микропета зависят от Свинок верхней ветки.
+    recalcPet() {
+      const max = this.baseMaxHp + this.towers.reduce((a, t) => a + (t.s.petMax || 0), 0);
+      if (max > this.maxHp) this.hp += max - this.maxHp;
+      this.maxHp = max;
+      this.hp = Math.min(this.hp, this.maxHp);
     }
 
     // Можно ставить где угодно, кроме дороги, препятствий и чужих башен.
@@ -343,7 +376,7 @@
       if (!H || !this.squad.includes(heroId)) return { ok: false, reason: 'Героя нет в отряде' };
       const can = this.canPlace(x, z);
       if (!can.ok) return can;
-      if (!this.trySpend(H.cost)) return { ok: false, reason: 'Не хватает монет' };
+      if (!this.trySpend(H.cost, owner)) return { ok: false, reason: 'Не хватает монет' };
       const t = {
         id: this.nextId++, hero: heroId, x: +x.toFixed(3), y: 0, z: +z.toFixed(3),
         owner, up: [0, 0], skills: { vision: false, aa: false }, spent: H.cost,
@@ -388,27 +421,32 @@
 
     getTower(id) { return this.towers.find(t => t.id === id); }
 
-    upgrade(id, br) {
+    upgrade(id, br, pid) {
+      pid = pid || this.me;
       const t = this.getTower(id);
       if (!t) return { ok: false, reason: 'Башня не найдена' };
+      const own = this.ownCheck(t, pid); if (own) return own;
       if (br !== 0 && br !== 1) return { ok: false, reason: 'Нет такой ветки' };
-      const st = upgradeState(t.hero, t.up, br, this.coins);
+      const st = upgradeState(t.hero, t.up, br, this.wallet(pid));
       if (!st.ok) return st;
-      if (!this.trySpend(st.cost)) return { ok: false, reason: 'Не хватает монет' };
+      if (!this.trySpend(st.cost, pid)) return { ok: false, reason: 'Не хватает монет' };
       t.up[br]++;
       t.spent += st.cost;
       t.s = towerStats(t.hero, t.up, t.skills);
+      if (t.s.passive) this.recalcPet();
       if (t.up[br] === 5) this.maxTierHit = true;
       this.emit({ t: 'upgrade', tower: t, branch: br, level: t.up[br] });
       return { ok: true };
     }
 
-    buySkill(id, key) {
+    buySkill(id, key, pid) {
+      pid = pid || this.me;
       const t = this.getTower(id);
       const sk = K.SKILLS[key];
-      if (!t || !sk) return { ok: false, reason: 'Недоступно' };
+      if (!t || !sk || t.s.passive) return { ok: false, reason: 'Недоступно' };
+      const own = this.ownCheck(t, pid); if (own) return own;
       if (t.s[key]) return { ok: false, reason: 'Уже есть' };
-      if (!this.trySpend(sk.cost)) return { ok: false, reason: 'Не хватает монет' };
+      if (!this.trySpend(sk.cost, pid)) return { ok: false, reason: 'Не хватает монет' };
       t.skills[key] = true;
       t.spent += sk.cost;
       t.s = towerStats(t.hero, t.up, t.skills);
@@ -416,22 +454,36 @@
       return { ok: true };
     }
 
-    sell(id) {
+    sell(id, pid) {
+      pid = pid || this.me;
       const i = this.towers.findIndex(t => t.id === id);
       if (i < 0) return { ok: false, reason: 'Башня уже продана' };
       const t = this.towers[i];
+      const own = this.ownCheck(t, pid); if (own) return own;
       this.towers.splice(i, 1);
       const refund = Math.floor(t.spent * K.SELL_RATE);
-      this.coins += refund;
+      this.wallets[t.owner] = (this.wallets[t.owner] || 0) + refund;
+      if (t.s.passive) this.recalcPet();
       this.emit({ t: 'sell', tower: t, refund });
       return { ok: true, refund };
     }
 
-    setTargeting(id, mode) {
+    setTargeting(id, mode, pid) {
       const t = this.getTower(id);
       if (!t || !['first', 'last', 'strong', 'close'].includes(mode)) return { ok: false, reason: 'Недоступно' };
+      const own = this.ownCheck(t, pid || this.me); if (own) return own;
       t.targeting = mode;
       return { ok: true };
+    }
+
+    // Пропуск ожидания: следующая волна сразу, если текущие уже полностью вышли на карту.
+    canSkip() {
+      if (this.over || this.mode === 'duel' || this.waveNum >= this.finalWave) return false;
+      return this.active.every(w => w.idx >= w.spawns.length);
+    }
+    skip() {
+      if (!this.canSkip()) return { ok: false, reason: 'Дождитесь, пока выйдут все сущности волны' };
+      return this.startNextWave(false);
     }
 
     canStartWave() {
@@ -442,6 +494,7 @@
       if (manual && !this.canStartWave()) return { ok: false, reason: 'Волна уже идёт' };
       if (this.over || this.waveNum >= this.finalWave) return { ok: false, reason: 'Волн больше нет' };
       this.waveNum++;
+      this.shieldLeft = this.towers.reduce((n, t) => n + (t.s.shield || 0), 0);
       const w = genWave(this.diffKey, this.waveNum, this.seed, this.map);
       this.active.push({ n: w.n, spawns: w.spawns, idx: 0, t: 0, remaining: w.spawns.length, bonus: w.bonus, boss: w.boss });
       this.autoTimer = -1;
@@ -458,7 +511,7 @@
       const e = {
         id: this.nextId++, type: sp.type, wave: waveN,
         hp, maxHp: hp, speed: E.speed * sp.spMul, armor: E.armor + (sp.type === 'armored' ? Math.floor(this.waveNum / 8) : 0),
-        reward: Math.round(E.reward * (1 + waveN * 0.03)), dmg: E.dmg,
+        reward: Math.round(E.reward * (1 + waveN * 0.05)), dmg: E.dmg,
         flying: !!E.flying || !!sp.flying, invisible: !!E.invisible || !!sp.invisible,
         boss: !!E.boss, elite: sp.type === 'elite', dash: E.dash || 0,
         path: pathIdx, d: d || 0, seg: 0, x: 0, y: 0, z: 0, dx: 0, dz: 1,
@@ -514,14 +567,9 @@
       e.dead = true;
       this.kills++;
       if (tower) tower.kills++;
-      let bonus = 0;
-      for (const t of this.towers) {
-        if (t.s.killBonus > 0 && (t.x - e.x) ** 2 + (t.z - e.z) ** 2 <= t.s.range * t.s.range) bonus += t.s.killBonus;
-      }
-      const reward = Math.round(e.reward * (1 + Math.min(0.6, bonus)));
-      this.gain(reward);
+      this.gainShared(e.reward);
       this.removeEnemy(e);
-      this.emit({ t: 'die', e, reward, bonus: bonus > 0 });
+      this.emit({ t: 'die', e, reward: e.reward, bonus: false });
     }
 
     hit(e, s, dmg, tower) {
@@ -531,6 +579,11 @@
       if (s.slow > 0) {
         e.slowF = Math.max(e.slowT > 0 ? e.slowF : 0, s.slow * (e.boss ? 0.5 : 1));
         e.slowT = Math.max(e.slowT, s.slowDur);
+      }
+      if (s.bossFreeze && e.boss) {
+        // заморозка боссов: каждое попадание охлаждает, при полном охлаждении босс замерзает на 1.2 с
+        e.chill = (e.chill || 0) + 0.06;
+        if (e.chill >= 1 && e.stunT <= 0) { e.chill = 0; e.stunT = 1.2; this.emit({ t: 'freeze', e }); }
       }
       if (s.freezeC > 0 && !e.boss && this.rand() < s.freezeC) {
         e.stunT = Math.max(e.stunT, s.freezeDur);
@@ -673,7 +726,8 @@
         const path = this.paths[e.path];
         if (e.d >= path.length) {
           e.dead = true;
-          this.hp = Math.max(0, this.hp - e.dmg);
+          if (this.shieldLeft > 0) { this.shieldLeft--; this.emit({ t: 'shield', e }); }
+          else this.hp = Math.max(0, this.hp - e.dmg);
           this.leaks++;
           this.leakedTypes.add(e.type);
           if (e.invisible) this.leakedTypes.add('ghost');
@@ -718,6 +772,7 @@
 
       // башни
       for (const t of this.towers) {
+        if (t.s.passive) continue;
         t.cd -= dt;
         if (t.cd <= 0) {
           if (this.fire(t)) t.cd += 1 / t.s.rate;
@@ -763,9 +818,16 @@
           if (!this.rewarded.has(w.n)) {
             this.rewarded.add(w.n);
             this.wavesCleared++;
-            let income = 0;
-            for (const t of this.towers) income += t.s.income;
-            this.gain(w.bonus + income);
+            let income = 0, heal = 0;
+            this.gainShared(w.bonus);
+            for (const t of this.towers) {
+              const s2 = t.s;
+              let inc = s2.income;
+              if (s2.interest > 0) inc += Math.min(s2.interestCap, Math.floor(this.wallet(t.owner) * s2.interest));
+              if (inc > 0) { this.gain(inc, t.owner); if (t.owner === this.me) income += inc; }
+              heal += s2.heal;
+            }
+            if (heal > 0 && this.hp > 0) this.hp = Math.min(this.maxHp, this.hp + heal);
             this.emit({ t: 'waveClear', n: w.n, bonus: w.bonus, income });
             if (w.n % 4 === 0 && w.n !== this.finalWave) { this.spawnObstacle(w.n); if (w.n >= 20) this.spawnObstacle(w.n); }
             if (w.n === this.finalWave && this.hp > 0) { this.finish('win'); }
@@ -799,8 +861,8 @@
   class DuelMatch {
     constructor(o) {
       this.seed = o.seed >>> 0;
-      this.a = new Field({ map: o.map, diff: 'duel', seed: this.seed, mode: 'duel', squad: o.squadA, record: true });
-      this.b = new Field({ map: o.map, diff: 'duel', seed: this.seed, mode: 'duel', squad: o.squadB, record: o.recordB === true });
+      this.a = new Field({ map: o.map, diff: 'duel', seed: this.seed, mode: 'duel', squad: o.squadA, record: true, players: o.playersA });
+      this.b = new Field({ map: o.map, diff: 'duel', seed: this.seed, mode: 'duel', squad: o.squadB, record: o.recordB === true, players: o.playersB });
       this.time = 0;
       this.cap = o.cap || 1500;
       this.gap = null;

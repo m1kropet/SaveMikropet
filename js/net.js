@@ -4,13 +4,14 @@
 (function (K) {
   'use strict';
 
-  const CODE_ABC = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const CODE_ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   function roomCode() {
-    let s = 'KV-';
+    let s = '';
     for (let i = 0; i < 4; i++) s += CODE_ABC[Math.floor(Math.random() * CODE_ABC.length)];
     return s;
   }
-  const validCode = c => /^KV-[A-Z2-9]{4}$/.test(String(c || '').trim().toUpperCase());
+  const cleanCode = c => String(c || '').trim().toUpperCase().replace(/^KV-/, '').replace(/^#/, '');
+  const validCode = c => /^[A-Z0-9]{4}$/.test(cleanCode(c));
 
   // Локальная комната: 2–4 игрока по очереди строят на одном устройстве, деньги общие.
   class LocalRoom {
@@ -38,7 +39,7 @@
 
   // Клиент сервера: одно соединение на вкладку, подписки на типы сообщений.
   const Net = {
-    LocalRoom, roomCode, validCode,
+    LocalRoom, roomCode, validCode, cleanCode,
     ws: null, state: 'off', handlers: {}, seq: 0, profile: null,
     url() {
       const u = K.CONFIG && K.CONFIG.serverUrl;
@@ -78,7 +79,7 @@
     },
     hello() {
       const p = this.profile || {};
-      this.send('hello', { nick: p.nick, level: p.level, squad: p.squad, token: K.Twitch && K.Twitch.token() });
+      this.send('hello', { nick: p.nick, level: p.level, squad: p.squad, token: K.Twitch && K.Twitch.token(), uid: p.uid, tag: p.tag, endless: !!p.endlessUnlocked });
     },
     send(op, data) {
       if (!this.ws || this.state !== 'open') return false;

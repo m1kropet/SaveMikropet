@@ -12,7 +12,10 @@ const wrapHtml = html => '<!doctype html><html lang="ru"><head><meta charset="ut
 export class GameHub {
   constructor(state, env) {
     this.state = state;
-    this.hub = createHub(K, { twitchClientId: env.TWITCH_CLIENT_ID || '', requireTwitch: env.REQUIRE_TWITCH === '1' });
+    // теги и рейтинг хранятся в постоянном хранилище Durable Object
+    const st = state.storage;
+    const store = st ? { get: k => st.get(k), put: (k, v) => st.put(k, v), list: pre => st.list({ prefix: pre }) } : null;
+    this.hub = createHub(K, { twitchClientId: env.TWITCH_CLIENT_ID || '', requireTwitch: env.REQUIRE_TWITCH === '1', store });
   }
   async fetch(request) {
     const url = new URL(request.url);

@@ -1,5 +1,7 @@
 // Сквозной тест сервера: два клиента по WebSocket, команда, гонка трат, дуэль, отключение.
 process.env.PORT = '8811';
+process.env.NO_STORE = '1';
+process.env.VOTE_MS = '1500';
 const { server } = require('../server/server.js');
 const assert = require('assert');
 const K = globalThis.KV;
@@ -11,7 +13,8 @@ function client(nick) {
   ws.onmessage = e => { const m = JSON.parse(e.data); c.msgs.push(m); c.last[m.op] = m; c.waiters = c.waiters.filter(w => { if (w.pred(m)) { w.res(m); return false; } return true; }); };
   c.send = (op, d) => ws.send(JSON.stringify(Object.assign({ op }, d || {})));
   c.wait = (pred, ms = 4000) => new Promise((res, rej) => { const found = c.msgs.find(pred); if (found) { c.msgs.splice(c.msgs.indexOf(found), 1); return res(found); } const w = { pred, res: m => { c.msgs.splice(c.msgs.indexOf(m), 1); res(m); } }; c.waiters.push(w); setTimeout(() => rej(new Error('timeout ' + nick)), ms); });
-  c.open = new Promise(r => { ws.onopen = () => { c.send('hello', { nick, level: 5, squad: ['blaster', 'ice', 'dragon'] }); r(); }; });
+  c.uid = require('crypto').randomBytes(8).toString('hex');
+  c.open = new Promise(r => { ws.onopen = () => { c.send('hello', { nick, level: 5, squad: ['blaster', 'ice', 'dragon'], uid: c.uid, tag: nick === 'Анна' ? 'ANN' : '', endless: nick === 'Борис' }); r(); }; });
   return c;
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -20,6 +23,10 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   const a = client('Анна'), b = client('Борис');
   await a.open; await b.open;
   await a.wait(m => m.op === 'hello'); await b.wait(m => m.op === 'hello');
+  const ta = await a.wait(m => m.op === 'tag'), tb = await b.wait(m => m.op === 'tag');
+  ok(ta.tag === 'ANN' && /^[A-Z0-9]{3}$/.test(tb.tag) && tb.tag !== 'ANN', 'tags assigned');
+  a.send('findTag', { tag: '#' + tb.tag }); const fnd = await a.wait(m => m.op === 'found');
+  ok(fnd.player && fnd.player.nick === 'Борис' && fnd.player.online, 'find by tag');
   // статика и подмена config.js
   const html = await (await fetch('http://localhost:8811/')).text();
   ok(html.startsWith('<!doctype html>') && html.includes('js/main.js'), 'index served');
@@ -29,17 +36,20 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // команда
   a.send('create', { mode: 'team' });
   const room = await a.wait(m => m.op === 'room');
-  ok(/^KV-[A-Z2-9]{4}$/.test(room.code), 'room code');
+  ok(/^[A-Z0-9]{4}$/.test(room.code), 'room code without prefix');
   b.send('join', { code: room.code });
   await b.wait(m => m.op === 'room' && m.players.length === 2);
-  b.send('join', { code: 'KV-ZZZZ' }); ok((await b.wait(m => m.op === 'error')).reason.includes('не найдена'), 'bad code');
-  a.send('config', { cfg: { map: 'corridor', diff: 'easy', autoWave: false } });
+  b.send('join', { code: 'ZZZ9' }); ok((await b.wait(m => m.op === 'error')).reason.includes('не найдена'), 'bad code');
+  a.send('config', { cfg: { map: 'corridor', autoWave: false } });
   a.send('start'); ok((await a.wait(m => m.op === 'error')).reason.includes('готов'), 'needs ready');
   a.send('ready', { ready: true }); b.send('ready', { ready: true });
   await sleep(100);
   a.send('start');
+  const vr = await a.wait(m => m.op === 'room' && m.state === 'vote');
+  ok(vr.vote.options.includes('endless') && vr.vote.endsIn > 0, 'vote phase, endless opened by Борис');
+  a.send('voteDiff', { diff: 'easy' }); b.send('voteDiff', { diff: 'easy' });
   const sa = await a.wait(m => m.op === 'start'), sb = await b.wait(m => m.op === 'start');
-  ok(sa.mode === 'team' && sa.you === 'p1' && sb.you === 'p2' && sa.cfg.map === 'corridor', 'team start');
+  ok(sa.mode === 'team' && sa.you === 'p1' && sb.you === 'p2' && sa.cfg.map === 'corridor' && sa.cfg.diff === 'easy', 'team start with voted diff');
   // клиентская копия поля из снимков
   const rf = new K.NetProto.RemoteField({ map: sa.cfg.map, diff: sa.cfg.diff, seed: sa.seed, mode: 'team', squad: sa.squad, players: sa.players });
   const st0 = await a.wait(m => m.op === 'state'); rf.apply(st0.me);
@@ -52,22 +62,39 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
   // гонка: у обоих хватает только на одну покупку
   await sleep(150);
   const st1 = (await a.wait(m => m.op === 'state' && m.me.tw.length === 1)).me; rf.apply(st1);
-  const coins = rf.coins; // 300-120 = 180: хватит только на одного Ледяного куба (140)
-  const far = spots.filter(s => Math.hypot(s.x - spots[0].x, s.z - spots[0].z) > 2);
+  ok(rf.wallet('p1') === 300 - 120 && rf.wallet('p2') === 300, 'personal wallets');
+  // у каждого свои деньги: оба могут купить по башне
+  const far = spots.filter(s => Math.hypot(s.x - spots[0].x, s.z - spots[0].z) > 3);
   a.send('cmd', { seq: 2, cmd: { type: 'place', hero: 'ice', x: far[0].x, z: far[0].z } });
-  b.send('cmd', { seq: 2, cmd: { type: 'place', hero: 'ice', x: far[20].x, z: far[20].z } });
+  b.send('cmd', { seq: 2, cmd: { type: 'place', hero: 'ice', x: far[40].x, z: far[40].z } });
   const ra = await a.wait(m => m.op === 'ack' && m.seq === 2), rb = await b.wait(m => m.op === 'ack' && m.seq === 2);
-  ok(ra.ok !== rb.ok, 'only one concurrent purchase succeeds');
+  ok(ra.ok && rb.ok, 'both buy with own money');
   await sleep(250);
-  const st2 = b.last.state.me; rf.apply(st2);
-  ok(rf.coins === coins - 140 && rf.coins >= 0 && rf.towers.length === 2, 'coins consistent ' + rf.coins);
-  ok(rf.towers.find(t => t.hero === 'blaster').owner === 'p1', 'owner kept');
+  rf.apply(b.last.state.me);
+  ok(rf.wallet('p1') === 40 && rf.wallet('p2') === 160 && rf.towers.length === 3, 'wallets after buys');
+  const bt = rf.towers.find(t => t.owner === 'p2');
+  a.send('cmd', { seq: 5, cmd: { type: 'upgrade', tower: bt.id, branch: 0 } });
+  ok(!(await a.wait(m => m.op === 'ack' && m.seq === 5)).ok, 'cannot upgrade teammate tower');
+  // 2 игрока — нужен 1 голос за пропуск
   a.send('cmd', { seq: 3, cmd: { type: 'wave' } });
-  ok((await a.wait(m => m.op === 'ack' && m.seq === 3)).ok, 'wave start');
+  ok((await a.wait(m => m.op === 'ack' && m.seq === 3)).ok, 'wave start by one vote');
   await sleep(1500);
   const st3 = a.last.state.me; rf.apply(st3);
   ok(rf.waveNum === 1 && (rf.enemies.length > 0 || rf.kills > 0), 'wave running on server');
   a.send('leave'); b.send('leave'); await sleep(100);
+
+  // 3 игрока в команде — нужно 2 голоса
+  { const x = client('Вова'), y = client('Гена'), z = client('Даша'); await x.open; await y.open; await z.open;
+    x.send('create', { mode: 'team' }); const rr = await x.wait(m => m.op === 'room');
+    y.send('join', { code: rr.code }); z.send('join', { code: rr.code }); await x.wait(m => m.op === 'room' && m.players.length === 3);
+    [x, y, z].forEach(c => c.send('ready', { ready: true })); await sleep(150); x.send('start');
+    x.send('voteDiff', { diff: 'hard' }); y.send('voteDiff', { diff: 'easy' });
+    const st = await x.wait(m => m.op === 'start', 5000); ok(['hard', 'easy'].includes(st.cfg.diff), 'tie → random of voted');
+    x.send('cmd', { seq: 1, cmd: { type: 'skip' } }); await x.wait(m => m.op === 'ack' && m.seq === 1); await sleep(250);
+    let s1 = x.last.state; ok(s1.me.wn === 0 && s1.sv[0].length === 1 && s1.sv[1] === 2, '3 players: 1 vote not enough');
+    y.send('cmd', { seq: 1, cmd: { type: 'skip' } }); await y.wait(m => m.op === 'ack' && m.seq === 1); await sleep(250);
+    ok(x.last.state.me.wn === 1, '3 players: 2 votes start wave');
+    [x, y, z].forEach(c => c.ws.close()); }
 
   // дуэль: случайный подбор
   a.send('queue'); await a.wait(m => m.op === 'queued');

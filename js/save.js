@@ -3,13 +3,20 @@
 (function (K) {
   'use strict';
   const KEY = 'mikropet.save';
-  const VERSION = 4;
+  const VERSION = 5;
   const STARTERS = ['blaster', 'ice'];
+
+  const TAG_ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const randTag = () => Array.from({ length: 3 }, () => TAG_ABC[Math.floor(Math.random() * TAG_ABC.length)]).join('');
+  const randUid = () => { const b = new Uint8Array(12); (globalThis.crypto && crypto.getRandomValues) ? crypto.getRandomValues(b) : b.forEach((_, i) => { b[i] = Math.floor(Math.random() * 256); }); return Array.from(b, x => x.toString(16).padStart(2, '0')).join(''); };
 
   function defaults() {
     const now = Date.now();
     return {
       v: VERSION,
+      // тег #XXX: выдаётся один раз и не меняется; сервер подтверждает уникальность
+      uid: randUid(), tag: randTag(), tagVerified: false,
+      themes: ['hotel'], codes: [],
       nick: 'Постоялец' + Math.floor(100 + Math.random() * 900),
       level: 1, xp: 0, coins: 150,
       owned: STARTERS.slice(), squad: STARTERS.slice(),
@@ -18,7 +25,7 @@
       endlessUnlocked: false,
       duel: { w: 0, l: 0, d: 0, maxWave: 0, history: [] },
       playTime: 0,
-      settings: { sound: true, autoWave: false, quality: 'mid', effects: true },
+      settings: { sound: true, autoWave: false, quality: 'mid', effects: true, theme: 'hotel' },
       achievements: {},
       stats: { kills: 0, games: 0, wavesTotal: 0, wins: { easy: 0, normal: 0, hard: 0 }, team: 0, maxTier: false, secret: false },
       friends: {
@@ -44,7 +51,8 @@
       d.v = 3;
       return d;
     },
-    3: d => { d.twitch = null; if (d.last) delete d.last.bot; d.v = 4; return d; }
+    3: d => { d.twitch = null; if (d.last) delete d.last.bot; d.v = 4; return d; },
+    4: d => { d.uid = randUid(); d.tag = randTag(); d.tagVerified = false; d.themes = ['hotel']; d.codes = []; d.settings = Object.assign({ theme: 'hotel' }, d.settings || {}); d.v = 5; return d; }
   };
 
   function sanitize(d) {
@@ -76,6 +84,12 @@
     const tw = d.twitch;
     out.twitch = tw && typeof tw === 'object' && typeof tw.id === 'string' && typeof tw.login === 'string'
       ? { id: tw.id, login: tw.login, display: String(tw.display || tw.login).slice(0, 25), avatar: typeof tw.avatar === 'string' && /^https:\/\//.test(tw.avatar) ? tw.avatar : '', verifiedAt: +tw.verifiedAt || 0 } : null;
+    if (!/^[a-f0-9]{16,64}$/.test(out.uid || '')) out.uid = randUid();
+    if (!/^[A-Z0-9]{3,11}$/.test(out.tag || '')) { out.tag = randTag(); out.tagVerified = false; }
+    out.themes = (Array.isArray(out.themes) ? out.themes : []).filter(t => K.THEMES && K.THEMES[t]);
+    if (!out.themes.includes('hotel')) out.themes.unshift('hotel');
+    out.codes = Array.isArray(out.codes) ? out.codes.filter(c => typeof c === 'string').slice(0, 20) : [];
+    if (!out.themes.includes(out.settings.theme)) out.settings.theme = 'hotel';
     out.nick = validNick(out.nick).ok ? out.nick.trim() : (out.twitch ? out.twitch.display.slice(0, 16) : def.nick);
     out.v = VERSION;
     return out;
@@ -154,7 +168,8 @@
     duel_win: p => p.duel.w > 0,
     team_win: p => p.stats.team > 0,
     time_1h: p => p.playTime >= 3600,
-    secret_title: p => p.stats.secret
+    secret_title: p => p.stats.secret,
+    secret_morse: p => p.themes.includes('mine')
   };
 
   // Каждое достижение выдаётся ровно один раз — награда не фармится.
@@ -205,6 +220,18 @@
     return { coins: r.coins, xp: r.xp, levelUps: p.level - before, achievements: ach, unlockedEndless: unlocked };
   }
 
-  K.Save = { load, save, recover, info, defaults, sanitize, VERSION, KEY, MIGRATIONS };
+  // Секретный код из магазина: открывает оформление «Шахты».
+  function redeem(p, code) {
+    const c = String(code || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!c) return { ok: false, reason: 'Введите код' };
+    if (c !== K.SECRET_CODE) return { ok: false, reason: 'Код не подошёл' };
+    if (p.codes.includes(c)) return { ok: false, reason: 'Этот код уже активирован' };
+    p.codes.push(c);
+    if (!p.themes.includes('mine')) p.themes.push('mine');
+    p.settings.theme = 'mine';
+    return { ok: true, achievements: checkAchievements(p) };
+  }
+
+  K.Save = { load, save, recover, info, defaults, sanitize, VERSION, KEY, MIGRATIONS, redeem };
   K.Profile = { xpNeed, addXp, checkAchievements, applyMatch, validNick };
 })(globalThis.KV = globalThis.KV || {});

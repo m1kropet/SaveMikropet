@@ -81,7 +81,7 @@
         if (!th.has(need) || f.towers.filter(t => t.s[key]).length >= Math.max(1, Math.ceil(f.towers.length / 4))) continue;
         const sp = this.freeSpot();
         if (squad.includes(hero) && sp && f.coins >= K.HERO[hero].cost) {
-          if (do_({ type: 'place', hero, x: sp.x, z: sp.z, owner: 'bot' }, 'Ставит ' + K.HERO[hero].name)) return;
+          if (do_({ type: 'place', hero, x: sp.x, z: sp.z, owner: f.me }, 'Ставит ' + K.HERO[hero].name)) return;
         }
         const t = this.bestTower(x => !x.s[key]);
         if (t && f.coins >= K.SKILLS[key].cost) {
@@ -98,8 +98,10 @@
       if (sp) {
         for (const h of squad) {
           if (h === 'piggy' && f.towers.some(t => t.hero === 'piggy')) continue;
-          const v = power(K.towerStats(h, [0, 0], {}), cap, arm) / K.HERO[h].cost;
-          opts.push({ v: v * (f.towers.length < 2 ? 3 : 1), cost: K.HERO[h].cost, c: { type: 'place', hero: h, x: sp.x, z: sp.z, owner: 'bot' }, label: 'Ставит ' + K.HERO[h].name });
+          // худшие места видят меньше дороги — новая башня там стоит меньше
+          const cov = Math.pow(sp.cov / (f.layout.spots[0].cov || 1), 2);
+          const v = power(K.towerStats(h, [0, 0], {}), cap, arm) * cov / K.HERO[h].cost;
+          opts.push({ v: v * (f.towers.length < 2 ? 3 : 1), cost: K.HERO[h].cost, c: { type: 'place', hero: h, x: sp.x, z: sp.z, owner: f.me }, label: 'Ставит ' + K.HERO[h].name });
         }
       }
       for (const t of f.towers) {

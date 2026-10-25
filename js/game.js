@@ -20,8 +20,12 @@
     ['freezeC', 'Заморозка', v => Math.round(v * 100) + '%', v => v > 0],
     ['stunC', 'Оглуш.', v => Math.round(v * 100) + '%', v => v > 0],
     ['burn', 'Горение', v => v + '/с', v => v > 0],
-    ['income', 'Доход', v => '+' + v, v => v > 0],
-    ['killBonus', 'Бонус', v => '+' + Math.round(v * 100) + '%', v => v > 0],
+    ['income', 'Доход/волну', v => '+' + v, v => v > 0],
+    ['interest', 'Проценты', v => Math.round(v * 100) + '%', v => v > 0],
+    ['interestCap', 'До', v => v, v => v > 0],
+    ['petMax', 'Жизни +', v => v, v => v > 0],
+    ['heal', 'Лечение', v => '+' + v, v => v > 0],
+    ['shield', 'Щит', v => v, v => v > 0],
     ['execute', 'Добивание', v => Math.round(v * 100) + '%', v => v > 0]
   ];
   const TARGETS = [['first', 'Первый'], ['last', 'Последний'], ['strong', 'Сильный'], ['close', 'Ближний']];
@@ -49,14 +53,15 @@
         this.cfg = Object.assign({}, cfg, { map: o.cfg.map, diff: o.mode === 'duel' ? 'duel' : o.cfg.diff, players: o.players, squad: o.squad });
         const send = c => K.Net.command(c);
         if (o.mode === 'duel') {
-          const a = new RF({ map: o.cfg.map, diff: 'duel', seed: o.seed, mode: 'duel', squad: o.squad, players: o.players });
+          const a = new RF({ map: o.cfg.map, diff: 'duel', seed: o.seed, mode: 'duel', squad: o.squad, players: o.players, me: o.you });
           const b = new RF({ map: o.cfg.map, diff: 'duel', seed: o.seed, mode: 'duel', squad: o.oppSquad, players: o.oppPlayers });
           a.send = send;
           this.duel = new K.NetProto.RemoteDuel(a, b);
           this.field = a;
           this.oppName = o.opp.name + ' · ур. ' + o.opp.level;
         } else {
-          this.field = new RF({ map: o.cfg.map, diff: o.cfg.diff, seed: o.seed, mode: 'team', squad: o.squad, players: o.players, autoWave: o.cfg.autoWave });
+          this.field = new RF({ map: o.cfg.map, diff: o.cfg.diff, seed: o.seed, mode: 'team', squad: o.squad, players: o.players, autoWave: o.cfg.autoWave, me: o.you });
+          this.skipVotes = [[], 1];
           this.field.send = send;
         }
         this.ui.player = o.you;
@@ -66,11 +71,10 @@
         // Соперник-бот: уровень ±2 от игрока, тот же набор героев.
         const lvl = app.profile.level;
         const botLevel = Math.max(1, lvl + Math.round(Math.random() * 4 - 2));
-        this.duel = new K.DuelMatch({ map: cfg.map, seed, squadA: cfg.squad, squadB: cfg.squad.slice(), recordB: true });
+        this.oppName = K.BOT_NAMES[Math.floor(Math.random() * K.BOT_NAMES.length)] + ' · ур. ' + botLevel;
+        this.duel = new K.DuelMatch({ map: cfg.map, seed, squadA: cfg.squad, squadB: cfg.squad.slice(), recordB: true, playersB: [{ id: 'bot', name: this.oppName, color: '#ff6b6b' }] });
         this.field = this.duel.a;
         this.bot = new K.Bot(this.duel.b, K.botSkill(botLevel));
-        this.oppName = K.BOT_NAMES[Math.floor(Math.random() * K.BOT_NAMES.length)] + ' · ур. ' + botLevel;
-        this.duel.b.players = [{ id: 'bot', name: this.oppName, color: '#ff6b6b' }];
       } else {
         this.field = new K.Field({
           map: cfg.map, diff: cfg.diff, seed, mode: this.mode, squad: cfg.squad,
@@ -86,6 +90,7 @@
       this.offs = [
         N.on('state', m => {
           this.field.apply(m.me);
+          if (m.sv) this.skipVotes = m.sv;
           if (this.duel) { this.duel.b.apply(m.opp); this.duel.apply(m.d); }
         }),
         N.on('ack', m => {
@@ -93,6 +98,7 @@
           if (m.type === 'place' || m.type === 'upgrade' || m.type === 'skill') K.Audio.play('buy', 0);
           if (m.type === 'place' && m.tower) this.pendingSelect = m.tower;
           if (m.type === 'sell') { this.setHint('Продано: +' + m.refund + ' монет'); }
+          if (m.type === 'skip') this.setHint('Ваш голос за пропуск учтён');
         }),
         N.on('over', m => {
           if (this.duel) { this.duel.over = true; this.duel.result = m.result; this.duel.reason = m.reason; }
@@ -125,9 +131,9 @@
           <div class="stats3">
             <div class="stat"><div class="eyebrow">Волна</div><div class="v"><span class="plaque" id="hWave">0000</span><span class="mute" id="hWaveOf"></span></div></div>
             <div class="stat hp" id="hHpBox"><div class="eyebrow">Микропет</div><div class="v" id="hHp"></div><div class="bar"><i id="hHpBar"></i></div></div>
-            <div class="stat"><div class="eyebrow">${this.mode === 'team' ? 'Общие монеты' : 'Монеты'}</div><div class="v coin mcoin" id="hCoins"></div></div>
+            <div class="stat"><div class="eyebrow">${this.mode === 'team' ? 'Ваши монеты' : 'Монеты'}</div><div class="v coin mcoin" id="hCoins"></div></div>
           </div>
-          ${this.mode === 'team' ? `<div class="players" id="players">${cfg.players.map(p => `<button class="pchip" ${this.online ? 'disabled' : 'data-act="player"'} data-id="${p.id}" style="color:${p.color}"><i style="background:${p.color}"></i>${esc(p.name)}</button>`).join('')}</div>` : ''}
+          ${this.mode === 'team' ? `<div class="players" id="players">${cfg.players.map(p => `<button class="pchip" ${this.online ? 'disabled' : 'data-act="player"'} data-id="${p.id}" style="color:${p.color}"><i style="background:${p.color}"></i>${esc(p.name)} <span class="num pcoins" data-coins="${p.id}"></span></button>`).join('')}</div>` : ''}
         </div>
         <div class="stage" id="stage">
           <div class="viewing" id="viewing" hidden>Карта соперника · только просмотр</div>
@@ -167,7 +173,7 @@
       document.addEventListener('visibilitychange', this.onVis);
       this.onKey = e => {
         if (e.key === 'Escape') { if (this.ui.placing || this.ui.selected) this.deselect(); else this.pause(!this.paused); }
-        if (e.key === ' ' && this.field.canStartWave() && !this.paused) { e.preventDefault(); this.command({ type: 'wave' }); }
+        if (e.key === ' ' && !this.duel && !this.paused && (this.field.canStartWave() || this.field.canSkip())) { e.preventDefault(); this.command({ type: 'skip' }); }
       };
       window.addEventListener('keydown', this.onKey);
 
@@ -243,9 +249,10 @@
             A.play(ev.boss ? 'boss' : 'wave');
             this.announce(ev.boss ? 'Ковтоп приближается' : 'Волна ' + ev.n, ev.boss ? 'Телевизор показывает «00». Он призывает Шмыгов и звереет на половине здоровья' : this.waveNote(ev.n));
             break;
-          case 'waveClear': A.play('clear'); this.setHint('Волна ' + ev.n + ' отбита: +' + ev.bonus + (ev.income ? ' и +' + ev.income + ' от Копилки' : '') + ' монет'); break;
+          case 'waveClear': A.play('clear'); this.setHint('Волна ' + ev.n + ' отбита: +' + Math.ceil(ev.bonus / Math.max(1, this.field.players.length)) + (ev.income ? ' и +' + ev.income + ' от Свинок' : '') + ' монет'); break;
           case 'obstacle': this.setHint('Появилось препятствие: ' + K.OBSTACLES[ev.o.kind].name.toLowerCase() + '. Оно закрывает место и обзор башням.', 5); break;
           case 'spawn': this.noticeType(ev.e); break;
+          case 'shield': this.setHint('Пушистый щит Свинки спас микропета!', 3); break;
           case 'enrage': this.setHint('Ковтоп в ярости: экран покраснел, скорость выросла!'); break;
         }
       }
@@ -261,8 +268,8 @@
       if (this.seenTypes.has(key)) return;
       this.seenTypes.add(key);
       const f = this.field;
-      if (e.invisible && !f.towers.some(t => t.s.vision)) this.setHint('Невидимая сущность! Купите башне «Вижен» или поставьте Призму-снайпера.', 6);
-      else if (e.flying && !f.towers.some(t => t.s.aa)) this.setHint('Летающая сущность! Купите ПВО или поставьте Неон-дракона. Низкие препятствия летающих не закрывают.', 6);
+      if (e.invisible && !f.towers.some(t => t.s.vision)) this.setHint('Невидимая сущность! Купите башне «Вижен» или поставьте Реалганера.', 6);
+      else if (e.flying && !f.towers.some(t => t.s.aa)) this.setHint('Летающая сущность! Купите ПВО или поставьте Диномайка. Низкие препятствия летающих не закрывают.', 6);
       else if (e.type === 'armored') this.setHint('Глыба в броне: нужны пробивание или мощные выстрелы.', 5);
       else if (e.type === 'jumper') this.setHint('Прыгун делает рывок на участках с зелёными стрелками.', 5);
       else if (e.type === 'elite') this.setHint('Смотритель лечит соседей. Убейте его первым — цель «Сильный».', 5);
@@ -289,7 +296,8 @@
       this.$('hHp').textContent = f.hp + ' / ' + f.maxHp;
       this.$('hHpBar').style.width = (100 * f.hp / f.maxHp) + '%';
       this.$('hHpBox').classList.toggle('low', f.hp / f.maxHp <= 0.3);
-      this.$('hCoins').textContent = Math.floor(f.coins);
+      this.$('hCoins').textContent = Math.floor(this.wallet());
+      if (this.mode === 'team') this.root.querySelectorAll('[data-coins]').forEach(el => { el.textContent = Math.floor(f.wallet(el.dataset.coins)); });
       if (this.duel) {
         const b = this.duel.b, w = this.duel.waiting();
         this.$('dA').textContent = 'В' + pad4(f.waveNum) + ' · ♥' + f.hp;
@@ -327,8 +335,10 @@
     select(id) { Object.assign(this.ui, { selected: id, placing: null, ghost: null, tier: null, sellArm: false }); this.renderDock(true); }
     deselect() { Object.assign(this.ui, { selected: null, placing: null, ghost: null, tier: null, sellArm: false }); this.renderDock(true); }
 
+    wallet() { return this.field.wallet(this.ui.player); }
     command(c) {
       c.nonce = ++this.nonce;
+      if (!this.online) c.owner = this.ui.player;
       const r = this.field.cmd(c);
       if (!r.ok && !r.dup) { K.Audio.play('deny', 100); this.setHint(r.reason); }
       if (r.pending) { this.ui.ghost = null; if (c.type === 'place') this.ui.placing = null; }
@@ -346,12 +356,12 @@
         case 'pause': this.pause(true); break;
         case 'speed': this.speed = this.speed === 1 ? 2 : 1; b.textContent = '×' + this.speed; break;
         case 'view': this.toggleView(); break;
-        case 'wave': this.command({ type: 'wave' }); break;
+        case 'wave': case 'skip': this.command({ type: 'skip' }); break;
         case 'hero': {
           const id = b.dataset.id;
           if (this.ui.placing === id) { this.deselect(); break; }
           Object.assign(this.ui, { selected: null, placing: id, tier: null, ghost: null });
-          this.setHint(f.coins < K.HERO[id].cost ? 'Не хватает монет: нужно ' + K.HERO[id].cost : 'Коснитесь места для «' + K.HERO[id].name + '». Можно вести пальцем — покажется зона обзора.', 5);
+          this.setHint(this.wallet() < K.HERO[id].cost ? 'Не хватает монет: нужно ' + K.HERO[id].cost : 'Коснитесь места для «' + K.HERO[id].name + '». Можно вести пальцем — покажется зона обзора.', 5);
           this.renderDock(true);
           break;
         }
@@ -428,18 +438,23 @@
         const t = ui.selected != null ? f.getTower(ui.selected) : null;
         if (ui.selected != null && !t) ui.selected = null;
         if (t) {
-          const aff = [0, 1].map(br => K.upgradeState(t.hero, t.up, br, f.coins).ok ? 1 : 0).join('') + ['vision', 'aa'].map(k => f.coins >= K.SKILLS[k].cost ? 1 : 0).join('');
+          const aff = [0, 1].map(br => K.upgradeState(t.hero, t.up, br, this.wallet()).ok ? 1 : 0).join('') + ['vision', 'aa'].map(k => this.wallet() >= K.SKILLS[k].cost ? 1 : 0).join('');
           sig = 'T' + t.id + t.up.join('') + t.skills.vision + t.skills.aa + t.targeting + JSON.stringify(ui.tier) + ui.sellArm + aff + f.over;
         } else {
           const gap = this.duel ? (this.duel.gap == null ? 'w' + this.duel.waiting() : Math.ceil(this.duel.gap)) : '';
-          sig = 'B' + ui.placing + f.squad.map(h => f.coins >= K.HERO[h].cost ? 1 : 0).join('') + f.canStartWave() + f.waveNum + f.active.length + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over;
+          sig = 'B' + ui.placing + f.squad.map(h => this.wallet() >= K.HERO[h].cost ? 1 : 0).join('') + f.canStartWave() + f.canSkip() + f.waveNum + f.active.length + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over + JSON.stringify(this.skipVotes || '');
         }
       }
       if (!force && sig === this.dockSig) return;
       this.dockSig = sig;
       const dock = this.$('dock');
       if (this.view === 'opp') dock.innerHTML = this.oppPanel();
-      else { const t = ui.selected != null ? f.getTower(ui.selected) : null; dock.innerHTML = t ? this.towerPanel(t, false) : this.buildBar(); }
+      else {
+        const t = ui.selected != null ? f.getTower(ui.selected) : null;
+        // в команде чужие башни можно только посмотреть
+        const foreign = t && f.players.length > 1 && t.owner !== ui.player;
+        dock.innerHTML = t ? this.towerPanel(t, foreign ? 'foreign' : false) : this.buildBar();
+      }
     }
 
     buildBar() {
@@ -449,38 +464,48 @@
         const id = f.squad[i];
         if (!id) { slots.push('<div class="hbtn empty"></div>'); continue; }
         const H = K.HERO[id];
-        slots.push(`<button class="hbtn ${ui.placing === id ? 'on' : ''} ${f.coins < H.cost ? 'poor' : ''}" data-act="hero" data-id="${id}" aria-pressed="${ui.placing === id}">
+        slots.push(`<button class="hbtn ${ui.placing === id ? 'on' : ''} ${this.wallet() < H.cost ? 'poor' : ''}" data-act="hero" data-id="${id}" aria-pressed="${ui.placing === id}">
           <span class="hero-thumb" style="background-image:url(${K.thumbs[id] || ''})"></span>
           <span class="nm">${esc(H.name)}</span><span class="num coin mcoin" style="font-size:.78em">${H.cost}</span></button>`);
       }
       let waveBtn = '';
       // в дуэли волны идут сами, а номер волны уже есть в верхней панели — кнопка не нужна
       if (this.duel) waveBtn = '';
-      else if (f.canStartWave()) waveBtn = `<button class="btn brass" data-act="wave">${f.autoWave && f.autoTimer > 0 ? 'Волна ' + (f.waveNum + 1) + ' · авто ' + Math.ceil(f.autoTimer) + ' с' : 'Начать волну ' + (f.waveNum + 1)}</button>`;
-      else if (f.active.length) waveBtn = `<button class="btn" disabled>Идёт волна ${f.active[f.active.length - 1].n}</button>`;
-      else waveBtn = '<button class="btn" disabled>Волн больше нет</button>';
+      else {
+        // онлайн: пропуск по голосам (1–2 игрока — 1 голос, 3–4 — 2 голоса)
+        const sv = this.online && this.skipVotes ? this.skipVotes : null;
+        const voted = sv && sv[0].includes(ui.player);
+        const votes = sv && sv[1] > 1 ? ` · ${sv[0].length}/${sv[1]}` : '';
+        if (f.canStartWave() || (!f.active.length && f.canSkip())) waveBtn = `<button class="btn brass" data-act="skip" ${voted ? 'disabled' : ''}>${f.autoWave && f.autoTimer > 0 ? 'Волна ' + (f.waveNum + 1) + ' · авто ' + Math.ceil(f.autoTimer) + ' с' : 'Начать волну ' + (f.waveNum + 1)}${votes}</button>`;
+        else if (f.active.length && f.canSkip()) waveBtn = `<button class="btn pet" data-act="skip" ${voted ? 'disabled' : ''} title="Следующая волна начнётся сразу">⏩ Пропустить ожидание${votes}</button>`;
+        else if (f.active.length) waveBtn = `<button class="btn" disabled>Идёт волна ${f.waveNum}</button>`;
+        else waveBtn = '<button class="btn" disabled>Волн больше нет</button>';
+      }
       const ctrl = waveBtn || ui.placing ? `<div class="ctrl">${waveBtn}${ui.placing ? '<button class="btn" data-act="cancel">Отмена</button>' : ''}</div>` : '';
       return `<div class="build">${slots.join('')}</div>${ctrl}`;
     }
 
-    // Компактная панель прокачки. readOnly — для просмотра башен соперника.
+    // Компактная панель прокачки. readOnly: 'opp' — башня соперника в дуэли, 'foreign' — башня товарища.
     towerPanel(t, readOnly) {
-      const f = readOnly ? this.duel.b : this.field, H = K.HERO[t.hero], ui = this.ui;
+      if (readOnly === true) readOnly = 'opp';
+      const f = readOnly === 'opp' ? this.duel.b : this.field, H = K.HERO[t.hero], ui = this.ui;
+      const coins = readOnly ? 0 : this.wallet(), passive = !!t.s.passive;
       const owner = f.players.find(p => p.id === t.owner);
       const lvl = t.up[0] + t.up[1];
-      const chips = STAT_LABELS.filter(s => !s[3] || s[3](t.s[s[0]])).slice(0, 6).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('');
+      const PASSIVE = ['income', 'interest', 'interestCap', 'petMax', 'heal', 'shield'];
+      const chips = STAT_LABELS.filter(s => passive ? PASSIVE.includes(s[0]) && (!s[3] || s[3](t.s[s[0]])) : !PASSIVE.slice(1).includes(s[0]) && (!s[3] || s[3](t.s[s[0]]))).slice(0, 6).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('');
       const skill = k => {
         const S = K.SKILLS[k], ic = K.UI.icon(k === 'vision' ? 'eye' : 'radar');
         if (H.base[k] || t.skills[k]) return `<button class="btn mini pet" disabled>${ic} ${S.name}${H.base[k] ? '' : ' ✓'}</button>`;
         if (readOnly) return `<button class="btn mini" disabled>${ic} нет</button>`;
-        return `<button class="btn mini" data-act="skill" data-k="${k}" ${f.coins < S.cost ? 'disabled' : ''}>${ic} ${S.name} <span class="num">${S.cost}</span></button>`;
+        return `<button class="btn mini" data-act="skill" data-k="${k}" ${coins < S.cost ? 'disabled' : ''}>${ic} ${S.name} <span class="num">${S.cost}</span></button>`;
       };
       const row = br => {
         const list = br === 0 ? H.top : H.bottom;
         const st = K.upgradeState(t.hero, t.up, br, null);
         const locked = !st.ok && st.code === 'locked';
         return `<div class="branch"><span class="lbl">${br === 0 ? 'Верх' : 'Низ'}${locked ? ' ' + K.UI.icon('lock') : ''}</span>${list.map((u, i) => {
-          const owned = i < t.up[br], next = i === t.up[br] && st.ok, can = next && !readOnly && f.coins >= u.cost;
+          const owned = i < t.up[br], next = i === t.up[br] && st.ok, can = next && !readOnly && coins >= u.cost;
           const sel = !readOnly && ui.tier && ui.tier.br === br && ui.tier.lvl === i;
           return `<button class="tier ${owned ? 'owned b' + br : ''} ${next ? 'next' : ''} ${can ? 'can' : ''} ${!owned && !next ? 'locked' : ''} ${sel ? 'sel' : ''}" ${readOnly ? 'disabled' : `data-act="tier" data-br="${br}" data-lvl="${i}"`} aria-label="${esc(u.name)}" title="${esc(u.name)}">${K.UI.icon(u.icon)}<span class="c">${owned ? '✓' : u.cost}</span></button>`;
         }).join('')}</div>`;
@@ -491,7 +516,7 @@
           const { br, lvl: L } = ui.tier;
           const u = (br === 0 ? H.top : H.bottom)[L];
           const owned = L < t.up[br];
-          const st = K.upgradeState(t.hero, t.up, br, f.coins);
+          const st = K.upgradeState(t.hero, t.up, br, coins);
           let action = '', note = '';
           if (owned) note = '<span class="tag">куплено</span>';
           else if (L > t.up[br]) note = `<span class="tag lock">сначала ур. ${t.up[br] + 1}</span>`;
@@ -504,27 +529,28 @@
           if (!owned && L === t.up[br] && (st.ok || st.code === 'money')) {
             const up = t.up.slice(); up[br]++;
             const after = K.towerStats(t.hero, up, t.skills);
-            diffs = STAT_LABELS.filter(s => Math.abs((after[s[0]] || 0) - (t.s[s[0]] || 0)) > 1e-6).map(s => `<span class="${after[s[0]] > t.s[s[0]] ? 'up' : 'dn'}">${s[1]} ${s[2](t.s[s[0]])}→${s[2](after[s[0]])}</span>`).join('');
+            diffs = STAT_LABELS.filter(s => !(s[0] === 'dps' && passive) && Math.abs((after[s[0]] || 0) - (t.s[s[0]] || 0)) > 1e-6).map(s => `<span class="${after[s[0]] > t.s[s[0]] ? 'up' : 'dn'}">${s[1]} ${s[2](t.s[s[0]])}→${s[2](after[s[0]])}</span>`).join('');
             if (after.aoeAll && !t.s.aoeAll) diffs += '<span class="up">бьёт всех в радиусе</span>';
           }
           detail = `<div class="detail"><div class="row"><b class="grow">${br === 0 ? 'Верх' : 'Низ'} ${L + 1}: ${esc(u.name)}</b>${action}</div><div class="note">${esc(u.desc)}</div>${diffs ? `<div class="diffs">${diffs}</div>` : ''}${note ? '<div>' + note + '</div>' : ''}</div>`;
-        } else detail = '<div class="note small-note">Нажмите на улучшение, чтобы выбрать его. Уровни 1–2 доступны в обеих ветках всегда. Выше 2-го можно прокачать только одну ветку.</div>';
+        } else if (passive) detail = '<div class="note small-note">Свинка не атакует. Верхняя ветка бережёт микропета, нижняя приносит больше монет. Уровни 1–2 доступны в обеих ветках всегда.</div>';
+        else detail = '<div class="note small-note">Нажмите на улучшение, чтобы выбрать его. Уровни 1–2 доступны в обеих ветках всегда. Выше 2-го можно прокачать только одну ветку.</div>';
       }
       const refund = Math.floor(t.spent * K.SELL_RATE);
       const target = TARGETS.find(x => x[0] === t.targeting)[1];
       return `<div class="panel compact">
         <div class="ph"><span class="hero-thumb" style="background-image:url(${K.thumbs[t.hero] || ''})"></span>
           <div class="grow" style="min-width:0"><b>${esc(H.name)}</b> <span class="mute">ур. ${lvl}${owner && f.players.length > 1 ? ' · <span style="color:' + owner.color + '">' + esc(owner.name) + '</span>' : ''}</span><div class="chipline">${chips}</div></div>
-          <button class="btn small icon-btn" data-act="${readOnly ? 'oppClose' : 'close'}" aria-label="Закрыть">${K.UI.icon('x')}</button></div>
-        <div class="tools">${skill('vision')}${skill('aa')}${readOnly ? `<button class="btn mini" disabled>Цель: ${target}</button>` : `<button class="btn mini" data-act="target" title="Сменить приоритет цели">Цель: ${target}</button>`}
+          <button class="btn small icon-btn" data-act="${readOnly === 'opp' ? 'oppClose' : 'close'}" aria-label="Закрыть">${K.UI.icon('x')}</button></div>
+        <div class="tools">${passive ? `<span class="tag">Доход идёт ${t.owner === ui.player || !readOnly ? 'вам' : 'владельцу'}</span>` : skill('vision') + skill('aa') + (readOnly ? `<button class="btn mini" disabled>Цель: ${target}</button>` : `<button class="btn mini" data-act="target" title="Сменить приоритет цели">Цель: ${target}</button>`)}
           ${readOnly ? '' : ui.sellArm ? `<button class="btn mini danger" data-act="sellYes">Точно? +${refund}</button>` : `<button class="btn mini ghost" data-act="sell">Продать +${refund}</button>`}</div>
-        ${row(0)}${row(1)}${detail}</div>`;
+        ${row(0)}${row(1)}${readOnly === 'foreign' ? '<div class="note small-note">Это башня товарища: улучшать и продавать её может только он.</div>' : detail}</div>`;
     }
 
     oppPanel() {
       const b = this.duel.b;
       const t = this.ui.oppSel != null ? b.getTower(this.ui.oppSel) : null;
-      if (t) return this.towerPanel(t, true);
+      if (t) return this.towerPanel(t, 'opp');
       const list = b.towers.length ? b.towers.map(x => `<button class="opp-t" data-act="oppTower" data-id="${x.id}"><span class="hero-thumb" style="background-image:url(${K.thumbs[x.hero] || ''})"></span><span>${esc(K.HERO[x.hero].name)}</span><span class="num">${x.up[0]}/${x.up[1]}${x.s.vision ? ' · В' : ''}${x.s.aa ? ' · ПВО' : ''}</span></button>`).join('') : '<div class="note">Соперник ещё ничего не построил.</div>';
       return `<div class="panel compact"><div class="row"><b class="grow">Башни соперника · ${b.towers.length}</b><span class="num coin mcoin">${Math.floor(b.coins)}</span></div>
         <div class="opp-list">${list}</div>
@@ -533,28 +559,44 @@
     }
 
     // ---------- Пауза и итоги ----------
+    // Пауза и настройки игры. Онлайн время не останавливается — окно только с настройками.
     pause(on) {
       if (this.finished) return;
-      if (this.online) {
-        if (!on) { K.UI.closeModal(); return; }
-        K.UI.modal(`<div class="h2">Сетевой матч</div><div class="note">Онлайн-игру нельзя поставить на паузу: время идёт на сервере для всех.</div>
-          <button class="btn brass block" data-m="resume">Вернуться в игру</button><button class="btn danger block" data-m="quit">Покинуть матч</button>
-          <div class="note">${this.duel ? 'Если выйти из дуэли, засчитается поражение.' : 'Ваши башни останутся у команды.'}</div>`,
-        { resume: () => K.UI.closeModal(), quit: () => { K.UI.closeModal(); this.app.go('menu'); } }, { center: true });
-        return;
-      }
-      this.paused = on;
-      if (!on) { K.UI.closeModal(); return; }
-      K.UI.modal(`<div class="h2">Пауза</div>
-        <div class="kv"><span>Волна</span><b>${this.field.waveNum}</b><span>Уничтожено</span><b>${this.field.kills}</b><span>Время</span><b>${fmtTime(this.field.time)}</b></div>
-        ${this.duel ? '<div class="note">Дуэль с ботом идёт на этом устройстве, поэтому пауза останавливает обе стороны.</div>' : ''}
-        <button class="btn brass block" data-m="resume">Продолжить</button>
-        <button class="btn block" data-m="restart">Начать заново</button>
-        <button class="btn danger block" data-m="quit">Выйти в меню</button>
-        <div class="note">При выходе или перезапуске незавершённый матч не приносит наград.</div>`, {
+      if (!on) { this.paused = false; K.UI.closeModal(); return; }
+      if (!this.online) this.paused = true;
+      const st = this.app.profile.settings, f = this.field;
+      const sw = (key, label, sub) => `<div class="toggle"><div><b>${label}</b>${sub ? `<div class="note">${sub}</div>` : ''}</div><button class="switch" role="switch" aria-checked="${!!st[key]}" data-m="sw" data-k="${key}" aria-label="${label}"></button></div>`;
+      const canAuto = !this.online && !this.duel;
+      const html = `<div class="h2">${this.online ? 'Меню матча' : 'Пауза'}</div>
+        ${this.online ? '<div class="note">Сетевой матч не останавливается: время идёт на сервере для всех игроков.</div>' : ''}
+        <div class="kv"><span>Волна</span><b>${f.waveNum}</b><span>Уничтожено</span><b>${f.kills}</b><span>Время</span><b>${fmtTime(this.duel ? this.duel.time : f.time)}</b></div>
+        <div class="eyebrow">Настройки игры</div>
+        <div>
+          ${canAuto ? sw('autoWave', 'Автозапуск волн', 'Следующая волна начнётся через 3 с после предыдущей') : ''}
+          ${!this.online && !this.duel ? `<div class="toggle"><b>Скорость игры</b><div class="seg" style="min-width:8em">${[1, 2].map(v => `<button class="${this.speed === v ? 'on' : ''}" data-m="speed" data-v="${v}">×${v}</button>`).join('')}</div></div>` : ''}
+          ${sw('sound', 'Звук')}
+          ${sw('effects', 'Дополнительные эффекты', 'Мерцание ламп, тени и частицы')}
+          <div class="toggle"><b>Качество</b><div class="seg" style="min-width:11em">${[['low', 'Низкое'], ['mid', 'Среднее'], ['high', 'Высокое']].map(([k, n]) => `<button class="${st.quality === k ? 'on' : ''}" data-m="q" data-id="${k}">${n}</button>`).join('')}</div></div>
+        </div>
+        <button class="btn brass block" data-m="resume">${this.online ? 'Вернуться в игру' : 'Продолжить'}</button>
+        ${this.online ? '' : '<button class="btn block" data-m="restart">Начать заново</button>'}
+        <button class="btn danger block" data-m="quit">${this.online ? 'Покинуть матч' : 'Выйти в меню'}</button>
+        <div class="note">${this.online ? (this.duel ? 'Если выйти из дуэли, засчитается поражение.' : 'Ваши башни останутся у команды.') : 'При выходе или перезапуске незавершённый матч не приносит наград.'}</div>`;
+      const again = () => this.pause(true);
+      K.UI.modal(html, {
         resume: () => this.pause(false),
         restart: () => { K.UI.closeModal(); this.app.startMatch(this.cfg); },
-        quit: () => { K.UI.closeModal(); this.app.go('menu'); }
+        quit: () => { K.UI.closeModal(); this.app.go('menu'); },
+        sw: b => {
+          const k = b.dataset.k;
+          st[k] = !st[k];
+          if (k === 'autoWave') { f.autoWave = st.autoWave; f.autoTimer = -1; }
+          if (k === 'sound') K.Audio.setEnabled(st.sound);
+          if (k === 'effects') { this.app.applyFx(); this.app.render.setQuality(st.quality, st.effects); }
+          this.app.persist(); again();
+        },
+        speed: b => { this.speed = +b.dataset.v; const sb = this.$('speedBtn'); if (sb) sb.textContent = '×' + this.speed; again(); },
+        q: b => { st.quality = b.dataset.id; this.app.render.setQuality(st.quality, st.effects); this.app.persist(); again(); }
       }, { center: true, onClose: () => { this.paused = false; } });
     }
 

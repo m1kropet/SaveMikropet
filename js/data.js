@@ -3,136 +3,134 @@
 (function (K) {
   'use strict';
 
-  const TIER_MUL = [0.55, 0.85, 2.1, 3.8, 7.5];
-  const tierCost = (base, i, k) => Math.round((base * TIER_MUL[i] * (k || 1)) / 5) * 5;
-
-  function branch(base, k, levels) {
-    return levels.map((l, i) => Object.assign({ cost: tierCost(base, i, k) }, l));
-  }
+  // Цены улучшений заданы явно: [1, 2, 3, 4, 5] для верхней и нижней ветки.
+  const withCosts = (levels, costs) => levels.map((l, i) => Object.assign({ cost: costs[i] }, l));
 
   // fx-ключи: dmg(+), dmgMul(×), rateMul(×), range(+), splash(+), multi(+), chain(+), chainRange(+),
   // pierce(+), critC(+), critM(max), slow(max), slowDur(+), freezeC(+), freezeDur(max), stunC(+),
-  // stunDur(max), burn(+), aoeAll, execute(max), income(+), killBonus(+), bonusSlowed(+)
+  // stunDur(max), burn(+), aoeAll, execute(max), income(+), bonusSlowed(+), bossFreeze,
+  // для Свинки: heal(+) — лечение микропета за волну, petMax(+) — жизни микропета, shield(+) — блоки утечек за волну,
+  // interest(+) — процент от своих монет за волну, interestCap(max)
   const HEROES = [
     {
-      id: 'blaster', name: 'Радужный бластер', role: 'Скорострельный универсал',
-      desc: 'Компактная пушка с радужными катушками. Засыпает коридор быстрыми энергетическими зарядами.',
+      id: 'blaster', name: 'Бластер', role: 'Скорострельный универсал',
+      desc: 'Компактная пушка с тремя стволами и радужными катушками. Засыпает коридор быстрыми зарядами.',
       price: 0, cost: 120, color: '#ff5fd2', rarity: 'Обычный',
       base: { dmg: 8, rate: 3.2, range: 3.0, proj: 'bolt', projSpeed: 17 },
-      top: branch(120, 1, [
+      top: withCosts([
         { name: 'Длинный прицел', icon: 'scope', desc: 'Дальность +0.4', fx: { range: 0.4 } },
         { name: 'Разгон катушек', icon: 'gear', desc: 'Скорость атаки +15%', fx: { rateMul: 1.15 } },
-        { name: 'Призменный веер', icon: 'fan', desc: 'Стреляет по 3 целям, скорость +20%, дальность +0.6', fx: { multi: 2, rateMul: 1.2, range: 0.6 } },
+        { name: 'Веер стволов', icon: 'fan', desc: 'Стреляет по 3 целям, скорость +20%, дальность +0.6', fx: { multi: 2, rateMul: 1.2, range: 0.6 } },
         { name: 'Радужная очередь', icon: 'burst', desc: 'Скорость атаки +40%, дальность +0.5', fx: { rateMul: 1.4, range: 0.5 } },
         { name: 'Спектральный шторм', icon: 'star', desc: '5 целей разом, скорость +50%, дальность +0.8', fx: { multi: 2, rateMul: 1.5, range: 0.8, dmg: 2 } }
-      ]),
-      bottom: branch(120, 1.05, [
+      ], [80, 150, 550, 800, 2500]),
+      bottom: withCosts([
         { name: 'Плотный заряд', icon: 'dot', desc: 'Урон +3', fx: { dmg: 3 } },
         { name: 'Бронебойный сердечник', icon: 'pierce', desc: 'Пробивание брони +2', fx: { pierce: 2 } },
         { name: 'Перегрев', icon: 'flame', desc: 'Урон ×1.8, 15% шанс крита ×2', fx: { dmgMul: 1.8, critC: 0.15, critM: 2 } },
         { name: 'Плазменное ядро', icon: 'core', desc: 'Урон ×1.7, пробивание +4', fx: { dmgMul: 1.7, pierce: 4, range: 0.2 } },
         { name: 'Сверхновая', icon: 'nova', desc: 'Урон ×2, 30% шанс крита ×3', fx: { dmgMul: 2, critC: 0.15, critM: 3, rateMul: 1.1 } }
-      ])
+      ], [300, 450, 700, 1800, 3000])
     },
     {
-      id: 'dragon', name: 'Неон-дракон', role: 'Урон по области',
-      desc: 'Механический дракончик с неоновыми крыльями. Плюётся плазменными сгустками, которые взрываются в толпе. Видит летающих от рождения.',
-      price: 350, cost: 220, color: '#b45cff', rarity: 'Редкий',
+      id: 'dragon', name: 'Диномайк', role: 'Взрывы по области',
+      desc: 'Неоновый динозаврик с ящиком динамита за спиной. Швыряет шашки, которые взрываются в толпе. Видит летающих от рождения.',
+      price: 900, cost: 220, color: '#b45cff', rarity: 'Редкий',
       base: { dmg: 16, rate: 0.9, range: 3.2, splash: 1.1, proj: 'orb', projSpeed: 9, aa: true },
-      top: branch(220, 1, [
+      top: withCosts([
         { name: 'Острое зрение', icon: 'scope', desc: 'Дальность +0.4', fx: { range: 0.4 } },
-        { name: 'Широкий выдох', icon: 'fan', desc: 'Радиус взрыва +0.3', fx: { splash: 0.3 } },
-        { name: 'Шквал искр', icon: 'burst', desc: 'Скорость +60%, дальность +0.8, урон ×0.85', fx: { rateMul: 1.6, range: 0.8, splash: 0.3, dmgMul: 0.85 } },
-        { name: 'Двойной залп', icon: 'twin', desc: 'Две цели, скорость +40%', fx: { multi: 1, rateMul: 1.4 } },
-        { name: 'Неоновый ливень', icon: 'star', desc: 'Четыре цели, скорость +30%, дальность +0.8', fx: { multi: 2, rateMul: 1.3, range: 0.8 } }
-      ]),
-      bottom: branch(220, 1, [
-        { name: 'Горячее ядро', icon: 'dot', desc: 'Урон +6', fx: { dmg: 6 } },
-        { name: 'Поджог', icon: 'flame', desc: 'Горение 4 урона/с', fx: { burn: 4 } },
-        { name: 'Плазменное дыхание', icon: 'core', desc: 'Урон ×2, горение +8/с', fx: { dmgMul: 2, burn: 8 } },
-        { name: 'Раскалённая чешуя', icon: 'pierce', desc: 'Урон ×1.8, пробивание +5', fx: { dmgMul: 1.8, pierce: 5 } },
-        { name: 'Сверхновый рёв', icon: 'nova', desc: 'Урон ×2.2, взрыв +0.5, горение +20/с', fx: { dmgMul: 2.2, splash: 0.5, burn: 20 } }
-      ])
+        { name: 'Длинный фитиль', icon: 'fan', desc: 'Радиус взрыва +0.3', fx: { splash: 0.3 } },
+        { name: 'Связка шашек', icon: 'burst', desc: 'Скорость +60%, дальность +0.8, урон ×0.85', fx: { rateMul: 1.6, range: 0.8, splash: 0.3, dmgMul: 0.85 } },
+        { name: 'Двойной бросок', icon: 'twin', desc: 'Две цели, скорость +40%', fx: { multi: 1, rateMul: 1.4 } },
+        { name: 'Динамитный ливень', icon: 'star', desc: 'Четыре цели, скорость +30%, дальность +0.8', fx: { multi: 2, rateMul: 1.3, range: 0.8 } }
+      ], [150, 350, 600, 1100, 2300]),
+      bottom: withCosts([
+        { name: 'Порох покрепче', icon: 'dot', desc: 'Урон +6', fx: { dmg: 6 } },
+        { name: 'Зажигательная смесь', icon: 'flame', desc: 'Горение 4 урона/с', fx: { burn: 4 } },
+        { name: 'Нитро', icon: 'core', desc: 'Урон ×2, горение +8/с', fx: { dmgMul: 2, burn: 8 } },
+        { name: 'Бронебойный заряд', icon: 'pierce', desc: 'Урон ×1.8, пробивание +5', fx: { dmgMul: 1.8, pierce: 5 } },
+        { name: 'Мегабум', icon: 'nova', desc: 'Урон ×2.2, взрыв +0.5, горение +20/с', fx: { dmgMul: 2.2, splash: 0.5, burn: 20 } }
+      ], [350, 500, 800, 2600, 4600])
     },
     {
-      id: 'ice', name: 'Ледяной куб', role: 'Контроль и замедление',
-      desc: 'Парящий куб вечного льда с кристаллами внутри. Замедляет всё, что проходит рядом, и иногда замораживает насмерть.',
+      id: 'ice', name: 'Морозилка', role: 'Контроль и замедление',
+      desc: 'Старая морозильная камера с инеем на дверце. Выдувает ледяную крошку, замедляет всё вокруг и иногда замораживает насмерть.',
       price: 0, cost: 140, color: '#7fe3ff', rarity: 'Обычный',
       base: { dmg: 4, rate: 1.1, range: 2.6, splash: 0.8, slow: 0.35, slowDur: 1.5, proj: 'shard', projSpeed: 12 },
-      top: branch(140, 1, [
+      top: withCosts([
         { name: 'Холодный ореол', icon: 'scope', desc: 'Дальность +0.3', fx: { range: 0.3 } },
         { name: 'Долгий иней', icon: 'snow', desc: 'Замедление дольше на 0.5 с', fx: { slowDur: 0.5 } },
         { name: 'Метель', icon: 'fan', desc: 'Бьёт всех в радиусе, скорость +30%, дальность +0.5', fx: { aoeAll: true, rateMul: 1.3, range: 0.5 } },
         { name: 'Полярная ночь', icon: 'snow', desc: 'Замедление 50%, дальность +0.4, скорость +20%', fx: { slow: 0.5, range: 0.4, rateMul: 1.2 } },
         { name: 'Вечная мерзлота', icon: 'star', desc: '15% шанс заморозки, дальность +0.6, скорость +30%', fx: { freezeC: 0.15, freezeDur: 1, range: 0.6, rateMul: 1.3 } }
-      ]),
-      bottom: branch(140, 1, [
+      ], [120, 350, 800, 1400, 2200]),
+      bottom: withCosts([
         { name: 'Острые грани', icon: 'dot', desc: 'Урон +3', fx: { dmg: 3 } },
         { name: 'Хрупкость', icon: 'snow', desc: '8% шанс заморозки на 1 с', fx: { freezeC: 0.08, freezeDur: 1 } },
         { name: 'Ледяной шип', icon: 'pierce', desc: 'Урон ×3, заморозка +7%', fx: { dmgMul: 3, freezeC: 0.07 } },
         { name: 'Раскол', icon: 'core', desc: 'Урон ×2, +50% урона по замедленным', fx: { dmgMul: 2, bonusSlowed: 0.5 } },
-        { name: 'Абсолютный ноль', icon: 'nova', desc: 'Урон ×2.5, заморозка +15% на 1.5 с, пробивание +6', fx: { dmgMul: 2.5, freezeC: 0.15, freezeDur: 1.5, pierce: 6 } }
-      ])
+        { name: 'Абсолютный ноль', icon: 'nova', desc: 'Урон ×2.5, заморозка +15% на 1.5 с, пробивание +6. Заморозка боссов: каждое попадание охлаждает босса, и он ненадолго замерзает', fx: { dmgMul: 2.5, freezeC: 0.15, freezeDur: 1.5, pierce: 6, bossFreeze: true } }
+      ], [300, 450, 1100, 1800, 3400])
     },
     {
-      id: 'prism', name: 'Призма-снайпер', role: 'Дальний урон по одной цели',
-      desc: 'Тяжёлая оптическая призма. Медленно наводится и прожигает лучом самых опасных. Видит невидимок от рождения.',
-      price: 550, cost: 260, color: '#ffe36b', rarity: 'Эпический',
+      id: 'prism', name: 'Реалганер', role: 'Дальний урон по одной цели',
+      desc: 'Тяжёлая рельсовая пушка на треноге. Долго заряжается и пробивает лучом самых опасных. Видит невидимок от рождения.',
+      price: 1800, cost: 260, color: '#ffe36b', rarity: 'Эпический',
       base: { dmg: 55, rate: 0.45, range: 7, proj: 'beam', vision: true, target: 'strong' },
-      top: branch(260, 1, [
-        { name: 'Линза дальнего света', icon: 'scope', desc: 'Дальность +1', fx: { range: 1 } },
-        { name: 'Быстрая фокусировка', icon: 'gear', desc: 'Скорость атаки +15%', fx: { rateMul: 1.15 } },
+      top: withCosts([
+        { name: 'Длинные рельсы', icon: 'scope', desc: 'Дальность +1', fx: { range: 1 } },
+        { name: 'Быстрая зарядка', icon: 'gear', desc: 'Скорость атаки +15%', fx: { rateMul: 1.15 } },
         { name: 'Расщепление', icon: 'fan', desc: 'Луч делится на 3 цели, скорость +40%, урон ×0.7', fx: { multi: 2, rateMul: 1.4, range: 1, dmgMul: 0.7 } },
         { name: 'Стробоскоп', icon: 'burst', desc: 'Скорость +50%, дальность +1', fx: { rateMul: 1.5, range: 1 } },
         { name: 'Калейдоскоп', icon: 'star', desc: '6 лучей разом, скорость +40%', fx: { multi: 3, rateMul: 1.4 } }
-      ]),
-      bottom: branch(260, 1, [
+      ], [100, 250, 1100, 1650, 3400]),
+      bottom: withCosts([
         { name: 'Плотный луч', icon: 'dot', desc: 'Урон +25', fx: { dmg: 25 } },
         { name: 'Бронепрожиг', icon: 'pierce', desc: 'Пробивание брони +5', fx: { pierce: 5 } },
-        { name: 'Фокус линзы', icon: 'flame', desc: 'Урон ×2, 25% шанс крита ×2.5', fx: { dmgMul: 2, critC: 0.25, critM: 2.5 } },
+        { name: 'Фокус', icon: 'flame', desc: 'Урон ×2, 25% шанс крита ×2.5', fx: { dmgMul: 2, critC: 0.25, critM: 2.5 } },
         { name: 'Белый жар', icon: 'core', desc: 'Урон ×1.8, пробивание +10', fx: { dmgMul: 1.8, pierce: 10 } },
         { name: 'Солнечное копьё', icon: 'nova', desc: 'Урон ×2.5, добивает не-боссов ниже 15% здоровья', fx: { dmgMul: 2.5, execute: 0.15 } }
-      ])
+      ], [350, 800, 2400, 5200, 7800])
     },
     {
-      id: 'storm', name: 'Грозовой хвост', role: 'Цепные молнии',
-      desc: 'Шустрый зверёк с хвостом из разрядов. Молния прыгает от врага к врагу и иногда сбивает их с ног.',
-      price: 450, cost: 200, color: '#5ad8ff', rarity: 'Редкий',
+      id: 'storm', name: 'Громовержец', role: 'Цепные молнии',
+      desc: 'Маленький повелитель грозы в короне из молний. Разряд прыгает от врага к врагу и иногда сбивает их с ног.',
+      price: 1000, cost: 200, color: '#5ad8ff', rarity: 'Редкий',
       base: { dmg: 12, rate: 1.0, range: 3.0, chain: 3, chainRange: 1.8, stunC: 0.1, stunDur: 0.4, proj: 'bolt-chain' },
-      top: branch(200, 1, [
-        { name: 'Длинные усы', icon: 'scope', desc: 'Дальность +0.4', fx: { range: 0.4 } },
+      top: withCosts([
+        { name: 'Высокая мачта', icon: 'scope', desc: 'Дальность +0.4', fx: { range: 0.4 } },
         { name: 'Лишний прыжок', icon: 'chain', desc: 'Цепь +1 цель', fx: { chain: 1 } },
         { name: 'Разветвление', icon: 'fan', desc: 'Цепь +3, скорость +40%, дальность +0.6', fx: { chain: 3, rateMul: 1.4, range: 0.6 } },
         { name: 'Статика', icon: 'burst', desc: 'Скорость +40%, прыжок дальше на 0.6', fx: { rateMul: 1.4, chainRange: 0.6 } },
         { name: 'Грозовой фронт', icon: 'star', desc: 'Цепь +5, скорость +40%, дальность +0.8', fx: { chain: 5, rateMul: 1.4, range: 0.8 } }
-      ]),
-      bottom: branch(200, 1, [
+      ], [200, 450, 1200, 1800, 4200]),
+      bottom: withCosts([
         { name: 'Высокое напряжение', icon: 'dot', desc: 'Урон +6', fx: { dmg: 6 } },
         { name: 'Оглушающий разряд', icon: 'bolt', desc: 'Шанс оглушения +10%', fx: { stunC: 0.1 } },
         { name: 'Перегрузка', icon: 'flame', desc: 'Урон ×2.2, оглушение 0.8 с', fx: { dmgMul: 2.2, stunDur: 0.8 } },
         { name: 'Пробой изоляции', icon: 'pierce', desc: 'Урон ×1.8, пробивание +4', fx: { dmgMul: 1.8, pierce: 4 } },
         { name: 'Шаровая молния', icon: 'nova', desc: 'Урон ×2.5, оглушение 35% на 1.2 с', fx: { dmgMul: 2.5, stunC: 0.15, stunDur: 1.2 } }
-      ])
+      ], [500, 300, 900, 1500, 2300])
     },
     {
-      id: 'piggy', name: 'Копилка', role: 'Экономика и поддержка',
-      desc: 'Заводной поросёнок с монетной щелью. Приносит монеты каждую волну и добавляет награду за врагов, побеждённых рядом.',
-      price: 200, cost: 180, color: '#ffb347', rarity: 'Необычный',
-      base: { dmg: 5, rate: 0.8, range: 2.4, proj: 'coin', projSpeed: 11, income: 15, killBonus: 0.15 },
-      top: branch(180, 1, [
-        { name: 'Звонкая щель', icon: 'scope', desc: 'Дальность +0.4', fx: { range: 0.4 } },
-        { name: 'Проценты', icon: 'coin', desc: 'Доход +10 за волну', fx: { income: 10 } },
-        { name: 'Денежный дождь', icon: 'fan', desc: '3 цели, скорость +50%, дальность +1, бонус +10%', fx: { multi: 2, rateMul: 1.5, range: 1, killBonus: 0.1 } },
-        { name: 'Звонкая очередь', icon: 'burst', desc: 'Скорость +40%, дальность +0.6, бонус +10%', fx: { rateMul: 1.4, range: 0.6, killBonus: 0.1 } },
-        { name: 'Золотой фонтан', icon: 'star', desc: '6 целей, дальность +1, доход +30', fx: { multi: 3, range: 1, income: 30 } }
-      ]),
-      bottom: branch(180, 1, [
-        { name: 'Свинцовый пятак', icon: 'dot', desc: 'Урон +4', fx: { dmg: 4 } },
-        { name: 'Вклад', icon: 'coin', desc: 'Доход +15 за волну', fx: { income: 15 } },
-        { name: 'Тяжёлая монета', icon: 'core', desc: 'Урон ×3, доход +20', fx: { dmgMul: 3, income: 20 } },
-        { name: 'Ребристый рубль', icon: 'pierce', desc: 'Урон ×2, пробивание +3, доход +30', fx: { dmgMul: 2, pierce: 3, income: 30 } },
-        { name: 'Джекпот', icon: 'nova', desc: 'Урон ×2.5, 20% крит ×4, доход +60', fx: { dmgMul: 2.5, critC: 0.2, critM: 4, income: 60 } }
-      ])
+      id: 'piggy', name: 'Свинка', role: 'Доход и жизни микропета',
+      desc: 'Заводная свинка-копилка. Не атакует: приносит монеты своему хозяину после каждой волны. Верхняя ветка бережёт микропета, нижняя приносит больше денег.',
+      price: 400, cost: 160, color: '#ffb347', rarity: 'Необычный',
+      base: { dmg: 0, rate: 0, range: 1.6, proj: 'none', income: 30, passive: true },
+      top: withCosts([
+        { name: 'Пластырь', icon: 'heal', desc: 'После каждой волны лечит микропета на 1', fx: { heal: 1 } },
+        { name: 'Тёплый свитер', icon: 'heart', desc: 'Жизни микропета +5', fx: { petMax: 5 } },
+        { name: 'Аптечка', icon: 'heal', desc: 'Лечение после волны +2, жизни +5', fx: { heal: 2, petMax: 5 } },
+        { name: 'Пушистый щит', icon: 'shield', desc: 'Каждую волну блокирует 2 сущности, дошедшие до микропета', fx: { shield: 2 } },
+        { name: 'Ангел-хранитель', icon: 'star', desc: 'Жизни +15, лечение +3, щит +3', fx: { petMax: 15, heal: 3, shield: 3 } }
+      ], [150, 300, 700, 1300, 2600]),
+      bottom: withCosts([
+        { name: 'Звонкая щель', icon: 'coin', desc: 'Доход +20 за волну', fx: { income: 20 } },
+        { name: 'Вклад', icon: 'coin', desc: 'Доход +30 за волну', fx: { income: 30 } },
+        { name: 'Проценты', icon: 'core', desc: 'Каждую волну +5% к вашим монетам (до 150)', fx: { interest: 0.05, interestCap: 150 } },
+        { name: 'Золотая жила', icon: 'burst', desc: 'Доход +80 за волну, проценты до 300', fx: { income: 80, interestCap: 300 } },
+        { name: 'Джекпот', icon: 'nova', desc: 'Доход +200 за волну, проценты 8% до 600', fx: { income: 200, interest: 0.03, interestCap: 600 } }
+      ], [120, 300, 800, 1500, 3000])
     }
   ];
 
@@ -223,7 +221,8 @@
     { id: 'duel_win', name: 'Первая дуэль', desc: 'Выиграть дуэль', coins: 60, xp: 80 },
     { id: 'team_win', name: 'Вместе теплее', desc: 'Победить в командном режиме', coins: 80, xp: 100 },
     { id: 'time_1h', name: 'Свой человек', desc: 'Провести в игре 1 час', coins: 80, xp: 100 },
-    { id: 'secret_title', name: 'Ковтоп видит тебя', desc: 'Найти тайну в названии игры', coins: 30, xp: 40, secret: true }
+    { id: 'secret_title', name: 'Ковтоп видит тебя', desc: 'Найти тайну в названии игры', coins: 30, xp: 40, secret: true },
+    { id: 'secret_morse', name: 'Сигнал из шахты', desc: 'Расшифровать мигание лампы и ввести код в магазине', coins: 100, xp: 100, secret: true }
   ];
 
   const DEMO_PLAYERS = [
@@ -285,10 +284,13 @@
   K.THEME_OBSTACLES = THEME_OBSTACLES;
   K.botSkill = botSkill;
   K.BOT_NAMES = BOT_NAMES;
-  K.TOWER_R = 0.38;
+  K.TOWER_R = 0.7;
   K.ROAD_R = 0.55;
   K.BOUNDS = { x0: -8.6, x1: 8.6, z0: -10, z1: 9.3 };
   K.MAP_WIDEN = 1.6;
   K.SQUAD_MAX = 4;
+  K.SECRET_CODE = 'MINES';
+  K.THEMES = { hotel: { name: 'Отель', desc: 'Тёмный отель: латунь и мятный свет' }, mine: { name: 'Шахты', desc: 'Камень, крепь и свет фонарей', secret: true } };
+  K.RARITY_ORDER = ['Обычный', 'Необычный', 'Редкий', 'Эпический'];
   K.SELL_RATE = 0.7;
 })(globalThis.KV = globalThis.KV || {});

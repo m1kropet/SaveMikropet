@@ -16,3 +16,4 @@ start-online.sh
 start-online.bat
 .github
 .gitignore
+data

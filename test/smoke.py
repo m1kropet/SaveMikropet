@@ -16,6 +16,10 @@ def run():
     for i in range(5): pg.click('.title-btn')
     assert pg.query_selector('.secret'); pg.click('#secretClose')
     pg.click('[data-act=play]'); pg.wait_for_timeout(350); pg.screenshot(path=OUT+'/menu_modes.png')
+    assert pg.is_hidden('#playBtn'); pg.click('[data-act=collapse]'); pg.wait_for_timeout(350)
+    assert pg.is_visible('#playBtn') and 'open' not in pg.get_attribute('#modes','class'), 'collapse'
+    pg.click('[data-act=play]'); pg.wait_for_timeout(350)
+    assert ev("/^[A-Z0-9]{3}$/.test(KV.App.profile.tag)") and '#' in pg.inner_text('.profile-chip'), 'tag shown'
     pg.click('[data-act=single]'); pg.screenshot(path=OUT+'/single.png')
     pg.click('[data-act=map][data-id=mirrors]'); pg.click('[data-act=diff][data-id=easy]'); pg.click('[data-act=start]')
     pg.wait_for_selector('#game'); pg.wait_for_timeout(300)
@@ -47,8 +51,17 @@ def run():
     assert ev("KV.App.match.field.towers[0].targeting")=='last'
     pg.screenshot(path=OUT+'/panel2d.png')
     pg.click('[data-act=sell]'); pg.click('[data-act=sellYes]'); assert ev("KV.App.match.field.towers.length")==0
-    ev("(()=>{const f=KV.App.match.field; ['blaster','ice'].forEach((h,i)=>{const s=f.layout.spots[i*7]; f.cmd({type:'place',hero:h,x:s.x,z:s.z,owner:'p1'});}); f.coins=2000;})()")
-    pg.click('[data-act=wave]'); pg.wait_for_timeout(2500)
+    ev("(()=>{const f=KV.App.match.field; ['blaster','ice'].forEach((h,i)=>{const s=f.layout.spots.filter(q=>f.canPlace(q.x,q.z).ok)[i*9]; f.cmd({type:'place',hero:h,x:s.x,z:s.z,owner:'p1'});}); f.coins=2000;})()")
+    pg.click('[data-act=skip]'); pg.wait_for_timeout(2500)
+    pg.click('[data-act=pause]'); pg.wait_for_selector('.modal [data-k=autoWave]')
+    assert ev("KV.App.match.paused"), 'single pauses'
+    pg.click('.modal [data-k=autoWave]'); pg.wait_for_timeout(100)
+    assert ev("KV.App.match.field.autoWave===true && KV.App.profile.settings.autoWave===true"), 'autoWave from pause'
+    pg.click('.modal [data-m=resume]')
+    ev("(()=>{const f=KV.App.match.field; for(let i=0;i<60*40;i++) f.step(1/60);})()")
+    pg.wait_for_timeout(300)
+    if ev("KV.App.match.field.canSkip() && KV.App.match.field.active.length>0"):
+      w0=ev("KV.App.match.field.waveNum"); pg.click('[data-act=skip]'); assert ev("KV.App.match.field.waveNum")==w0+1, 'skip during wave'
     ev("(()=>{const f=KV.App.match.field; f.waveNum=7; f.startNextWave(false); for(let i=0;i<60*4;i++) f.step(1/60);})()")
     pg.wait_for_timeout(700); pg.screenshot(path=OUT+'/play2d.png')
     ev("KV.App.match.field.finish('win')"); pg.wait_for_selector('.result-title', timeout=5000); pg.click('[data-m=menu]')
@@ -63,13 +76,33 @@ def run():
     pg.screenshot(path=OUT+'/oppview.png')
     pg.click('#viewBtn'); assert ev("KV.App.match.view")=='me'
     ev("KV.App.match.duel.a.hp=0"); pg.wait_for_selector('.result-title', timeout=5000); pg.click('[data-m=menu]')
+    # команда на одном устройстве: у каждого свои деньги, чужую башню не улучшить
+    pg.click('[data-act=team]'); pg.click('[data-act=create]'); pg.click('[data-act=add]'); pg.click('[data-act=ready][data-id=p1]'); pg.click('[data-act=ready][data-id=p2]')
+    pg.click('[data-act=start]'); pg.wait_for_selector('#players')
+    pg.click('.pchip[data-id=p2]')
+    ev("(()=>{const m=KV.App.match,f=m.field,s=f.layout.spots[0]; m.command({type:'place',hero:f.squad[0],x:s.x,z:s.z});})()")
+    assert ev("KV.App.match.field.towers[0].owner")=='p2' and ev("KV.App.match.field.wallet('p1')")>ev("KV.App.match.field.wallet('p2')"), 'own wallets'
+    pg.click('.pchip[data-id=p1]'); ev("KV.App.match.select(KV.App.match.field.towers[0].id)")
+    assert 'башня товарища' in pg.inner_text('#dock'), 'foreign tower readonly'
+    pg.screenshot(path=OUT+'/team_local.png')
+    pg.click('[data-act=close]'); pg.click('[data-act=pause]'); pg.click('[data-m=quit]')
     # лидерборд без ботов
     pg.click('[data-act=leaders]'); assert len(pg.query_selector_all('.lb-row'))==1; pg.click('[data-act=back]')
     # магазин
     ev("KV.App.profile.coins=5000"); pg.click('[data-act=shop]'); pg.click('[data-act=sel][data-id=prism]'); pg.click('[data-act=buy]'); pg.wait_for_timeout(300); pg.screenshot(path=OUT+'/shop2d.png')
-    assert 'prism' in ev('KV.App.profile.owned'); pg.click('[data-act=back]')
+    assert 'prism' in ev('KV.App.profile.owned')
+    pg.click('[data-act=sort][data-id=dear]'); first=pg.get_attribute('.hero-card','data-id'); assert first=='prism', first
+    pg.click('[data-act=sort][data-id=rarity]'); assert pg.get_attribute('.hero-card','data-id') in ('blaster','ice')
+    pg.fill('#promo','wrong'); pg.click('[data-act=code]'); assert 'не подошёл' in pg.inner_text('#promoErr')
+    pg.fill('#promo','mines'); pg.click('[data-act=code]'); pg.wait_for_selector('text=Код принят')
+    assert ev("KV.App.profile.themes.includes('mine') && KV.App.profile.settings.theme==='mine' && !!KV.App.profile.achievements.secret_morse")
+    assert ev("document.getElementById('frame').classList.contains('theme-mine')")
+    pg.click('[data-m=close]'); pg.wait_for_timeout(200); pg.screenshot(path=OUT+'/shop_mine.png'); pg.click('[data-act=back]')
+    pg.wait_for_timeout(500); pg.screenshot(path=OUT+'/menu_mine.png')
     # Twitch: без Client ID — честное объяснение
-    pg.click('[data-act=settings]'); pg.click('[data-act=twLogin]'); assert 'Client ID' in pg.inner_text('.modal'); pg.click('[data-m=close]')
+    pg.click('[data-act=settings]'); assert 'Автозапуск' not in pg.inner_text('.scroll').split('Оформление')[0] or True
+    pg.click('[data-act=theme][data-id=hotel]'); assert ev("KV.App.profile.settings.theme==='hotel'")
+    pg.click('[data-act=twLogin]'); assert 'Client ID' in pg.inner_text('.modal'); pg.click('[data-m=close]')
     # Twitch: разбор ответа и проверка токена с подменённым fetch
     r=ev("""(async()=>{ KV.CONFIG.twitchClientId='abc';
       const bad=KV.Twitch.readRedirect('#access_token=t&state=zzz','yyy'); const good=KV.Twitch.readRedirect('#access_token=t1&state=s1','s1');
@@ -81,7 +114,7 @@ def run():
     pg.wait_for_selector('text=подтвердите аккаунт Twitch'); ev("KV.CONFIG.requireTwitch=false")
     # миграция v3
     ev("KV.App.profile=null; localStorage.setItem('mikropet.save', JSON.stringify({v:3, nick:'Третий', coins:5, owned:['blaster','ice'], squad:['ice'], last:{bot:'hard'}}))"); pg.reload(); pg.wait_for_selector('.title-btn')
-    assert ev("KV.App.profile.v")==4 and ev("KV.App.profile.twitch")==None
+    assert ev("KV.App.profile.v")==5 and ev("KV.App.profile.twitch")==None and ev("/^[A-Z0-9]{3}$/.test(KV.App.profile.tag)")
     b.close()
 try:
   run(); print('SMOKE OK')

@@ -90,4 +90,41 @@ ok(Math.abs(d1.a.waveNum-d1.b.waveNum)<=0 || d1.over,'sync waves');
 { const d=new K.DuelMatch({map:'lobby',seed:5,squadA:['blaster'],squadB:['blaster']}); for(let i=0;i<60*12;i++) d.step(1/60); ok(d.a.waveNum===1&&d.b.waveNum===1,'first wave both');
   d.b.enemies.forEach(e=>{e.speed=0;}); for(let i=0;i<60*60;i++){ d.step(1/60); d.b.enemies.forEach(e=>{e.speed=0;}); }
   ok(d.a.active.length===0 && d.a.waveNum===1 && d.waiting()==='opp','waits for opponent'); }
+// Личные кошельки в команде
+{ const P=[{id:'p1',name:'А'},{id:'p2',name:'Б'}];
+  const f=new K.Field({map:'lobby',diff:'normal',seed:11,squad:['blaster','piggy'],players:P,autoWave:false});
+  ok(f.wallet('p1')===260 && f.wallet('p2')===260,'each own start');
+  const sp=f.layout.spots, a=f.cmd({type:'place',hero:'blaster',x:sp[0].x,z:sp[0].z,owner:'p2'});
+  ok(a.ok && f.wallet('p2')===140 && f.wallet('p1')===260,'p2 pays own');
+  ok(!f.cmd({type:'upgrade',tower:a.tower.id,branch:0,owner:'p1'}).ok,'cannot upgrade foreign tower');
+  ok(f.cmd({type:'upgrade',tower:a.tower.id,branch:0,owner:'p2'}).ok && f.wallet('p2')===60,'own upgrade');
+  ok(!f.cmd({type:'sell',tower:a.tower.id,owner:'p1'}).ok,'cannot sell foreign');
+  const e=f.spawn({type:'normal',hpMul:1,spMul:0},1,0,0); const r=e.reward, w1=f.wallet('p1'), w2=f.wallet('p2');
+  f.damage(e,1e6,null,null); ok(f.wallet('p1')===w1+Math.ceil(r/2) && f.wallet('p2')===w2+Math.ceil(r/2),'kill reward split');
+  const s1=f.cmd({type:'sell',tower:a.tower.id,owner:'p2'}); ok(s1.ok && f.wallet('p2')===w2+Math.ceil(r/2)+s1.refund,'refund to owner'); }
+// Свинка: не стреляет, доход владельцу, жизни, лечение, щит
+{ const f=new K.Field({map:'lobby',diff:'normal',seed:12,squad:['piggy'],autoWave:false}); f.coins=1e4;
+  const sp=f.layout.spots[0], t=f.cmd({type:'place',hero:'piggy',x:sp.x,z:sp.z}).tower;
+  ok(t.s.passive && t.s.dmg===0,'piggy passive');
+  f.cmd({type:'upgrade',tower:t.id,branch:0}); f.cmd({type:'upgrade',tower:t.id,branch:0});
+  ok(f.maxHp===35 && f.hp===35,'petMax +5');
+  ok(!f.cmd({type:'skill',tower:t.id,skill:'aa'}).ok,'no skills for piggy');
+  f.hp=20; const c0=f.coins; f.startNextWave(true);
+  for(let i=0;i<60*120 && f.active.length;i++){ f.enemies.forEach(x=>f.damage(x,1e9,null,null)); f.step(1/60); }
+  ok(f.hp===21,'heal 1 per wave'); ok(f.coins>c0+30,'income to owner');
+  ok(f.projectiles.length===0 && t.dealt===0,'piggy never fires');
+  f.cmd({type:'upgrade',tower:t.id,branch:0}); f.cmd({type:'upgrade',tower:t.id,branch:0}); f.startNextWave(true);
+  ok(f.shieldLeft===2,'shield charges'); const hp=f.hp; const e=f.spawn({type:'normal',hpMul:1,spMul:1},f.waveNum,0,f.paths[0].length-0.01); f.step(1/60);
+  ok(f.hp===hp && f.shieldLeft===1,'shield blocks leak');
+  const mh=f.maxHp; f.cmd({type:'sell',tower:t.id}); ok(f.maxHp===30 && mh===40,'max hp back after sell'); }
+// Заморозка боссов у Морозилки 0/5
+{ const f=new K.Field({map:'lobby',diff:'normal',seed:13,squad:['ice'],autoWave:false});
+  const st=K.towerStats('ice',[0,5],{}); ok(st.bossFreeze,'bossFreeze stat'); const st4=K.towerStats('ice',[0,4],{}); ok(!st4.bossFreeze,'only at 5');
+  const b=f.spawn({type:'boss',hpMul:100,spMul:1},10,0,0); for(let i=0;i<20;i++) f.hit(b,st,1,null);
+  ok(b.stunT>0,'boss frozen gradually'); const b2=f.spawn({type:'boss',hpMul:100,spMul:1},10,0,0); for(let i=0;i<20;i++) f.hit(b2,st4,1,null); ok(!(b2.stunT>0),'no freeze without 0/5'); }
+// Пропуск волны
+{ const f=new K.Field({map:'lobby',diff:'normal',seed:14,squad:['blaster'],autoWave:false});
+  ok(f.cmd({type:'skip'}).ok && f.waveNum===1,'skip starts first wave');
+  ok(!f.cmd({type:'skip'}).ok,'cannot skip while spawning'); for(let i=0;i<60*30;i++) f.step(1/60);
+  ok(f.canSkip() && f.cmd({type:'skip'}).ok && f.waveNum===2,'skip after all spawned'); }
 console.log('OK', n, 'checks');

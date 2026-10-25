@@ -9,6 +9,11 @@ function createHub(K, opts) {
   const SEND_EVERY = 0.1;
   const MAX_ROOMS = opts.maxRooms || 500;
   const later = (fn, ms) => { const t = setTimeout(fn, ms || 0); if (t && t.unref) t.unref(); return t; };
+  // Постоянное хранилище (теги, рейтинг). По умолчанию — в памяти.
+  const store = opts.store || (() => { const m = new Map(); return { get: async k => m.get(k), put: async (k, v) => { m.set(k, v); }, list: async pre => new Map([...m].filter(([k]) => k.startsWith(pre))) }; })();
+  const ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const rnd = n => Array.from({ length: n }, () => ABC[Math.floor(Math.random() * ABC.length)]).join('');
+  const VOTE_MS = opts.voteMs || 30000;
 
   // ---------- Игроки и комнаты ----------
   const players = new Map();   // ws -> player
@@ -16,7 +21,7 @@ function createHub(K, opts) {
   const queue = [];            // ожидающие случайного соперника
   const ladder = new Map();    // рейтинг подтверждённых Twitch-игроков (в памяти процесса)
 
-  const code = () => { let c; do { c = 'KV-' + Array.from({ length: 4 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[Math.floor(Math.random() * 32)]).join(''); } while (rooms.has(c)); return c; };
+  const code = () => { let c; do { c = rnd(4); } while (rooms.has(c)); return c; };
   const send = (p, op, d) => { if (p.ws.readyState === 1) p.ws.send(JSON.stringify(Object.assign({ op }, d || {}))); };
   const cleanNick = n => String(n || 'Игрок').replace(/[^\p{L}\p{N}_\- .]/gu, '').trim().slice(0, 16) || 'Игрок';
   const cleanSquad = s => [...new Set((Array.isArray(s) ? s : []).filter(h => K.HERO[h]))].slice(0, K.SQUAD_MAX);
@@ -25,10 +30,11 @@ function createHub(K, opts) {
     return {
       code: r.code, mode: r.mode, state: r.state, host: r.players[0] ? r.players[0].pid : null, cfg: r.cfg,
       public: r.public || 0, startsIn: r.countdownAt ? Math.max(0, r.countdownAt - Date.now()) : null,
-      players: r.players.map(p => ({ id: p.pid, name: p.name, color: p.color, ready: p.ready, level: p.level, verified: !!p.twitch, squad: p.squad }))
+      vote: r.state === 'vote' ? { endsIn: Math.max(0, r.voteEnd - Date.now()), options: r.voteOptions, counts: Object.fromEntries(r.voteOptions.map(d => [d, [...r.votes.values()].filter(v => v === d).length])), voted: r.votes.size } : null,
+      players: r.players.map(p => ({ id: p.pid, name: p.name, tag: p.tag || '', color: p.color, ready: p.ready, level: p.level, verified: !!p.twitch, squad: p.squad, voted: !!(r.votes && r.votes.has(p)) }))
     };
   }
-  const broadcastRoom = r => r.players.forEach(p => send(p, 'room', Object.assign(roomView(r), { you: p.pid })));
+  const broadcastRoom = r => r.players.forEach(p => send(p, 'room', Object.assign(roomView(r), { you: p.pid, myVote: r.votes ? r.votes.get(p) || null : null })));
 
   // ---------- Публичные лобби: 2, 3 и 4 игрока, старт через 5 секунд после заполнения ----------
   const PUBLIC_SIZES = [2, 3, 4];
@@ -82,6 +88,7 @@ function createHub(K, opts) {
     }
     if (!r.players.length) { rooms.delete(r.code); broadcastPublics(); return; }
     if (r.state === 'lobby') { r.players.forEach((x, i) => { x.pid = 'p' + (i + 1); x.color = K.PLAYER_COLORS[i]; }); r.countdownAt = null; checkCountdown(r); broadcastRoom(r); }
+    if (r.state === 'vote') { r.votes.delete(p); broadcastRoom(r); }
     if (r.public) broadcastPublics();
   }
 
@@ -105,23 +112,43 @@ function createHub(K, opts) {
     if (r.public) broadcastPublics();
   }
 
+  // ---------- Голосование за сложность (30 секунд) ----------
+  function beginVote(r) {
+    r.state = 'vote'; r.countdownAt = null;
+    r.voteEnd = Date.now() + VOTE_MS;
+    r.votes = new Map();
+    // бесконечный режим доступен, если он открыт хотя бы у одного игрока
+    r.voteOptions = ['easy', 'normal', 'hard'].concat(r.players.some(p => p.endless) ? ['endless'] : []);
+    if (r.public) broadcastPublics();
+    broadcastRoom(r);
+  }
+  function finishVote(r) {
+    const counts = new Map(r.voteOptions.map(d => [d, 0]));
+    for (const v of r.votes.values()) counts.set(v, counts.get(v) + 1);
+    const best = Math.max(...counts.values());
+    // при равенстве голосов — случайная из выбранных; если никто не голосовал — «Нормально»
+    const top = best > 0 ? [...counts].filter(([, c]) => c === best).map(([d]) => d) : ['normal'];
+    r.cfg.diff = top[Math.floor(Math.random() * top.length)];
+    r.votes = null;
+    startTeam(r);
+  }
+
   // ---------- Запуск матчей ----------
   function startTeam(r) {
     const union = [...new Set(r.players.flatMap(p => p.squad))];
     const f = new K.Field({ map: r.cfg.map, diff: r.cfg.diff, seed: (Math.random() * 2 ** 31) >>> 0, mode: 'team', squad: union, players: r.players.map(p => ({ id: p.pid, name: p.name, color: p.color })), autoWave: !!r.cfg.autoWave, record: true });
     f.squad = union; // в команде доступны герои всех участников
-    r.field = f; r.state = 'playing'; r.sendT = 0; r.countdownAt = null;
+    r.field = f; r.state = 'playing'; r.sendT = 0; r.countdownAt = null; r.skipVotes = new Set(); r.skipWave = -1;
     if (r.public) broadcastPublics();
-    r.players.forEach(p => send(p, 'start', { mode: 'team', you: p.pid, seed: f.seed, cfg: r.cfg, squad: p.squad, players: f.players }));
+    r.players.forEach(p => send(p, 'start', { mode: 'team', you: p.pid, seed: f.seed, cfg: r.cfg, diffName: K.DIFFS[r.cfg.diff].name, squad: p.squad, players: f.players }));
   }
   function startDuel(r, map) {
     const [a, b] = r.players;
     a.side = 'a'; b.side = 'b';
     const seed = (Math.random() * 2 ** 31) >>> 0;
     r.cfg = Object.assign({}, r.cfg, { map: map || r.cfg.map });
-    r.duel = new K.DuelMatch({ map: r.cfg.map, seed, squadA: a.squad, squadB: b.squad, recordB: true, cap: 1500 });
-    r.duel.a.players = [{ id: a.pid, name: a.name, color: K.PLAYER_COLORS[0] }];
-    r.duel.b.players = [{ id: b.pid, name: b.name, color: K.PLAYER_COLORS[1] }];
+    r.duel = new K.DuelMatch({ map: r.cfg.map, seed, squadA: a.squad, squadB: b.squad, recordB: true, cap: 1500,
+      playersA: [{ id: a.pid, name: a.name, color: K.PLAYER_COLORS[0] }], playersB: [{ id: b.pid, name: b.name, color: K.PLAYER_COLORS[1] }] });
     r.state = 'playing'; r.sendT = 0;
     [a, b].forEach(p => {
       const o = p === a ? b : a;
@@ -165,11 +192,46 @@ function createHub(K, opts) {
     if (TWITCH_CLIENT_ID && v.client_id !== TWITCH_CLIENT_ID) throw new Error('Токен выдан другому приложению');
     return { id: v.user_id, login: v.login };
   }
-  function record(p, patch) {
+  async function record(p, patch) {
     if (!p.twitch) return;
-    const row = ladder.get(p.twitch.id) || { nick: p.twitch.login, level: 1, endless: 0, duelWins: 0, time: 0 };
-    Object.assign(row, patch(row));
+    const key = 'ladder:' + p.twitch.id;
+    const row = ladder.get(p.twitch.id) || (await store.get(key)) || { nick: p.twitch.login, level: 1, endless: 0, duelWins: 0, time: 0 };
+    Object.assign(row, patch(row), { tag: p.tag || row.tag || '' });
     ladder.set(p.twitch.id, row);
+    await store.put(key, row);
+  }
+
+  // ---------- Теги игроков #XXX ----------
+  // Тег случайный и не меняется. Когда все теги длины N заняты, выдаются теги длины N+1.
+  const reserving = new Set();
+  async function newTag() {
+    for (let len = 3; len < 12; len++) {
+      const cap = Math.pow(ABC.length, len);
+      const used = (await store.get('tagn:' + len)) || 0;
+      if (used >= cap) continue;
+      for (let i = 0; i < 400; i++) {
+        const t = rnd(len);
+        if (reserving.has(t) || await store.get('tag:' + t)) continue;
+        reserving.add(t);
+        return t;
+      }
+    }
+    throw new Error('Не удалось выдать тег');
+  }
+  async function ensureTag(p, uid, wanted) {
+    if (!/^[a-f0-9]{16,64}$/.test(uid || '')) return null;
+    let tag = await store.get('uid:' + uid);
+    if (!tag) {
+      wanted = String(wanted || '').toUpperCase().replace(/^#/, '');
+      // локальный тег сохраняем, если он свободен
+      if (/^[A-Z0-9]{3,11}$/.test(wanted) && !reserving.has(wanted) && !(await store.get('tag:' + wanted))) { reserving.add(wanted); tag = wanted; }
+      else tag = await newTag();
+      await store.put('uid:' + uid, tag);
+      await store.put('tagn:' + tag.length, ((await store.get('tagn:' + tag.length)) || 0) + 1);
+      reserving.delete(tag);
+    }
+    await store.put('tag:' + tag, { uid, nick: p.name, level: p.level, seen: Date.now() });
+    return tag;
   }
 
   // ---------- Сообщения ----------
@@ -186,13 +248,27 @@ function createHub(K, opts) {
       case 'hello':
         p.name = cleanNick(m.nick); p.level = Math.max(1, Math.min(999, m.level | 0)); p.squad = cleanSquad(m.squad);
         if (!p.squad.length) p.squad = ['blaster', 'ice'];
+        p.endless = !!m.endless;
         if (m.token) verifyTwitch(String(m.token)).then(tw => { p.twitch = tw; p.name = cleanNick(tw.login); send(p, 'authed', tw); }, e => send(p, 'error', { reason: e.message }));
+        if (m.uid) ensureTag(p, String(m.uid), m.tag).then(tag => { if (tag) { p.tag = tag; send(p, 'tag', { tag }); if (p.room && p.room.state === 'lobby') broadcastRoom(p.room); } }, () => {});
         send(p, 'hello', { online: players.size, requireTwitch: REQUIRE_TWITCH });
         send(p, 'publics', publicSummary());
         return;
       case 'leaders':
-        send(p, 'leaders', { rows: [...ladder.values()].map(x => Object.assign({ verified: true, online: [...players.values()].some(q => q.twitch && q.twitch.login === x.nick) }, x)).sort((a, b) => b.duelWins - a.duelWins).slice(0, 100) });
+        store.list('ladder:').then(rows => {
+          const online = new Set([...players.values()].filter(q => q.twitch).map(q => q.twitch.login));
+          send(p, 'leaders', { rows: [...rows.values()].map(x => Object.assign({ verified: true, online: online.has(x.nick) }, x)).sort((a, b) => b.duelWins - a.duelWins).slice(0, 100) });
+        }, () => send(p, 'leaders', { rows: [] }));
         return;
+      case 'findTag': {
+        const t = String(m.tag || '').toUpperCase().replace(/^#/, '');
+        if (!/^[A-Z0-9]{3,11}$/.test(t)) return send(p, 'found', { tag: t, player: null });
+        store.get('tag:' + t).then(row => {
+          const on = [...players.values()].some(q => q.tag === t);
+          send(p, 'found', { tag: t, player: row ? { tag: t, nick: row.nick, level: row.level, online: on } : null });
+        }, () => send(p, 'found', { tag: t, player: null }));
+        return;
+      }
     }
     if (REQUIRE_TWITCH && !p.twitch) return send(p, 'error', { reason: 'Сначала войдите через Twitch' });
     switch (m.op) {
@@ -200,8 +276,11 @@ function createHub(K, opts) {
       case 'create': createRoom(p, m.mode); break;
       case 'publicJoin': joinPublic(p, m.size | 0); break;
       case 'publics': send(p, 'publics', publicSummary()); break;
+      case 'voteDiff':
+        if (r && r.state === 'vote' && r.voteOptions.includes(m.diff)) { r.votes.set(p, m.diff); broadcastRoom(r); }
+        break;
       case 'join': {
-        const room = rooms.get(String(m.code || '').trim().toUpperCase());
+        const room = rooms.get(String(m.code || '').trim().toUpperCase().replace(/^KV-/, '').replace(/^#/, ''));
         if (!room) return send(p, 'error', { reason: 'Комната не найдена. Проверьте код.' });
         joinRoom(p, room);
         break;
@@ -211,7 +290,6 @@ function createHub(K, opts) {
       case 'config':
         if (r && r.state === 'lobby' && r.players[0] === p && m.cfg) {
           if (K.MAP[m.cfg.map]) r.cfg.map = m.cfg.map;
-          if (['easy', 'normal', 'hard', 'endless'].includes(m.cfg.diff)) r.cfg.diff = m.cfg.diff;
           r.cfg.autoWave = !!m.cfg.autoWave;
           broadcastRoom(r);
         }
@@ -219,7 +297,7 @@ function createHub(K, opts) {
       case 'start':
         if (!r || r.state !== 'lobby' || r.players[0] !== p) return;
         if (r.public) return send(p, 'error', { reason: 'Публичное лобби стартует само, когда заполнится' });
-        if (r.mode === 'team') { if (r.players.length < 2 || !r.players.every(x => x.ready)) return send(p, 'error', { reason: 'Нужно минимум 2 игрока, и все должны быть готовы' }); startTeam(r); }
+        if (r.mode === 'team') { if (r.players.length < 2 || !r.players.every(x => x.ready)) return send(p, 'error', { reason: 'Нужно минимум 2 игрока, и все должны быть готовы' }); beginVote(r); }
         else { if (r.players.length !== 2 || !r.players.every(x => x.ready)) return send(p, 'error', { reason: 'Нужен второй игрок, и оба должны быть готовы' }); startDuel(r); }
         break;
       case 'queue':
@@ -236,7 +314,16 @@ function createHub(K, opts) {
         if (!f || f.over) return;
         const c = { type: String(m.cmd.type), hero: m.cmd.hero, x: +m.cmd.x, z: +m.cmd.z, tower: m.cmd.tower | 0, branch: m.cmd.branch | 0, skill: m.cmd.skill, mode: m.cmd.mode, owner: p.pid, nonce: p.pid + ':' + (m.seq | 0) };
         if (c.type === 'place' && !p.squad.includes(c.hero)) return send(p, 'ack', { seq: m.seq, ok: false, reason: 'Этого героя нет в вашем отряде' });
-        if (r.duel && c.type === 'wave') return send(p, 'ack', { seq: m.seq, ok: false, reason: 'В дуэли волны общие и запускаются сами' });
+        if (r.duel && (c.type === 'wave' || c.type === 'skip')) return send(p, 'ack', { seq: m.seq, ok: false, reason: 'В дуэли волны общие и запускаются сами' });
+        if (c.type === 'wave' || c.type === 'skip') {
+          // пропуск волны голосованием: 1–2 игрока — 1 голос, 3–4 игрока — 2 голоса
+          if (r.skipWave !== f.waveNum) { r.skipVotes = new Set(); r.skipWave = f.waveNum; }
+          if (!f.canSkip()) return send(p, 'ack', { seq: m.seq, ok: false, reason: 'Дождитесь, пока выйдут все сущности волны', type: 'skip' });
+          r.skipVotes.add(p.pid);
+          const need = Math.ceil(r.players.length / 2);
+          if (r.skipVotes.size >= need) { f.skip(); r.skipVotes = new Set(); r.skipWave = f.waveNum; }
+          return send(p, 'ack', { seq: m.seq, ok: true, type: 'skip' });
+        }
         // Однопоточная симуляция: проверка баланса и списание происходят атомарно внутри field.cmd.
         const res = f.cmd(c);
         send(p, 'ack', { seq: m.seq, ok: res.ok, reason: res.ok ? null : res.reason, type: c.type, tower: res.tower ? res.tower.id : null, refund: res.refund });
@@ -261,13 +348,15 @@ function createHub(K, opts) {
     }
     for (const r of rooms.values()) {
       if (r.state === 'lobby' && r.countdownAt && now >= r.countdownAt) {
-        if (r.players.length >= r.public) startTeam(r); else { r.countdownAt = null; broadcastRoom(r); }
+        if (r.players.length >= r.public) beginVote(r); else { r.countdownAt = null; broadcastRoom(r); }
       }
+      if (r.state === 'vote' && (now >= r.voteEnd || r.votes.size >= r.players.length)) finishVote(r);
       if (r.state !== 'playing') continue;
       if (now - (r.lastSend || 0) < SEND_EVERY * 1000) continue;
       r.lastSend = now;
       if (r.field) {
-        const snap = JSON.stringify({ op: 'state', me: K.NetProto.snapField(r.field, { events: r.field.events.splice(0) }) });
+        if (r.skipWave !== r.field.waveNum) { r.skipVotes = new Set(); r.skipWave = r.field.waveNum; }
+        const snap = JSON.stringify({ op: 'state', me: K.NetProto.snapField(r.field, { events: r.field.events.splice(0) }), sv: [[...r.skipVotes], Math.ceil(r.players.length / 2)] });
         r.players.forEach(p => { if (p.ws.readyState === 1) p.ws.send(snap); });
         if (r.field.over && !r.ended) {
           r.ended = true;

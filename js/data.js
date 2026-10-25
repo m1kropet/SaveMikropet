@@ -78,18 +78,18 @@
       price: 1800, cost: 260, color: '#ffe36b', rarity: 'Эпический',
       base: { dmg: 55, rate: 0.45, range: 7, proj: 'beam', vision: true, target: 'strong', perch: true },
       top: withCosts([
-        { name: 'Длинные рельсы', icon: 'scope', desc: 'Дальность +2', fx: { range: 2 } },
-        { name: 'Быстрая зарядка', icon: 'gear', desc: 'Скорость атаки +15%, дальность +3', fx: { rateMul: 1.15, range: 3 } },
-        { name: 'Расщепление', icon: 'fan', desc: 'Луч делится на 3 цели, скорость +40%, урон ×0.7, дальность +4', fx: { multi: 2, rateMul: 1.4, range: 4, dmgMul: 0.7 } },
-        { name: 'Стробоскоп', icon: 'burst', desc: 'Скорость +50%, дальность +3', fx: { rateMul: 1.5, range: 3 } },
-        { name: 'Калейдоскоп', icon: 'star', desc: '6 лучей разом, скорость +40%, дальность +3 — видит почти всю карту', fx: { multi: 3, rateMul: 1.4, range: 3 } }
+        { name: 'Длинные рельсы', icon: 'scope', desc: 'Дальность +0.5', fx: { range: 0.5 } },
+        { name: 'Быстрая зарядка', icon: 'gear', desc: 'Скорость атаки +15%, дальность +0.5', fx: { rateMul: 1.15, range: 0.5 } },
+        { name: 'Расщепление', icon: 'fan', desc: 'Луч делится на 3 цели, скорость +40%, урон ×0.7, дальность +0.5', fx: { multi: 2, rateMul: 1.4, range: 0.5, dmgMul: 0.7 } },
+        { name: 'Стробоскоп', icon: 'burst', desc: 'Скорость +50%, дальность +0.5', fx: { rateMul: 1.5, range: 0.5 } },
+        { name: 'Калейдоскоп', icon: 'star', desc: '6 лучей разом, скорость +40%, дальность +1 (итого 10)', fx: { multi: 3, rateMul: 1.4, range: 1 } }
       ], [100, 250, 1100, 1650, 3400]),
       bottom: withCosts([
-        { name: 'Плотный луч', icon: 'dot', desc: 'Урон +25, дальность +0.5', fx: { dmg: 25, range: 0.5 } },
-        { name: 'Бронепрожиг', icon: 'pierce', desc: 'Пробивание брони +5, дальность +0.5', fx: { pierce: 5, range: 0.5 } },
-        { name: 'Фокус', icon: 'flame', desc: 'Урон ×2, 25% шанс крита ×2.5, дальность +1', fx: { dmgMul: 2, critC: 0.25, critM: 2.5, range: 1 } },
-        { name: 'Белый жар', icon: 'core', desc: 'Урон ×1.8, пробивание +10, дальность +0.5', fx: { dmgMul: 1.8, pierce: 10, range: 0.5 } },
-        { name: 'Солнечное копьё', icon: 'nova', desc: 'Урон ×2.5, добивает не-боссов ниже 15% здоровья, дальность +0.5 — видит около половины карты', fx: { dmgMul: 2.5, execute: 0.15, range: 0.5 } }
+        { name: 'Плотный луч', icon: 'dot', desc: 'Урон +25', fx: { dmg: 25 } },
+        { name: 'Бронепрожиг', icon: 'pierce', desc: 'Пробивание брони +5', fx: { pierce: 5 } },
+        { name: 'Фокус', icon: 'flame', desc: 'Урон ×2, 25% шанс крита ×2.5', fx: { dmgMul: 2, critC: 0.25, critM: 2.5 } },
+        { name: 'Белый жар', icon: 'core', desc: 'Урон ×1.8, пробивание +10', fx: { dmgMul: 1.8, pierce: 10 } },
+        { name: 'Солнечное копьё', icon: 'nova', desc: 'Урон ×2.5, добивает не-боссов ниже 15% здоровья', fx: { dmgMul: 2.5, execute: 0.15 } }
       ], [350, 800, 2400, 5200, 7800])
     },
     {

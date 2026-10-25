@@ -52,8 +52,14 @@
     }
 
     // Лучшее свободное место из заранее посчитанных точек с хорошим обзором дороги.
-    freeSpot() {
+    freeSpot(hero) {
       const f = this.f, out = [];
+      if (hero && K.HERO[hero].base.perch) {
+        const ps = f.perchSpots(hero);
+        if (!ps.length) return null;
+        const span = Math.max(1, Math.round((1 - this.skill) * Math.min(6, ps.length)));
+        return ps[Math.floor(this.r() * span)];
+      }
       for (const sp of f.layout.spots) {
         if (!f.canPlace(sp.x, sp.z).ok) continue;
         if (f.towers.some(t => Math.hypot(t.x - sp.x, t.z - sp.z) < 1.1)) continue;
@@ -79,7 +85,7 @@
 
       for (const [need, key, hero] of [['ghost', 'vision', 'prism'], ['flyer', 'aa', 'dragon']]) {
         if (!th.has(need) || f.towers.filter(t => t.s[key]).length >= Math.max(1, Math.ceil(f.towers.length / 4))) continue;
-        const sp = this.freeSpot();
+        const sp = this.freeSpot(hero);
         if (squad.includes(hero) && sp && f.coins >= K.HERO[hero].cost) {
           if (do_({ type: 'place', hero, x: sp.x, z: sp.z, owner: f.me }, 'Ставит ' + K.HERO[hero].name)) return;
         }
@@ -94,10 +100,12 @@
       const opts = [];
       const cap = 45 * K.genWaveScale(f.diffKey, f.waveNum + 1);
       const arm = f.waveNum >= 4 ? 3 + f.waveNum / 10 : 0;
-      const sp = this.freeSpot();
-      if (sp) {
+      const sp0 = this.freeSpot();
+      if (sp0) {
         for (const h of squad) {
           if (h === 'piggy' && f.towers.some(t => t.hero === 'piggy')) continue;
+          const sp = K.HERO[h].base.perch ? this.freeSpot(h) : sp0;
+          if (!sp) continue;
           // худшие места видят меньше дороги — новая башня там стоит меньше
           const cov = Math.pow(sp.cov / (f.layout.spots[0].cov || 1), 2);
           const v = power(K.towerStats(h, [0, 0], {}), cap, arm) * cov / K.HERO[h].cost;

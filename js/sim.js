@@ -117,7 +117,7 @@
       }
     }
     spots.sort((a, b) => b.cov - a.cov || a.z - b.z || a.x - b.x);
-    layoutCache[map.id] = { obstacles, spots, start, end };
+    layoutCache[map.id] = { obstacles, spots, start, end, samples };
     return layoutCache[map.id];
   }
 
@@ -374,9 +374,33 @@
     }
 
     // Можно ставить где угодно, кроме дороги, препятствий и чужих башен.
-    canPlace(x, z, ignoreId) {
+    // Препятствие, закрывающее обзор, рядом с точкой (для Реалганера, который ставится на препятствия).
+    perchAt(x, z) {
+      let best = null, bd = Infinity;
+      for (const o of this.obstacles) {
+        if (!o.los) continue;
+        const d = Math.hypot(o.x - x, o.z - z);
+        if (d < o.r + 0.55 && d < bd) { best = o; bd = d; }
+      }
+      return best;
+    }
+    // Свободные препятствия для Реалганера, лучшие (больше дороги рядом) первыми.
+    perchSpots(heroId) {
+      const S = this.layout.samples || [];
+      return this.obstacles.filter(o => o.los && this.canPlace(o.x, o.z, null, heroId).ok)
+        .map(o => ({ x: o.x, z: o.z, cov: S.filter(p => (p.x - o.x) ** 2 + (p.z - o.z) ** 2 <= 9).length }))
+        .sort((a, b) => b.cov - a.cov || a.z - b.z || a.x - b.x);
+    }
+
+    canPlace(x, z, ignoreId, heroId) {
       const B = K.BOUNDS, R = K.TOWER_R;
       if (!isFinite(x) || !isFinite(z)) return { ok: false, reason: 'Здесь нельзя строить' };
+      if (heroId && K.HERO[heroId] && K.HERO[heroId].base.perch) {
+        const o = this.perchAt(x, z);
+        if (!o) return { ok: false, reason: K.HERO[heroId].name + ' ставится только на препятствия, которые закрывают обзор' };
+        if (this.towers.some(t => t.id !== ignoreId && Math.hypot(t.x - o.x, t.z - o.z) < 0.05)) return { ok: false, reason: 'На этом препятствии уже стоит башня' };
+        return { ok: true, x: o.x, z: o.z, perch: true };
+      }
       if (x < B.x0 + R || x > B.x1 - R || z < B.z0 + R || z > B.z1 - R) return { ok: false, reason: 'Слишком близко к стене' };
       if (roadDist(this.paths, x, z) < K.ROAD_R + R) return { ok: false, reason: 'На дороге сущностей строить нельзя' };
       const L = this.layout;
@@ -391,8 +415,9 @@
     place(heroId, x, z, owner) {
       const H = K.HERO[heroId];
       if (!H || !this.squad.includes(heroId)) return { ok: false, reason: 'Героя нет в отряде' };
-      const can = this.canPlace(x, z);
+      const can = this.canPlace(x, z, null, heroId);
       if (!can.ok) return can;
+      if (can.perch) { x = can.x; z = can.z; }
       if (!this.trySpend(H.cost, owner)) return { ok: false, reason: 'Не хватает монет' };
       const t = {
         id: this.nextId++, hero: heroId, x: +x.toFixed(3), y: 0, z: +z.toFixed(3),
@@ -652,7 +677,7 @@
         if (!this.canTarget(s, e)) continue;
         const d2 = (e.x - t.x) ** 2 + (e.z - t.z) ** 2;
         if (d2 > r2) continue;
-        if (!this.los(t.x, t.z, e.x, e.z, e.flying)) { if (!hidden || e.d > hidden.d) hidden = e; continue; }
+        if (!K.HERO[t.hero].base.perch && !this.los(t.x, t.z, e.x, e.z, e.flying)) { if (!hidden || e.d > hidden.d) hidden = e; continue; }
         list.push([e, d2]);
       }
       t.blocked = !list.length && !!hidden;

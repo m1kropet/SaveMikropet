@@ -345,9 +345,11 @@
     local(e) { const r = this.app.render.canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
     updateGhost(e) {
       const p = this.local(e), w = this.app.render.toWorld(p.x, p.y);
-      const can = this.field.canPlace(w.x, w.z);
+      const can = this.field.canPlace(w.x, w.z, null, this.ui.placing);
       const owner = this.field.players.find(pl => pl.id === this.ui.player);
-      this.ui.ghost = { hero: this.ui.placing, x: w.x, z: w.z, ok: can.ok, reason: can.reason, color: owner ? owner.color : '#45e0c0' };
+      // Реалганер «прилипает» к препятствию под пальцем
+      const gx = can.perch ? can.x : w.x, gz = can.perch ? can.z : w.z;
+      this.ui.ghost = { hero: this.ui.placing, x: gx, z: gz, ok: can.ok, reason: can.reason, color: owner ? owner.color : '#45e0c0' };
     }
     tryPlace(e) {
       this.updateGhost(e);
@@ -394,7 +396,7 @@
           const id = b.dataset.id;
           if (this.ui.placing === id) { this.deselect(); break; }
           Object.assign(this.ui, { selected: null, placing: id, tier: null, ghost: null });
-          this.setHint(this.wallet() < K.HERO[id].cost ? 'Не хватает монет: нужно ' + K.HERO[id].cost : 'Коснитесь места для «' + K.HERO[id].name + '». Можно вести пальцем — покажется зона обзора.', 5);
+          this.setHint(this.wallet() < K.HERO[id].cost ? 'Не хватает монет: нужно ' + K.HERO[id].cost : K.HERO[id].base.perch ? 'Коснитесь подсвеченного препятствия — «' + K.HERO[id].name + '» встанет на него и будет стрелять поверх любых препятствий.' : 'Коснитесь места для «' + K.HERO[id].name + '». Можно вести пальцем — покажется зона обзора.', 5);
           this.renderDock(true);
           break;
         }

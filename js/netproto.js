@@ -60,7 +60,7 @@
       if (this.over) return { ok: false, reason: 'Матч окончен' };
       if (!this.send) return { ok: false, reason: 'Нет соединения с сервером' };
       // быстрая проверка на клиенте для подсказок; окончательное решение — за сервером
-      if (c.type === 'place') { const can = this.canPlace(c.x, c.z); if (!can.ok) return can; if (this.wallet(this.me) < K.HERO[c.hero].cost) return { ok: false, reason: 'Не хватает монет' }; }
+      if (c.type === 'place') { const can = this.canPlace(c.x, c.z, null, c.hero); if (!can.ok) return can; if (this.wallet(this.me) < K.HERO[c.hero].cost) return { ok: false, reason: 'Не хватает монет' }; }
       this.send(c);
       return { ok: true, pending: true };
     }

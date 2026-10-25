@@ -141,4 +141,24 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
   const a=new K.Field({map:'lobby',diff:'hard',seed:5,squad:['blaster']}).peekWave(17), b=new K.Field({map:'lobby',diff:'endless',seed:5,squad:['blaster']}).peekWave(17);
   ok(JSON.stringify(a.spawns)===JSON.stringify(b.spawns),'endless waves = hard waves'); }
 { const f=new K.Field({map:'lobby',diff:'normal',seed:2,squad:['blaster']}); ok(f.peekWave(1).bonus===180 && f.peekWave(2).bonus===288 && f.peekWave(3).bonus===396 && f.peekWave(10).bonus===1152,'wave bonus 180 +108'); }
+// Реалганер: только на препятствия, стреляет поверх них, дальность от улучшений
+{ const f=new K.Field({map:'lobby',diff:'normal',seed:4,squad:['prism','blaster'],autoWave:false}); f.coins=1e5;
+  const sp=f.layout.spots[0];
+  ok(!f.cmd({type:'place',hero:'prism',x:sp.x,z:sp.z}).ok,'prism not on ground');
+  const L=f.layout, o=f.obstacles.filter(q=>q.los).sort((p,q)=>Math.hypot(p.x-L.start.x,p.z-L.start.z)-Math.hypot(q.x-L.start.x,q.z-L.start.z))[0];
+  const r=f.cmd({type:'place',hero:'prism',x:o.x+0.2,z:o.z-0.1}); ok(r.ok && r.tower.x===o.x && r.tower.z===o.z,'prism snaps onto obstacle');
+  ok(!f.cmd({type:'place',hero:'prism',x:o.x,z:o.z}).ok,'one tower per obstacle');
+  ok(!f.cmd({type:'place',hero:'blaster',x:o.x,z:o.z}).ok,'other towers still not on obstacles');
+  const lava=f.obstacles.find(q=>!q.los); if (lava) ok(!f.canPlace(lava.x,lava.z,null,'prism').ok,'not on lava');
+  const top=K.towerStats('prism',[5,0],{}).range, bot=K.towerStats('prism',[0,5],{}).range, base=K.towerStats('prism',[0,0],{}).range;
+  ok(top>=20 && bot>=9.5 && bot<=11 && base===7,'prism ranges '+[base,top,bot]);
+  // стреляет сквозь препятствие: враг за высоким препятствием всё равно цель
+  const e=f.spawn({type:'normal',hpMul:50,spMul:0},1,0,0); f.step(1/60); const hp0=e.hp;
+  const tw=r.tower; ok(Math.hypot(e.x-tw.x,e.z-tw.z)<7,'enemy in range '+Math.hypot(e.x-tw.x,e.z-tw.z).toFixed(1));
+  f.obstacles.push({kind:'wardrobe',x:(e.x+tw.x)/2,z:(e.z+tw.z)/2,r:0.5,tall:true,los:true,dyn:true,rot:0});
+  ok(!f.los(tw.x,tw.z,e.x,e.z,false),'line really blocked');
+  for(let i=0;i<60*4;i++) f.step(1/60); ok(e.hp<hp0 || e.dead,'prism ignores line of sight'); }
+{ const f=new K.Field({map:'mine',diff:'normal',seed:4,squad:['prism','blaster','ice','storm'],autoWave:true,record:false}); const b=new K.Bot(f,0.9);
+  for(let i=0;i<60*60*6 && !f.over;i++){ f.coins=Math.max(f.coins,2000); b.tick(1/60); f.step(1/60); }
+  ok(f.towers.filter(t=>t.hero==='prism').every(t=>f.obstacles.some(o=>o.x===t.x&&o.z===t.z)),'bot puts prism only on obstacles'); }
 console.log('OK', n, 'checks');

@@ -253,13 +253,13 @@
     }
 
     // Тень обзора: секторы за препятствиями, куда башня не видит.
-    drawVision(ctx, field, x, z, R, ok) {
+    drawVision(ctx, field, x, z, R, ok, over) {
       ctx.save();
       ctx.fillStyle = ok === false ? 'rgba(255,60,80,0.12)' : 'rgba(255,255,255,0.08)';
       ctx.strokeStyle = ok === false ? 'rgba(255,90,110,0.9)' : 'rgba(255,255,255,0.85)';
       ctx.lineWidth = 0.04;
       ctx.beginPath(); ctx.arc(x, z, R, 0, TAU); ctx.fill(); ctx.stroke();
-      for (const o of field.obstacles) {
+      for (const o of (over ? [] : field.obstacles)) { // башня на препятствии стреляет поверх всего
         if (!o.los) continue;
         const d = Math.hypot(o.x - x, o.z - z);
         if (d <= o.r * 0.9 || d - o.r > R) continue;
@@ -290,7 +290,11 @@
       // глубинная сортировка: препятствия, башни, сущности
       const list = [];
       for (const o of field.obstacles) list.push({ z: o.z + o.r * 0.3, o });
-      for (const tw of field.towers) list.push({ z: tw.z, tw });
+      for (const tw of field.towers) {
+        // Реалганер стоит на препятствии: рисуется поверх него и чуть выше
+        const ob = K.HERO[tw.hero].base.perch ? field.perchAt(tw.x, tw.z) : null;
+        list.push({ z: ob ? ob.z + ob.r * 0.3 + 0.01 : tw.z, tw, lift: ob ? (ob.tall ? 0.5 : 0.25) : 0 });
+      }
       for (const e of field.enemies) if (!e.dead) list.push({ z: e.z, e });
       const end = field.paths[0].pts[field.paths[0].pts.length - 1];
       list.push({ z: end.z, pet: true });
@@ -310,6 +314,7 @@
           st.aim += d * Math.min(1, dt * 10);
           st.recoil = Math.max(0, st.recoil - dt * 6);
           ctx.translate(tw.x, tw.z);
+          if (it.lift) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(0, 0.05, 0.45, 0.16, 0, 0, TAU); ctx.fill(); ctx.translate(0, -it.lift); }
           if (st.bounce > 0) {
             st.bounce = Math.max(0, st.bounce - dt * 1.4);
             const b = 1 - st.bounce, jump = Math.sin(Math.min(1, b * 1.6) * Math.PI) * 0.35, sq = Math.sin(b * Math.PI * 3) * 0.12 * st.bounce;
@@ -395,10 +400,20 @@
         ctx.restore();
       }
       if (ui) {
-        if (ui.selected != null) { const tw = field.towers.find(x => x.id === ui.selected); if (tw) this.drawVision(ctx, field, tw.x, tw.z, tw.s.range); }
+        if (ui.selected != null) { const tw = field.towers.find(x => x.id === ui.selected); if (tw) this.drawVision(ctx, field, tw.x, tw.z, tw.s.range, undefined, K.HERO[tw.hero].base.perch); }
+        if (ui.placing && K.HERO[ui.placing] && K.HERO[ui.placing].base.perch) {
+          // подсветка препятствий, на которые можно поставить Реалганера
+          const pulse = 0.55 + 0.45 * Math.sin(t * 4);
+          for (const o of field.obstacles) {
+            if (!o.los) continue;
+            const free = field.canPlace(o.x, o.z, null, ui.placing).ok;
+            ctx.save(); ctx.strokeStyle = free ? `rgba(255,227,107,${pulse})` : 'rgba(255,90,110,0.5)'; ctx.lineWidth = 0.07; ctx.setLineDash([0.18, 0.12]);
+            ctx.beginPath(); ctx.arc(o.x, o.z, o.r + 0.18, 0, TAU); ctx.stroke(); ctx.restore();
+          }
+        }
         if (ui.ghost) {
           const g = ui.ghost;
-          this.drawVision(ctx, field, g.x, g.z, K.HERO[g.hero].base.range, g.ok);
+          this.drawVision(ctx, field, g.x, g.z, K.HERO[g.hero].base.range, g.ok, K.HERO[g.hero].base.perch);
           ctx.save(); ctx.globalAlpha = 0.65; ctx.translate(g.x, g.z); S2.tower(ctx, g.hero, { aim: 0, t, recoil: 0, color: g.color || '#45e0c0', up: [0, 0] }); ctx.restore();
           if (!g.ok) { ctx.save(); ctx.strokeStyle = '#ff5a6e'; ctx.lineWidth = 0.07; ctx.translate(g.x, g.z); ctx.beginPath(); ctx.moveTo(-0.25, -0.25); ctx.lineTo(0.25, 0.25); ctx.moveTo(0.25, -0.25); ctx.lineTo(-0.25, 0.25); ctx.stroke(); ctx.restore(); }
         }

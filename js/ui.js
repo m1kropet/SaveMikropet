@@ -240,7 +240,8 @@
     ctx.fillStyle = '#120a05'; ctx.fillRect(dx - dw / 2 - u * 0.2, dy - u * 0.2, dw + u * 0.4, dh + u * 0.2);
     ctx.fillStyle = '#140003'; ctx.fillRect(dx - dw / 2, dy, dw, dh);
     const rg = ctx.createRadialGradient(dx, dy + dh * 0.6, 0, dx, dy + dh * 0.6, dh); rg.addColorStop(0, 'rgba(255,42,61,0.35)'); rg.addColorStop(1, 'rgba(255,42,61,0)'); ctx.fillStyle = rg; ctx.fillRect(dx - dw / 2, dy, dw, dh);
-    ctx.save(); ctx.beginPath(); ctx.rect(dx - dw / 2, dy, dw, dh); ctx.clip();
+    // в отеле правую часть проёма закрывает приоткрытая створка: за ней (и в щели у петель) Ковтопа не видно
+    ctx.save(); ctx.beginPath(); ctx.rect(dx - dw / 2, dy, mine ? dw : dw * 0.69, dh); ctx.clip();
     const ks = u * 1.75, kx = dx, ky = dy + dh * 1.02;
     if (live) kovTv = { x0: kx - 0.42 * ks, x1: kx + 0.42 * ks, y0: ky - 1.7 * ks, y1: ky - 1.0 * ks };
     ctx.translate(kx, ky); ctx.scale(ks, ks); SP.setPx(ks * 0.6); SP.kovtop(ctx, t, false, 1, live ? kovDigits(t) : undefined); ctx.restore();
@@ -250,7 +251,7 @@
       ctx.fillStyle = '#ffb15c'; ctx.fillRect(dx - u * 0.6, dy - u * 1.05, u * 1.2, u * 0.4);
       ctx.fillStyle = '#2a1a0c'; ctx.font = `bold ${Math.round(u * 0.28)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ШТ-0', dx, dy - u * 0.85);
     } else {
-      ctx.fillStyle = '#2c1a10'; ctx.save(); ctx.translate(dx + dw / 2, dy); ctx.transform(1, 0.12, 0, 1, 0, 0); ctx.fillRect(0, 0, -dw * 0.32, dh); ctx.restore();
+      ctx.fillStyle = '#2c1a10'; ctx.save(); ctx.translate(dx + dw / 2, dy); ctx.transform(1, 0.12, 0, 1, 0, 0); ctx.fillRect(u * 0.06, 0, -dw * 0.32 - u * 0.06, dh); ctx.restore();
       ctx.fillStyle = '#c9a35a'; ctx.fillRect(dx - u * 0.6, dy - u * 0.9, u * 1.2, u * 0.45);
       ctx.fillStyle = '#1c1309'; ctx.font = `bold ${Math.round(u * 0.32)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', dx, dy - u * 0.67);
     }

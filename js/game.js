@@ -295,7 +295,7 @@
         this.$('dA').textContent = 'В' + pad4(f.waveNum) + ' · ♥' + f.hp;
         this.$('dB').textContent = 'В' + pad4(b.waveNum) + ' · ♥' + b.hp;
         this.$('dS').textContent = b.hp <= 0 ? 'Микропет пал' : w === 'opp' ? 'Ещё отбивает волну' : w === 'me' ? 'Ждёт вас' : this.bot ? this.bot.lastAction : 'Строит оборону';
-        this.$('dT').textContent = fmtTime(this.duel.time);
+        this.$('dT').innerHTML = fmtTime(this.duel.time) + (this.duel.gap != null ? '<small>волна ' + (f.waveNum + 1) + ' через ' + Math.max(0, Math.ceil(this.duel.gap)) + ' с</small>' : w === 'opp' ? '<small>ждём соперника</small>' : '');
       }
       if (this.mode === 'team') this.root.querySelectorAll('.pchip').forEach(c => c.classList.toggle('on', c.dataset.id === this.ui.player));
     }
@@ -453,16 +453,14 @@
           <span class="hero-thumb" style="background-image:url(${K.thumbs[id] || ''})"></span>
           <span class="nm">${esc(H.name)}</span><span class="num coin mcoin" style="font-size:.78em">${H.cost}</span></button>`);
       }
-      let waveBtn;
-      if (this.duel) {
-        const w = this.duel.waiting();
-        if (this.duel.gap != null) waveBtn = `<button class="btn" disabled>Волна ${f.waveNum + 1} у обоих через ${Math.max(0, Math.ceil(this.duel.gap))} с</button>`;
-        else if (w === 'opp') waveBtn = '<button class="btn" disabled>Вы отбились. Ждём соперника…</button>';
-        else waveBtn = `<button class="btn" disabled>Идёт волна ${f.waveNum}</button>`;
-      } else if (f.canStartWave()) waveBtn = `<button class="btn brass" data-act="wave">${f.autoWave && f.autoTimer > 0 ? 'Волна ' + (f.waveNum + 1) + ' · авто ' + Math.ceil(f.autoTimer) + ' с' : 'Начать волну ' + (f.waveNum + 1)}</button>`;
+      let waveBtn = '';
+      // в дуэли волны идут сами, а номер волны уже есть в верхней панели — кнопка не нужна
+      if (this.duel) waveBtn = '';
+      else if (f.canStartWave()) waveBtn = `<button class="btn brass" data-act="wave">${f.autoWave && f.autoTimer > 0 ? 'Волна ' + (f.waveNum + 1) + ' · авто ' + Math.ceil(f.autoTimer) + ' с' : 'Начать волну ' + (f.waveNum + 1)}</button>`;
       else if (f.active.length) waveBtn = `<button class="btn" disabled>Идёт волна ${f.active[f.active.length - 1].n}</button>`;
       else waveBtn = '<button class="btn" disabled>Волн больше нет</button>';
-      return `<div class="build">${slots.join('')}</div><div class="ctrl">${waveBtn}${ui.placing ? '<button class="btn" data-act="cancel">Отмена</button>' : ''}</div>`;
+      const ctrl = waveBtn || ui.placing ? `<div class="ctrl">${waveBtn}${ui.placing ? '<button class="btn" data-act="cancel">Отмена</button>' : ''}</div>` : '';
+      return `<div class="build">${slots.join('')}</div>${ctrl}`;
     }
 
     // Компактная панель прокачки. readOnly — для просмотра башен соперника.
@@ -482,9 +480,9 @@
         const st = K.upgradeState(t.hero, t.up, br, null);
         const locked = !st.ok && st.code === 'locked';
         return `<div class="branch"><span class="lbl">${br === 0 ? 'Верх' : 'Низ'}${locked ? ' ' + K.UI.icon('lock') : ''}</span>${list.map((u, i) => {
-          const owned = i < t.up[br], next = i === t.up[br] && st.ok;
+          const owned = i < t.up[br], next = i === t.up[br] && st.ok, can = next && !readOnly && f.coins >= u.cost;
           const sel = !readOnly && ui.tier && ui.tier.br === br && ui.tier.lvl === i;
-          return `<button class="tier ${owned ? 'owned b' + br : ''} ${next ? 'next' : ''} ${!owned && !next ? 'locked' : ''} ${sel ? 'sel' : ''}" ${readOnly ? 'disabled' : `data-act="tier" data-br="${br}" data-lvl="${i}"`} aria-label="${esc(u.name)}" title="${esc(u.name)}">${K.UI.icon(u.icon)}<span class="c">${owned ? '✓' : u.cost}</span></button>`;
+          return `<button class="tier ${owned ? 'owned b' + br : ''} ${next ? 'next' : ''} ${can ? 'can' : ''} ${!owned && !next ? 'locked' : ''} ${sel ? 'sel' : ''}" ${readOnly ? 'disabled' : `data-act="tier" data-br="${br}" data-lvl="${i}"`} aria-label="${esc(u.name)}" title="${esc(u.name)}">${K.UI.icon(u.icon)}<span class="c">${owned ? '✓' : u.cost}</span></button>`;
         }).join('')}</div>`;
       };
       let detail = '';

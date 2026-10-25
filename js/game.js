@@ -138,7 +138,7 @@
           ${this.mode === 'team' ? `<div class="players" id="players">${cfg.players.map(p => `<button class="pchip" ${this.online ? 'disabled' : 'data-act="player"'} data-id="${p.id}" style="color:${p.color}"><i style="background:${p.color}"></i>${esc(p.name)} <span class="num pcoins" data-coins="${p.id}"></span></button>`).join('')}</div>` : ''}
         </div>
         <div class="stage" id="stage">
-          <div class="bossbar" id="bossBar" hidden><div class="bb-row"><b>Ковтоп</b><span class="num" id="bossHp"></span></div><div class="bar"><i id="bossFill"></i></div></div>
+          <div class="bossbar" id="bossBar" hidden><div class="bb-row"><b>Ковтоп</b><span class="eta" id="bossEta"></span><span class="num" id="bossHp"></span></div><div class="bar"><i id="bossFill"></i></div></div>
           <div class="viewing" id="viewing" hidden>Карта соперника · только просмотр</div>
           <div class="announce" id="announce"><div class="h2" id="annT"></div><div class="note" id="annS"></div></div>
           <div class="hint" id="hint"></div>
@@ -250,7 +250,7 @@
           case 'leak': A.play('leak', 150); break;
           case 'wave':
             A.play(ev.boss ? 'boss' : 'wave');
-            this.announce(ev.boss ? 'Ковтоп приближается' : 'Волна ' + ev.n, ev.boss ? 'Телевизор показывает «00». Он призывает Шмыгов и звереет на половине здоровья' : this.waveNote(ev.n));
+            this.announce(ev.boss ? 'Ковтоп приближается' : 'Волна ' + ev.n, ev.boss ? 'На телевизоре — сколько секунд ему идти до микропета. Призывает Шмыгов и звереет на половине здоровья' : this.waveNote(ev.n));
             break;
           case 'waveClear': A.play('clear'); this.setHint('Волна ' + ev.n + ' отбита: +' + Math.ceil(ev.bonus / Math.max(1, this.field.players.length)) + (ev.income ? ' и +' + ev.income + ' от Свинок' : '') + ' монет'); break;
           case 'obstacle': this.setHint('Появилось препятствие: ' + K.OBSTACLES[ev.o.kind].name.toLowerCase() + '. Оно закрывает место и обзор башням.', 5); break;
@@ -316,6 +316,8 @@
         if (bosses.length) {
           const hp = bosses.reduce((a, e) => a + Math.max(0, Math.ceil(e.hp)), 0), mx = bosses.reduce((a, e) => a + e.maxHp, 0);
           this.$('bossHp').textContent = fmtNum(hp) + ' / ' + fmtNum(Math.ceil(mx)) + (bosses.length > 1 ? ' · ×' + bosses.length : '');
+          const eta = Math.min(...bosses.map(e => e.eta == null ? Infinity : e.eta));
+          this.$('bossEta').textContent = isFinite(eta) ? 'дойдёт через ' + Math.ceil(eta) + ' с' : '';
           this.$('bossFill').style.width = (100 * hp / mx) + '%';
           bb.classList.toggle('rage', bosses.some(e => e.enraged));
         }

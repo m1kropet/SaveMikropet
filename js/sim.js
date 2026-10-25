@@ -555,11 +555,25 @@
         if (s.bonusSlowed && (e.slowT > 0 || e.stunT > 0)) dmg *= 1 + s.bonusSlowed;
         if (s.execute && !e.boss && (e.hp - dmg) / e.maxHp < s.execute) dmg = e.hp;
       }
+      // деньги за урон: 5 урона = 1 монета (без учёта «перебора» по добитой цели)
+      const eff = Math.max(0, Math.min(dmg, e.hp));
       e.hp -= dmg;
       e.hitT = 0.15;
       if (tower) tower.dealt += dmg;
+      this.payDamage(eff, tower);
       if (e.hp <= 0) this.kill(e, tower);
       return dmg;
+    }
+
+    payDamage(eff, tower) {
+      if (!(eff > 0)) return;
+      const pid = tower && tower.owner && this.wallets[tower.owner] != null ? tower.owner : null;
+      const key = pid || '*';
+      this.dmgAcc = this.dmgAcc || {};
+      const acc = (this.dmgAcc[key] || 0) + eff / K.DMG_PER_COIN;
+      const whole = Math.floor(acc);
+      this.dmgAcc[key] = acc - whole;
+      if (whole > 0) { if (pid) this.gain(whole, pid); else this.gainShared(whole); }
     }
 
     kill(e, tower) {
@@ -567,9 +581,8 @@
       e.dead = true;
       this.kills++;
       if (tower) tower.kills++;
-      this.gainShared(e.reward);
       this.removeEnemy(e);
-      this.emit({ t: 'die', e, reward: e.reward, bonus: false });
+      this.emit({ t: 'die', e, reward: Math.round(e.maxHp / K.DMG_PER_COIN), bonus: false });
     }
 
     hit(e, s, dmg, tower) {
@@ -724,6 +737,7 @@
         if (e.enraged) v *= 1.4;
         e.d += v * dt;
         const path = this.paths[e.path];
+        if (e.boss) e.eta = Math.max(0, path.length - e.d) / Math.max(0.05, v);
         if (e.d >= path.length) {
           e.dead = true;
           if (this.shieldLeft > 0) { this.shieldLeft--; this.emit({ t: 'shield', e }); }
@@ -824,7 +838,7 @@
               const s2 = t.s;
               let inc = s2.income;
               if (s2.interest > 0) inc += Math.min(s2.interestCap, Math.floor(this.wallet(t.owner) * s2.interest));
-              if (inc > 0) { this.gain(inc, t.owner); if (t.owner === this.me) income += inc; }
+              if (inc > 0) { this.gain(inc, t.owner); if (t.owner === this.me) income += inc; if (s2.passive) this.emit({ t: 'piggy', tid: t.id, x: t.x, z: t.z, amount: inc }); }
               heal += s2.heal;
             }
             if (heal > 0 && this.hp > 0) this.hp = Math.min(this.maxHp, this.hp + heal);

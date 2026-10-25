@@ -100,7 +100,8 @@
     ctx.fillStyle = '#ffffff'; circle(ctx, 0, 0, 0.035); ctx.fill(); ctx.restore();
     ctx.restore();
   }
-  function kovtop(ctx, t, enraged, scale) {
+  // eta — сколько секунд боссу осталось до микропета (показывается на экране телевизора)
+  function kovtop(ctx, t, enraged, scale, eta) {
     const s = scale || 1;
     ctx.save(); ctx.scale(s, s);
     shadow(ctx, 0.6, 0.5);
@@ -136,8 +137,13 @@
     ctx.fillStyle = '#050507'; ctx.fillRect(-0.31, -1.57, 0.62, 0.46);
     ctx.save(); ctx.scale(0.01, 0.01); ctx.fillStyle = '#e8e8e8'; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.fillText('NOW SERVING', 0, -148); ctx.restore();
     ctx.save(); ctx.shadowColor = '#ff2a2a'; ctx.shadowBlur = PX * 0.25; ctx.fillStyle = enraged && Math.floor(t * 6) % 2 ? '#ffd0d0' : '#ff2a2a';
-    const n = enraged ? Math.floor(t * 3) % 10 : 0;
-    digit(ctx, -0.2, -1.43, 0.16, 0.26, n); digit(ctx, 0.04, -1.43, 0.16, 0.26, enraged ? (n + 7) % 10 : 0);
+    if (eta != null) {
+      const v = Math.max(0, Math.min(99, Math.ceil(eta)));
+      digit(ctx, -0.2, -1.43, 0.16, 0.26, Math.floor(v / 10)); digit(ctx, 0.04, -1.43, 0.16, 0.26, v % 10);
+    } else {
+      const n = enraged ? Math.floor(t * 3) % 10 : 0;
+      digit(ctx, -0.2, -1.43, 0.16, 0.26, n); digit(ctx, 0.04, -1.43, 0.16, 0.26, enraged ? (n + 7) % 10 : 0);
+    }
     ctx.restore();
     // корона из шипов
     ctx.fillStyle = '#0a090c';
@@ -239,7 +245,7 @@
     if (e.hitT > 0) ctx.scale(1 + e.hitT * 0.6, 1 - e.hitT * 0.4);
     if (e.invisible) ctx.globalAlpha = e.revealed ? 0.7 : 0.13;
     if (e.boss) {
-      if (mode === 'eyes') kovtop(ctx, tt, e.enraged, e.enraged ? 1.25 : 1.12); // босс всегда виден поверх темноты
+      if (mode === 'eyes') kovtop(ctx, tt, e.enraged, e.enraged ? 1.25 : 1.12, e.eta); // босс всегда виден поверх темноты
     } else {
       const E = ENEMY[e.type];
       if (e.invisible && e.type !== 'ghost' && mode === 'body') { ctx.save(); ctx.globalAlpha *= 0.7; E.body(ctx, tt, ph, e); ctx.restore(); }

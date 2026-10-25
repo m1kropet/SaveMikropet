@@ -289,6 +289,7 @@
   K.BOUNDS = { x0: -8.6, x1: 8.6, z0: -10, z1: 9.3 };
   K.MAP_WIDEN = 1.6;
   K.SQUAD_MAX = 4;
+  K.DMG_PER_COIN = 5; // 5 урона по сущности = 1 монета
   K.SECRET_CODE = 'MINES';
   K.THEMES = { hotel: { name: 'Отель', desc: 'Тёмный отель: латунь и мятный свет' }, mine: { name: 'Шахты', desc: 'Камень, крепь и свет фонарей', secret: true } };
   K.RARITY_ORDER = ['Обычный', 'Необычный', 'Редкий', 'Эпический'];

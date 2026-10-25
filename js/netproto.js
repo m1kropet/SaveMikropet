@@ -24,6 +24,7 @@
       case 'wave': return { t: 'wave', n: ev.n, boss: ev.boss };
       case 'waveClear': return { t: 'waveClear', n: ev.n, bonus: ev.bonus, income: ev.income };
       case 'obstacle': return { t: 'obstacle', o: { kind: ev.o.kind, x: ev.o.x, z: ev.o.z } };
+      case 'piggy': return { t: 'piggy', tid: ev.tid, x: r2(ev.x), z: r2(ev.z), amount: ev.amount };
       case 'over': return { t: 'over', result: ev.result };
       default: return null;
     }
@@ -37,7 +38,7 @@
       tw: f.towers.map(t => [t.id, HEROES.indexOf(t.hero), r2(t.x), r2(t.z), t.owner, t.up[0], t.up[1], (t.skills.vision ? 1 : 0) | (t.skills.aa ? 2 : 0), TARGETS.indexOf(t.targeting), r2(t.aim), t.blocked ? 1 : 0, t.spent, Math.round(t.dealt), t.kills]),
       en: f.enemies.filter(e => !e.dead).map(e => [e.id, TYPES.indexOf(e.type), r2(e.x), r2(e.z), Math.ceil(e.hp), e.maxHp,
         (e.flying ? 1 : 0) | (e.invisible ? 2 : 0) | (e.revealed ? 4 : 0) | (e.boss ? 8 : 0) | (e.elite ? 16 : 0) | (e.enraged ? 32 : 0) | (e.stunT > 0 ? 64 : 0) | (e.hitT > 0 ? 128 : 0) | (e.dashing ? 256 : 0) | (e.burnT > 0 ? 512 : 0) | (e.slowT > 0 ? 1024 : 0),
-        r2(e.dx), r2(e.dz), e.path, r2(e.d)]),
+        r2(e.dx), r2(e.dz), e.path, r2(e.d), e.boss ? Math.round((e.eta || 0) * 10) / 10 : 0]),
       ob: f.obstacles.filter(o => o.dyn).map(o => [o.kind, o.x, o.z])
     };
     if (opts.proj !== false) s.pr = f.projectiles.map(p => [p.id, KINDS.indexOf(p.kind), r2(p.x), r2(p.z)]);
@@ -87,7 +88,7 @@
         Object.assign(e, {
           type: TYPES[a[1]], tx: a[2], tz: a[3], hp: a[4], maxHp: a[5], flying: !!(fl & 1), invisible: !!(fl & 2), revealed: !!(fl & 4),
           boss: !!(fl & 8), elite: !!(fl & 16), enraged: !!(fl & 32), stunT: fl & 64 ? 0.2 : 0, hitT: fl & 128 ? 0.12 : 0, dashing: !!(fl & 256), burnT: fl & 512 ? 0.5 : 0, slowT: fl & 1024 ? 0.5 : 0,
-          dx: a[7], dz: a[8], path: a[9], d: a[10], dead: false
+          dx: a[7], dz: a[8], path: a[9], d: a[10], eta: (fl & 8) ? a[11] : undefined, dead: false
         });
         return e;
       });

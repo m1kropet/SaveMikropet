@@ -236,7 +236,15 @@
           case 'stun': this.spark(ev.e.x, ev.e.z, '#fff66b', 5, 1.2, 0.35, 1); break;
           case 'heal': this.spark(ev.e.x, ev.e.z, '#6bff8a', 12, 1.5, 0.6, 1); break;
           case 'summon': case 'enrage': this.fx.push({ k: 'boom', x: ev.e.x, z: ev.e.z, r: 1.6, color: '#ff2a3d', t: 0, life: 0.6 }); this.spark(ev.e.x, ev.e.z, '#ff2a3d', 24, 3, 0.7, 1); if (ev.t === 'enrage') this.shake = 0.5; break;
-          case 'die': this.spark(ev.e.x, ev.e.z, ev.e.boss ? '#ff2a3d' : '#d9d2ff', ev.e.boss ? 60 : 12, ev.e.boss ? 4 : 2.4, 0.6, 0.5); this.fx.push({ k: 'text', x: ev.e.x, z: ev.e.z, text: '+' + ev.reward, color: '#ffc53d', t: 0, life: 0.8 }); if (ev.e.boss) this.shake = 0.8; break;
+          case 'die': this.spark(ev.e.x, ev.e.z, ev.e.boss ? '#ff2a3d' : '#d9d2ff', ev.e.boss ? 60 : 12, ev.e.boss ? 4 : 2.4, 0.6, 0.5); if (ev.e.boss) this.shake = 0.8; break;
+          case 'piggy': {
+            // Свинка пополняет баланс: подпрыгивает и выбрасывает монетки
+            const s = this.towerState.get(ev.tid); if (s) s.bounce = 1;
+            for (let i = 0; i < 9; i++) { const a = -Math.PI / 2 + (i - 4) * 0.28; this.fx.push({ k: 'coin', x: ev.x, z: ev.z - 0.5, vx: Math.cos(a) * (1.2 + (i % 3) * 0.35), vh: 3.4 + (i % 2) * 0.8, h: 0, t: -i * 0.04, life: 1.1 }); }
+            this.fx.push({ k: 'text', x: ev.x, z: ev.z - 0.5, text: '+' + ev.amount, color: '#ffc53d', t: 0, life: 1.3 });
+            this.fx.push({ k: 'ring', x: ev.x, z: ev.z, r0: 0.3, r1: 1.4, color: '#ffc53d', t: 0, life: 0.5 });
+            break;
+          }
           case 'shield': { const e = this.field.end; this.fx.push({ k: 'ring', x: e.x, z: e.z, r0: 0.4, r1: 1.6, color: '#ffb7d0', t: 0, life: 0.6 }); this.spark(e.x, e.z, '#ffb7d0', 14, 2, 0.5, 0.8); break; }
           case 'leak': this.petHit = 0.6; this.shake = Math.max(this.shake, 0.3); break;
           case 'obstacle': this.obsAnim.set(ev.o, 0); this.spark(ev.o.x, ev.o.z, '#d9c9b0', 24, 2.4, 0.6); break;
@@ -302,6 +310,11 @@
           st.aim += d * Math.min(1, dt * 10);
           st.recoil = Math.max(0, st.recoil - dt * 6);
           ctx.translate(tw.x, tw.z);
+          if (st.bounce > 0) {
+            st.bounce = Math.max(0, st.bounce - dt * 1.4);
+            const b = 1 - st.bounce, jump = Math.sin(Math.min(1, b * 1.6) * Math.PI) * 0.35, sq = Math.sin(b * Math.PI * 3) * 0.12 * st.bounce;
+            ctx.translate(0, -jump); ctx.scale(1 + sq, 1 - sq);
+          }
           const owner = field.players.find(p => p.id === tw.owner);
           S2.tower(ctx, tw.hero, { aim: st.aim, t: t + tw.id, recoil: st.recoil, color: owner ? owner.color : '#ff6b6b', up: tw.up, vision: tw.s.vision, aa: tw.s.aa });
         } else if (it.e) {
@@ -325,6 +338,7 @@
       for (let i = this.fx.length - 1; i >= 0; i--) {
         const f = this.fx[i]; f.t += dt; const k = f.t / f.life;
         if (k >= 1) { this.fx.splice(i, 1); continue; }
+        if (f.k === 'coin') { if (f.t > 0) { f.vh -= 9 * dt; f.h += f.vh * dt; f.x += f.vx * dt; } continue; }
         ctx.save();
         if (f.k === 'line') {
           ctx.globalAlpha = 1 - k; ctx.strokeStyle = f.color; ctx.lineWidth = f.w; ctx.lineCap = 'round'; ctx.shadowColor = f.color; ctx.shadowBlur = PX * 0.3;
@@ -398,6 +412,15 @@
       }
       ctx.globalAlpha = 1;
       for (const f of this.fx) {
+        if (f.k === 'coin') {
+          if (f.t <= 0) continue;
+          const k = f.t / f.life, sp = Math.abs(Math.cos(f.t * 14));
+          ctx.save(); ctx.globalAlpha = Math.min(1, (1 - k) * 2); ctx.translate(f.x, f.z - f.h); ctx.scale(Math.max(0.15, sp), 1);
+          ctx.fillStyle = '#ffc53d'; ctx.strokeStyle = '#a8701a'; ctx.lineWidth = 0.025; ctx.shadowColor = '#ffc53d'; ctx.shadowBlur = PX * 0.25;
+          ctx.beginPath(); ctx.arc(0, 0, 0.2, 0, TAU); ctx.fill(); ctx.stroke();
+          ctx.fillStyle = '#fff3c4'; ctx.fillRect(-0.035, -0.1, 0.07, 0.2);
+          ctx.restore(); continue;
+        }
         if (f.k !== 'text') continue;
         const k = f.t / f.life;
         ctx.save(); ctx.globalAlpha = 1 - k; ctx.translate(f.x, f.z - 1.1 - k * 0.6); ctx.scale(0.01, 0.01);

@@ -6,7 +6,7 @@ globalThis.WebSocketPair = function () { const c = new MockSock(), s = new MockS
 const RealResponse = globalThis.Response;
 globalThis.Response = class extends RealResponse { constructor(body, init) { const st = init && init.status === 101; super(body, st ? Object.assign({}, init, { status: 200 }) : init); if (st) { this.webSocket = init.webSocket; this.ws101 = true; } } };
 const mod = await import('/tmp/claude-0/worker.bundle.mjs');
-const files = { '/index.html': fs.readFileSync('index.html', 'utf8') };
+const files = { '/': fs.readFileSync('index.html', 'utf8') };
 let hubObj = null;
 const env = {
   ASSETS: { fetch: async req => { const p = new URL(req.url).pathname; return files[p] ? new RealResponse(files[p], { headers: { 'Content-Type': 'text/html' } }) : new RealResponse('nf', { status: 404 }); } },

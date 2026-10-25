@@ -42,7 +42,8 @@ export default {
       return new Response('globalThis.KV = globalThis.KV || {}; globalThis.KV.CONFIG = ' + JSON.stringify(cfg) + ';', { headers: { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'no-store' } });
     }
     if (url.pathname === '/' || url.pathname === '/index.html') {
-      const res = await env.ASSETS.fetch(new Request(new URL('/index.html', url), request));
+      // Assets отдаёт index.html по адресу «/», а «/index.html» перенаправляет на «/» — берём сразу «/»
+      const res = await env.ASSETS.fetch(new Request(new URL('/', url), { method: 'GET' }));
       if (!res.ok) return res;
       return new Response(wrapHtml(await res.text()), { headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' } });
     }

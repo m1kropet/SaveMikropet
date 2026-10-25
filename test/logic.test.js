@@ -170,4 +170,34 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
   ok(K.Save.sanitize(JSON.parse(JSON.stringify(p))).kovCodes.length===2,'shown codes persist');
   const r=K.Save.redeem(p,'75 35 82 21 69'); ok(r.ok && p.eye && r.reward==='eye' && p.achievements.secret_eye,'eye granted');
   ok(!K.Save.redeem(p,'7535822169').ok,'eye only once'); ok(K.Save.sanitize(JSON.parse(JSON.stringify(p))).eye===true,'eye persists'); }
+// редкости и Гараж
+{ const R=Object.fromEntries(K.HEROES.map(h=>[h.id,h.rarity]));
+  ok(R.blaster==='Новичковый'&&R.ice==='Обычный'&&R.piggy==='Необычный'&&R.dragon==='Необычный'&&R.storm==='Редкий'&&R.garage==='Эпический'&&R.prism==='Легендарный','rarities');
+  ok(K.HEROES.every(h=>K.RARITY_ORDER.includes(h.rarity)),'rarity order covers all'); }
+{ const P=[{id:'p1',name:'A',color:'#f00'},{id:'p2',name:'B',color:'#0f0'}];
+  const f=new K.Field({map:'lobby',diff:'normal',seed:21,squad:['garage','blaster'],players:P,autoWave:false}); f.wallets.p1=f.wallets.p2=1e6;
+  const free=f.layout.spots.filter(q=>f.canPlace(q.x,q.z).ok); let i=0; const put=(h,o)=>{ while(i<free.length){ const q=free[i++]; if(!f.canPlace(q.x,q.z).ok) continue; return f.cmd({type:'place',hero:h,x:q.x,z:q.z,owner:o}); } };
+  for(let k=0;k<4;k++) ok(put('garage','p1').ok,'garage '+(k+1));
+  const r5=put('garage','p1'); ok(!r5.ok && /Гаражей/.test(r5.reason),'max 4 garages per player');
+  ok(put('garage','p2').ok,'other player has own garage limit');
+  let n=f.towers.filter(t=>t.owner==='p1').length; while(n<20){ if(put('blaster','p1').ok) n++; else break; }
+  const rc=put('blaster','p1'); ok(n===20 && !rc.ok && /20/.test(rc.reason),'2 players: 20 towers each'); ok(K.towerCap(1)===25&&K.towerCap(3)===18&&K.towerCap(4)===15,'tower caps'); }
+{ const f=new K.Field({map:'lobby',diff:'normal',seed:22,squad:['garage'],autoWave:false}); f.coins=1e6;
+  const q=f.layout.spots[30], g=f.cmd({type:'place',hero:'garage',x:q.x,z:q.z}).tower;
+  for(let i=0;i<60*10;i++) f.step(1/60); ok(f.cars.length===0,'no cars between waves');
+  f.startNextWave(true); f.enemies.forEach(e=>{e.dead=true}); f.enemies=[]; f.active[0].idx=f.active[0].spawns.length; f.active[0].remaining=9;
+  for(let i=0;i<60*5+2;i++) f.step(1/60); ok(f.cars.length===1 && f.cars[0].hp===60,'first car after 5 s');
+  const c=f.cars[0], path=f.paths[c.path]; ok(c.d>path.length-1,'car starts at micropet side');
+  // слабая сущность гибнет, у машины убывают жизни
+  const weak=f.spawn({type:'normal',hpMul:1,spMul:0},1,c.path,c.d-0.05); const wh=weak.hp; f.step(1/60);
+  ok(weak.dead && c.hp===60-wh,'car crushes weaker entity and loses its hp');
+  // сильная сущность теряет столько, сколько было у машины; машина сгорает
+  const strong=f.spawn({type:'armored',hpMul:5,spMul:0},1,c.path,c.d-0.05); const sh=strong.hp, ch=c.hp; f.step(1/60);
+  ok(!strong.dead && strong.hp===sh-ch && f.cars.length===0,'stronger entity takes car hp, car burns');
+  for(let k=0;k<5;k++) f.cmd({type:'upgrade',tower:g.id,branch:0}); f.cmd({type:'upgrade',tower:g.id,branch:1}); f.cmd({type:'upgrade',tower:g.id,branch:1});
+  ok(g.s.carInt===25 && g.s.gunDmg>0 && g.s.carHp===160,'top 5/2: 25 s, gunner, hp 160');
+  ok(K.towerStats('garage',[2,5],{}).tank && K.towerStats('garage',[2,5],{}).tankRate<0.35,'bottom 5: tank with slow cannon');
+  // стрелок стреляет, машина при этом давит
+  strong.dead=true; f.enemies=f.enemies.filter(e=>!e.dead); f.spawnCar(g); const c2=f.cars[f.cars.length-1]; ok(c2.gun,'car carries gunner');
+  const tgt=f.spawn({type:'flyer',hpMul:20,spMul:0},1,c2.path,c2.d-2); const th=tgt.hp; for(let i=0;i<60;i++) f.step(1/60); ok(tgt.hp<th,'gunner shoots'); }
 console.log('OK', n, 'checks');

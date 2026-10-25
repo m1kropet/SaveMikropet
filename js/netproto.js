@@ -24,6 +24,9 @@
       case 'wave': return { t: 'wave', n: ev.n, boss: ev.boss };
       case 'waveClear': return { t: 'waveClear', n: ev.n, bonus: ev.bonus, income: ev.income };
       case 'obstacle': return { t: 'obstacle', o: { kind: ev.o.kind, x: ev.o.x, z: ev.o.z } };
+      case 'car': case 'carGone': case 'carBoom': return { t: ev.t, car: { id: ev.car.id, x: r2(ev.car.x), z: r2(ev.car.z), tank: ev.car.tank } };
+      case 'carShot': return { t: 'carShot', car: { id: ev.car.id, x: r2(ev.car.x), z: r2(ev.car.z) }, to: { x: r2(ev.to.x), z: r2(ev.to.z) }, tank: ev.tank };
+      case 'ram': return { t: 'ram', x: r2(ev.x), z: r2(ev.z) };
       case 'piggyTotal': return { t: 'piggyTotal', amount: ev.amount };
       case 'piggy': return { t: 'piggy', tid: ev.tid, x: r2(ev.x), z: r2(ev.z), amount: ev.amount };
       case 'over': return { t: 'over', result: ev.result };
@@ -40,7 +43,8 @@
       en: f.enemies.filter(e => !e.dead).map(e => [e.id, TYPES.indexOf(e.type), r2(e.x), r2(e.z), Math.ceil(e.hp), e.maxHp,
         (e.flying ? 1 : 0) | (e.invisible ? 2 : 0) | (e.revealed ? 4 : 0) | (e.boss ? 8 : 0) | (e.elite ? 16 : 0) | (e.enraged ? 32 : 0) | (e.stunT > 0 ? 64 : 0) | (e.hitT > 0 ? 128 : 0) | (e.dashing ? 256 : 0) | (e.burnT > 0 ? 512 : 0) | (e.slowT > 0 ? 1024 : 0),
         r2(e.dx), r2(e.dz), e.path, r2(e.d), e.boss ? Math.round((e.eta || 0) * 10) / 10 : 0]),
-      ob: f.obstacles.filter(o => o.dyn).map(o => [o.kind, o.x, o.z])
+      ob: f.obstacles.filter(o => o.dyn).map(o => [o.kind, o.x, o.z]),
+      cr: (f.cars || []).map(c => [c.id, r2(c.x), r2(c.z), Math.ceil(c.hp), c.maxHp, r2(c.dx), r2(c.dz), (c.gun ? 1 : 0) | (c.tank ? 2 : 0), c.owner, r2(c.aim)])
     };
     if (opts.proj !== false) s.pr = f.projectiles.map(p => [p.id, KINDS.indexOf(p.kind), r2(p.x), r2(p.z)]);
     if (opts.events) s.ev = opts.events.map(evOut).filter(Boolean);
@@ -54,6 +58,7 @@
       this.remote = true;
       this.statCache = new Map();
       this.emapR = new Map();
+      this.cmapR = new Map();
       this.dynCount = 0;
     }
     cmd(c) {
@@ -94,6 +99,16 @@
         return e;
       });
       for (const id of [...this.emapR.keys()]) if (!seen.has(id)) this.emapR.delete(id);
+      // машины гаражей
+      const seenC = new Set();
+      this.cars = (s.cr || []).map(a => {
+        seenC.add(a[0]);
+        let c = this.cmapR.get(a[0]);
+        if (!c) { c = { id: a[0], x: a[1], z: a[2] }; this.cmapR.set(a[0], c); }
+        Object.assign(c, { tx: a[1], tz: a[2], hp: a[3], maxHp: a[4], dx: a[5], dz: a[6], gun: !!(a[7] & 1), tank: !!(a[7] & 2), owner: a[8], aim: a[9] });
+        return c;
+      });
+      for (const id of [...this.cmapR.keys()]) if (!seenC.has(id)) this.cmapR.delete(id);
       if (s.pr) this.projectiles = s.pr.map(a => ({ id: a[0], kind: KINDS[a[1]], x: a[2], z: a[3], y: 0 }));
       // новые препятствия добавляются, старые объекты не пересоздаются
       if (s.ob.length > this.dynCount) {
@@ -110,6 +125,7 @@
     smooth(dt) {
       const k = Math.min(1, dt * 12);
       for (const e of this.enemies) { e.x += (e.tx - e.x) * k; e.z += (e.tz - e.z) * k; }
+      for (const c of this.cars || []) { c.x += (c.tx - c.x) * k; c.z += (c.tz - c.z) * k; }
     }
   }
 

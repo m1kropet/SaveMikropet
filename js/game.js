@@ -27,7 +27,12 @@
     ['petMax', 'Жизни +', v => v, v => v > 0],
     ['heal', 'Лечение', v => '+' + v, v => v > 0],
     ['shield', 'Щит', v => v, v => v > 0],
-    ['execute', 'Добивание', v => Math.round(v * 100) + '%', v => v > 0]
+    ['execute', 'Добивание', v => Math.round(v * 100) + '%', v => v > 0],
+    ['carHp', 'Жизни машины', v => v, v => v > 0],
+    ['carInt', 'Машина каждые', v => v + ' с', v => v > 0],
+    ['gunDmg', 'Урон стрелка', v => v.toFixed(0), v => v > 0],
+    ['gunRate', 'Выстр./с', v => v.toFixed(2), v => v > 0],
+    ['tankDmg', 'Пушка танка', v => v + ' по обл.', v => v > 0]
   ];
   const TARGETS = [['first', 'Первый'], ['last', 'Последний'], ['strong', 'Сильный'], ['close', 'Ближний']];
 
@@ -527,7 +532,8 @@
       const owner = f.players.find(p => p.id === t.owner);
       const lvl = t.up[0] + t.up[1];
       const PASSIVE = ['income', 'interest', 'interestCap', 'petMax', 'heal', 'shield'];
-      const chips = STAT_LABELS.filter(s => passive ? PASSIVE.includes(s[0]) && (!s[3] || s[3](t.s[s[0]])) : !PASSIVE.slice(1).includes(s[0]) && (!s[3] || s[3](t.s[s[0]]))).slice(0, 6).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('');
+      const GARAGE = ['carHp', 'carInt', 'gunDmg', 'gunRate', 'tankDmg'];
+      const chips = t.s.garage ? STAT_LABELS.filter(s => GARAGE.includes(s[0]) && (!s[3] || s[3](t.s[s[0]]))).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('') : STAT_LABELS.filter(s => passive ? PASSIVE.includes(s[0]) && (!s[3] || s[3](t.s[s[0]])) : !PASSIVE.slice(1).includes(s[0]) && (!s[3] || s[3](t.s[s[0]]))).slice(0, 6).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('');
       const skill = k => {
         const S = K.SKILLS[k], ic = K.UI.icon(k === 'vision' ? 'eye' : 'radar');
         if (H.base[k] || t.skills[k]) return `<button class="btn mini pet" disabled>${ic} ${S.name}${H.base[k] ? '' : ' ✓'}</button>`;
@@ -567,7 +573,8 @@
             if (after.aoeAll && !t.s.aoeAll) diffs += '<span class="up">бьёт всех в радиусе</span>';
           }
           detail = `<div class="detail"><div class="row"><b class="grow">${br === 0 ? 'Верх' : 'Низ'} ${L + 1}: ${esc(u.name)}</b>${action}</div><div class="note">${esc(u.desc)}</div>${diffs ? `<div class="diffs">${diffs}</div>` : ''}${note ? '<div>' + note + '</div>' : ''}</div>`;
-        } else if (passive) detail = '<div class="note small-note">Свинка не атакует. Верхняя ветка бережёт микропета, нижняя приносит больше монет. Уровни 1–2 доступны в обеих ветках всегда.</div>';
+        } else if (t.s.garage) detail = '<div class="note small-note">Гараж выпускает машины, пока идёт волна. Верхняя ветка — чаще машины и стрелок на крыше, нижняя — крепче машина, на 5-м уровне танк. Уровни 1–2 доступны в обеих ветках всегда.</div>';
+        else if (passive) detail = '<div class="note small-note">Свинка не атакует. Верхняя ветка бережёт микропета, нижняя приносит больше монет. Уровни 1–2 доступны в обеих ветках всегда.</div>';
         else detail = '<div class="note small-note">Нажмите на улучшение, чтобы выбрать его. Уровни 1–2 доступны в обеих ветках всегда. Выше 2-го можно прокачать только одну ветку.</div>';
       }
       const refund = Math.floor(t.spent * K.SELL_RATE);
@@ -576,7 +583,7 @@
         <div class="ph"><span class="hero-thumb" style="background-image:url(${K.thumbs[t.hero] || ''})"></span>
           <div class="grow" style="min-width:0"><b>${esc(H.name)}</b> <span class="mute">ур. ${lvl}${owner && f.players.length > 1 ? ' · <span style="color:' + owner.color + '">' + esc(owner.name) + '</span>' : ''}</span><div class="chipline">${chips}</div></div>
           <button class="btn small icon-btn" data-act="${readOnly === 'opp' ? 'oppClose' : 'close'}" aria-label="Закрыть">${K.UI.icon('x')}</button></div>
-        <div class="tools">${passive ? `<span class="tag">Доход идёт ${t.owner === ui.player || !readOnly ? 'вам' : 'владельцу'}</span>` : skill('vision') + skill('aa') + (readOnly ? `<button class="btn mini" disabled>Цель: ${target}</button>` : `<button class="btn mini" data-act="target" title="Сменить приоритет цели">Цель: ${target}</button>`)}
+        <div class="tools">${t.s.garage ? `<span class="tag">Гаражей: ${f.towers.filter(x => x.owner === t.owner && x.s.garage).length} / ${K.GARAGE_MAX}</span>` : passive ? `<span class="tag">Доход идёт ${t.owner === ui.player || !readOnly ? 'вам' : 'владельцу'}</span>` : skill('vision') + skill('aa') + (readOnly ? `<button class="btn mini" disabled>Цель: ${target}</button>` : `<button class="btn mini" data-act="target" title="Сменить приоритет цели">Цель: ${target}</button>`)}
           ${readOnly ? '' : ui.sellArm ? `<button class="btn mini danger" data-act="sellYes">Точно? +${refund}</button>` : `<button class="btn mini ghost" data-act="sell">Продать +${refund}</button>`}</div>
         ${row(0)}${row(1)}${readOnly === 'foreign' ? '<div class="note small-note">Это башня товарища: улучшать и продавать её может только он.</div>' : detail}</div>`;
     }

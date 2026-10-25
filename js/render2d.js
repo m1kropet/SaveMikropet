@@ -237,6 +237,10 @@
           case 'heal': this.spark(ev.e.x, ev.e.z, '#6bff8a', 12, 1.5, 0.6, 1); break;
           case 'summon': case 'enrage': this.fx.push({ k: 'boom', x: ev.e.x, z: ev.e.z, r: 1.6, color: '#ff2a3d', t: 0, life: 0.6 }); this.spark(ev.e.x, ev.e.z, '#ff2a3d', 24, 3, 0.7, 1); if (ev.t === 'enrage') this.shake = 0.5; break;
           case 'die': this.spark(ev.e.x, ev.e.z, ev.e.boss ? '#ff2a3d' : '#d9d2ff', ev.e.boss ? 60 : 12, ev.e.boss ? 4 : 2.4, 0.6, 0.5); if (ev.e.boss) this.shake = 0.8; break;
+          case 'car': this.fx.push({ k: 'ring', x: ev.car.x, z: ev.car.z, r0: 0.2, r1: 1.0, color: '#7cff6b', t: 0, life: 0.4 }); break;
+          case 'carShot': this.fx.push({ k: 'line', pts: [{ x: ev.car.x, z: ev.car.z - (ev.tank ? 0.1 : 0.15) }, { x: ev.to.x, z: ev.to.z }], color: ev.tank ? '#ffb84a' : '#fff3a0', w: ev.tank ? 0.1 : 0.04, t: 0, life: ev.tank ? 0.25 : 0.1 }); if (ev.tank) this.shake = Math.max(this.shake, 0.15); break;
+          case 'ram': this.spark(ev.x, ev.z, '#d9d2ff', 10, 2.2, 0.4, 0.5); break;
+          case 'carBoom': this.fx.push({ k: 'boom', x: ev.car.x, z: ev.car.z, r: 0.9, color: '#ff7a2a', t: 0, life: 0.5 }); this.spark(ev.car.x, ev.car.z, '#ff9a3d', 22, 2.6, 0.7, 1); this.spark(ev.car.x, ev.car.z, '#3a3a3a', 10, 1.2, 1.0, 1.5); break;
           case 'piggy': {
             // Свинка пополняет баланс: подпрыгивает и выбрасывает монетки
             const s = this.towerState.get(ev.tid); if (s) s.bounce = 1;
@@ -381,6 +385,14 @@
 
       // поверх темноты: глаза, босс, полоски здоровья, значки, обзор
       W();
+      // машины гаражей (со своими фарами — всегда видны) и их здоровье
+      for (const c of field.cars || []) {
+        const owner = field.players.find(p => p.id === c.owner);
+        ctx.save(); ctx.translate(c.x, c.z); S2.car(ctx, c, t, owner ? owner.color : '#7cff6b'); ctx.restore();
+        const w = c.tank ? 1.4 : 1.1, y = c.tank ? -1.45 : (c.gun ? -1.2 : -0.8);
+        ctx.fillStyle = 'rgba(0,0,0,0.65)'; ctx.fillRect(c.x - w / 2, c.z + y, w, 0.1);
+        ctx.fillStyle = '#7cff6b'; ctx.fillRect(c.x - w / 2 + 0.015, c.z + y + 0.015, (w - 0.03) * Math.max(0, c.hp / c.maxHp), 0.07);
+      }
       for (const e of field.enemies) {
         if (e.dead) continue;
         ctx.save(); ctx.translate(e.x, e.z); S2.enemy(ctx, e, t, 'eyes'); ctx.restore();

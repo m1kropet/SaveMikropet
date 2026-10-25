@@ -229,13 +229,20 @@
       income: b.income || 0, bonusSlowed: 0, bossFreeze: false, passive: !!b.passive,
       heal: 0, petMax: 0, shield: 0, interest: 0, interestCap: 0,
       vision: !!b.vision || !!(skills && skills.vision), aa: !!b.aa || !!(skills && skills.aa),
-      proj: b.proj, projSpeed: b.projSpeed || 0
+      proj: b.proj, projSpeed: b.projSpeed || 0,
+      // гараж: машины, стрелок на машине, танк
+      garage: !!b.garage, carHp: b.carHp || 0, carInt: b.carInt || 0, carSpeed: b.carSpeed || 0,
+      gunDmg: 0, gunRate: 0, gunRange: 0, tank: false, tankDmg: 0, tankRate: 0, tankRange: 0, tankSplash: 0
     };
-    let dmgMul = 1, rateMul = 1;
+    let dmgMul = 1, rateMul = 1, carHpMul = 1, gunDmgMul = 1, gunRateMul = 1;
     const apply = fx => {
       for (const k in fx) {
         const v = fx[k];
         if (k === 'dmgMul') dmgMul *= v;
+        else if (k === 'carHpMul') carHpMul *= v;
+        else if (k === 'gunDmgMul') gunDmgMul *= v;
+        else if (k === 'gunRateMul') gunRateMul *= v;
+        else if (k === 'tank') s.tank = !!v;
         else if (k === 'rateMul') rateMul *= v;
         else if (k === 'multi') s.multi += v;
         else if (k === 'critM' || k === 'slow' || k === 'freezeDur' || k === 'stunDur' || k === 'execute' || k === 'interestCap') s[k] = Math.max(s[k], v);
@@ -247,6 +254,11 @@
     for (let i = 0; i < up[1]; i++) apply(H.bottom[i].fx);
     s.dmg *= dmgMul;
     s.rate *= rateMul;
+    if (s.garage) {
+      s.carHp = Math.round(s.carHp * carHpMul);
+      s.carInt = Math.max(25, s.carInt);
+      s.gunDmg *= gunDmgMul; s.gunRate *= gunRateMul;
+    }
     s.dps = s.dmg * s.rate * (1 + s.critC * (s.critM - 1));
     return s;
   }
@@ -299,6 +311,7 @@
       this.enemies = [];
       this.emap = new Map();
       this.towers = [];
+      this.cars = [];
       this.projectiles = [];
       this.events = [];
       this.kills = 0;
@@ -413,17 +426,30 @@
       return { ok: true };
     }
 
+    // Лимиты: всего башен на игрока (25 / 20 / 18 / 15 при 1–4 игроках), гаражей — не больше 4.
+    placeLimit(heroId, owner) {
+      owner = owner || this.me;
+      const mine = this.towers.filter(t => t.owner === owner);
+      const cap = K.towerCap(this.players.length);
+      if (mine.length >= cap) return { ok: false, reason: 'Лимит башен: не больше ' + cap + ' на игрока' };
+      if (K.HERO[heroId] && K.HERO[heroId].base.garage && mine.filter(t => t.hero === heroId).length >= K.GARAGE_MAX) return { ok: false, reason: 'Гаражей не больше ' + K.GARAGE_MAX + ' на игрока' };
+      return { ok: true };
+    }
+
     place(heroId, x, z, owner) {
       const H = K.HERO[heroId];
       if (!H || !this.squad.includes(heroId)) return { ok: false, reason: 'Героя нет в отряде' };
       const can = this.canPlace(x, z, null, heroId);
       if (!can.ok) return can;
       if (can.perch) { x = can.x; z = can.z; }
+      const lim = this.placeLimit(heroId, owner);
+      if (!lim.ok) return lim;
       if (!this.trySpend(H.cost, owner)) return { ok: false, reason: 'Не хватает монет' };
       const t = {
         id: this.nextId++, hero: heroId, x: +x.toFixed(3), y: 0, z: +z.toFixed(3),
         owner, up: [0, 0], skills: { vision: false, aa: false }, spent: H.cost,
-        cd: 0.2, aim: 0, targeting: H.base.target || 'first', dealt: 0, kills: 0, blocked: false
+        cd: 0.2, aim: 0, targeting: H.base.target || 'first', dealt: 0, kills: 0, blocked: false,
+        carT: 5, carPath: -1
       };
       t.s = towerStats(heroId, t.up, t.skills);
       this.towers.push(t);
@@ -753,6 +779,97 @@
 
     aimAt(t, e) { t.aim = Math.atan2(e.x - t.x, e.z - t.z); }
 
+    // ---- Машины гаражей: едут от микропета к двери и давят сущностей ----
+    spawnCar(t) {
+      const n = this.paths.length;
+      t.carPath = (t.carPath + 1) % n;
+      const path = this.paths[t.carPath], s = t.s;
+      const car = {
+        id: this.nextId++, tower: t, owner: t.owner, path: t.carPath, d: path.length - 0.2, seg: path.segs.length - 1,
+        hp: s.carHp, maxHp: s.carHp, speed: s.carSpeed, gun: s.gunDmg > 0, tank: s.tank,
+        gunDmg: s.gunDmg, gunRate: s.gunRate, gunRange: s.gunRange, gunCd: 0.5,
+        tankDmg: s.tankDmg, tankRate: s.tankRate, tankRange: s.tankRange, tankSplash: s.tankSplash, tankCd: 1,
+        x: 0, z: 0, dx: 0, dz: 0, aim: 0
+      };
+      this.placeCar(car);
+      this.cars.push(car);
+      this.emit({ t: 'car', car });
+    }
+    placeCar(c) {
+      const p = pointAt(this.paths[c.path], c.d, c.seg);
+      c.x = p.x; c.z = p.z; c.seg = p.seg; c.dx = -p.dx; c.dz = -p.dz;
+    }
+    carTarget(c, range, air) {
+      let best = null, bd = range * range;
+      for (const e of this.enemies) {
+        if (e.dead || (e.flying && !air) || (e.invisible && !e.revealed)) continue;
+        const d2 = (e.x - c.x) ** 2 + (e.z - c.z) ** 2;
+        if (d2 <= bd) { bd = d2; best = e; }
+      }
+      return best;
+    }
+    stepCars(dt) {
+      // гаражи выпускают машины только пока идёт волна
+      if (this.active.length) {
+        for (const t of this.towers) {
+          if (!t.s.garage) continue;
+          t.carT -= dt;
+          if (t.carT <= 0) { this.spawnCar(t); t.carT += t.s.carInt; }
+        }
+      }
+      for (const c of this.cars) {
+        if (c.dead) continue;
+        c.d -= c.speed * dt;
+        if (c.d <= 0) { c.dead = true; this.emit({ t: 'carGone', car: c }); continue; }
+        this.placeCar(c);
+        // таран: наземные сущности рядом с машиной
+        for (const e of this.enemies) {
+          if (e.dead || e.flying || c.dead) continue;
+          if ((e.x - c.x) ** 2 + (e.z - c.z) ** 2 > 0.36) continue;
+          if (e.hp <= c.hp) {
+            c.hp -= e.hp;
+            this.damage(e, e.hp, null, c.tower);
+            this.emit({ t: 'ram', x: e.x, z: e.z });
+            if (c.hp <= 0) { c.dead = true; this.emit({ t: 'carBoom', car: c }); }
+          } else {
+            this.damage(e, c.hp, null, c.tower);
+            c.hp = 0; c.dead = true;
+            this.emit({ t: 'carBoom', car: c });
+          }
+        }
+        if (c.dead) continue;
+        // стрелок на машине
+        if (c.gun) {
+          c.gunCd -= dt;
+          if (c.gunCd <= 0) {
+            const e = this.carTarget(c, c.gunRange, true);
+            if (e) {
+              c.aim = Math.atan2(e.x - c.x, e.z - c.z);
+              this.damage(e, c.gunDmg, { pierce: 1 }, c.tower);
+              this.emit({ t: 'carShot', car: c, to: { x: e.x, z: e.z }, tank: false });
+              c.gunCd += 1 / c.gunRate;
+            } else c.gunCd = 0;
+          }
+        }
+        // пушка танка: медленно, но по области
+        if (c.tank) {
+          c.tankCd -= dt;
+          if (c.tankCd <= 0) {
+            const e = this.carTarget(c, c.tankRange, false);
+            if (e) {
+              c.aim = Math.atan2(e.x - c.x, e.z - c.z);
+              const tx = e.x, tz = e.z, r2 = c.tankSplash * c.tankSplash;
+              for (const o of this.enemies) if (!o.dead && !o.flying && (o.x - tx) ** 2 + (o.z - tz) ** 2 <= r2) this.damage(o, c.tankDmg, { pierce: 6 }, c.tower);
+              this.emit({ t: 'carShot', car: c, to: { x: tx, z: tz }, tank: true });
+              this.emit({ t: 'boom', x: tx, y: 0, z: tz, r: c.tankSplash, kind: 'orb' });
+              c.tankCd += 1 / c.tankRate;
+            } else c.tankCd = 0;
+          }
+        }
+      }
+      if (this.cars.some(c => c.dead)) this.cars = this.cars.filter(c => !c.dead);
+    }
+
     // ---- Шаг симуляции ----
     step(dt) {
       if (this.over) return;
@@ -832,6 +949,8 @@
           }
         }
       }
+
+      this.stepCars(dt);
 
       // обнаружение невидимок (для отрисовки и подсказок)
       for (const e of this.enemies) {

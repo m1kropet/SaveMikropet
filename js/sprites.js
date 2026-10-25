@@ -345,8 +345,56 @@
       ctx.fillStyle = '#7a2a3a'; circle(ctx, -0.03, -0.25, 0.015); ctx.fill(); circle(ctx, 0.03, -0.25, 0.015); ctx.fill();
       ctx.fillStyle = '#4a2010'; ctx.fillRect(-0.08, 0.02, 0.16, 0.03);
       if (o.up && o.up[0] > 0) { ctx.fillStyle = '#ff4d6d'; ctx.beginPath(); ctx.moveTo(0, 0.2); ctx.bezierCurveTo(-0.09, 0.12, -0.05, 0.06, 0, 0.11); ctx.bezierCurveTo(0.05, 0.06, 0.09, 0.12, 0, 0.2); ctx.fill(); }
+    },
+    // Гараж: здание с подъёмной дверью и мигающей лампой
+    garage(ctx, o) {
+      const tank = o.up && o.up[1] >= 5;
+      ctx.fillStyle = '#2b3a2a'; rrect(ctx, -0.3, -0.24, 0.6, 0.48, 0.04); ctx.fill();
+      ctx.fillStyle = '#3d5a3a'; ctx.beginPath(); ctx.moveTo(-0.34, -0.22); ctx.lineTo(0, -0.38); ctx.lineTo(0.34, -0.22); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#16120e'; ctx.fillRect(-0.2, -0.08, 0.4, 0.3);
+      const open = (Math.sin(o.t * 1.3) + 1) / 2 * 0.12;
+      ctx.fillStyle = '#9aa4ad'; ctx.fillRect(-0.2, -0.08, 0.4, 0.3 - open);
+      ctx.strokeStyle = '#5c666e'; ctx.lineWidth = 0.015;
+      for (let y = -0.04; y < 0.22 - open; y += 0.05) { ctx.beginPath(); ctx.moveTo(-0.2, y); ctx.lineTo(0.2, y); ctx.stroke(); }
+      ctx.fillStyle = '#ffd25e'; for (let i = 0; i < 4; i++) ctx.fillRect(-0.2 + i * 0.1, 0.22, 0.05, 0.025);
+      glowDot(ctx, 0, -0.2, 0.035, Math.sin(o.t * 5) > 0 ? (tank ? '#ff5a3d' : '#7cff6b') : '#2a3a2a', PX * 0.2);
+      if (o.up && o.up[0] >= 3) { ctx.fillStyle = '#ffd25e'; circle(ctx, 0.24, -0.16, 0.035); ctx.fill(); }
     }
   };
+
+  // Машина гаража (вид сбоку, смотрит по ходу движения). c.tank — танк, c.gun — стрелок на крыше.
+  function car(ctx, c, t, color) {
+    const left = (c.dx || 0) < -0.05;
+    const bob = Math.sin(t * 18 + c.id) * 0.012;
+    ctx.save();
+    ctx.scale(1.6, 1.6);
+    shadow(ctx, 0.5, 0.25);
+    if (left) ctx.scale(-1, 1);
+    ctx.translate(0, bob);
+    if (c.tank) {
+      ctx.fillStyle = '#2a2d22'; rrect(ctx, -0.5, -0.2, 1.0, 0.2, 0.08); ctx.fill();
+      ctx.fillStyle = '#3c4230'; for (let i = 0; i < 5; i++) { circle(ctx, -0.4 + i * 0.2, -0.1, 0.07); ctx.fill(); }
+      ctx.fillStyle = '#4f5a3a'; rrect(ctx, -0.42, -0.42, 0.84, 0.24, 0.06); ctx.fill();
+      ctx.fillStyle = color; ctx.fillRect(-0.42, -0.3, 0.84, 0.04);
+      ctx.fillStyle = '#5c6a44'; rrect(ctx, -0.2, -0.6, 0.38, 0.2, 0.08); ctx.fill();
+      ctx.fillStyle = '#2a2d22'; ctx.fillRect(0.15, -0.53, 0.45, 0.07);
+    } else {
+      ctx.fillStyle = '#16120e'; circle(ctx, -0.27, -0.06, 0.09); ctx.fill(); circle(ctx, 0.27, -0.06, 0.09); ctx.fill();
+      ctx.fillStyle = '#9aa4ad'; circle(ctx, -0.27, -0.06, 0.035); ctx.fill(); circle(ctx, 0.27, -0.06, 0.035); ctx.fill();
+      ctx.fillStyle = color; rrect(ctx, -0.42, -0.36, 0.84, 0.28, 0.07); ctx.fill();
+      ctx.fillStyle = '#e8f6ff'; rrect(ctx, 0.08, -0.33, 0.26, 0.12, 0.03); ctx.fill();
+      ctx.fillStyle = '#ffffff55'; ctx.fillRect(-0.36, -0.28, 0.38, 0.03);
+      glowDot(ctx, 0.42, -0.18, 0.03, '#fff3c4', PX * 0.25);
+      ctx.fillStyle = '#ff3b4d'; ctx.fillRect(-0.44, -0.24, 0.03, 0.06);
+    }
+    if (c.gun) {
+      const y0 = c.tank ? -0.62 : -0.36;
+      ctx.fillStyle = '#0e0d12'; ctx.fillRect(-0.12, y0 - 0.16, 0.1, 0.16);
+      ctx.fillStyle = '#ffd25e'; circle(ctx, -0.07, y0 - 0.21, 0.06); ctx.fill();
+      ctx.fillStyle = '#0e0d12'; ctx.fillRect(-0.04, y0 - 0.13, 0.22, 0.035);
+    }
+    ctx.restore();
+  }
 
   function tower(ctx, heroId, o) {
     ctx.save();
@@ -418,6 +466,6 @@
   }
 
   K.Sprites = {
-    setPx(v) { PX = v; }, pet, kovtop, enemy, tower, obstacle, heroIcon, figure, rrect, circle, rainbow, glowDot, monitor, HERO_DRAW: HERO
+    setPx(v) { PX = v; }, pet, kovtop, car, enemy, tower, obstacle, heroIcon, figure, rrect, circle, rainbow, glowDot, monitor, HERO_DRAW: HERO
   };
 })(globalThis.KV = globalThis.KV || {});

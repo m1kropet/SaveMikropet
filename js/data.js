@@ -15,7 +15,7 @@
     {
       id: 'blaster', name: 'Бластер', role: 'Скорострельный универсал',
       desc: 'Компактная пушка с тремя стволами и радужными катушками. Засыпает коридор быстрыми зарядами.',
-      price: 0, cost: 120, color: '#ff5fd2', rarity: 'Обычный',
+      price: 0, cost: 120, color: '#ff5fd2', rarity: 'Новичковый',
       base: { dmg: 8, rate: 3.2, range: 3.0, proj: 'bolt', projSpeed: 17 },
       top: withCosts([
         { name: 'Длинный прицел', icon: 'scope', desc: 'Дальность +0.4', fx: { range: 0.4 } },
@@ -35,7 +35,7 @@
     {
       id: 'dragon', name: 'Диномайк', role: 'Взрывы по области',
       desc: 'Неоновый динозаврик с ящиком динамита за спиной. Швыряет шашки, которые взрываются в толпе. Видит летающих от рождения.',
-      price: 900, cost: 220, color: '#b45cff', rarity: 'Редкий',
+      price: 900, cost: 220, color: '#b45cff', rarity: 'Необычный',
       base: { dmg: 16, rate: 0.9, range: 3.2, splash: 1.1, proj: 'orb', projSpeed: 9, aa: true },
       top: withCosts([
         { name: 'Острое зрение', icon: 'scope', desc: 'Дальность +0.4', fx: { range: 0.4 } },
@@ -75,7 +75,7 @@
     {
       id: 'prism', name: 'Реалганер', role: 'Дальний урон по одной цели',
       desc: 'Тяжёлая рельсовая пушка на треноге. Ставится только на препятствия, которые закрывают обзор, и стреляет поверх любых препятствий. Долго заряжается и пробивает лучом самых опасных. Видит невидимок от рождения.',
-      price: 1800, cost: 260, color: '#ffe36b', rarity: 'Эпический',
+      price: 1800, cost: 260, color: '#ffe36b', rarity: 'Легендарный',
       base: { dmg: 55, rate: 0.45, range: 4.5, proj: 'beam', vision: true, target: 'strong', perch: true },
       top: withCosts([
         { name: 'Длинные рельсы', icon: 'scope', desc: 'Дальность +0.5', fx: { range: 0.5 } },
@@ -131,8 +131,31 @@
         { name: 'Золотая жила', icon: 'burst', desc: 'Доход +80 за волну, проценты до 300', fx: { income: 80, interestCap: 300 } },
         { name: 'Джекпот', icon: 'nova', desc: 'Доход +200 за волну, проценты 8% до 600', fx: { income: 200, interest: 0.03, interestCap: 600 } }
       ], [120, 300, 800, 1500, 3000])
+    },
+    {
+      id: 'garage', name: 'Гараж', role: 'Машины давят сущностей',
+      desc: 'Здание, а не пушка. Пока идёт волна, раз в 30 с выпускает машину со стороны микропета: она едет по дороге навстречу сущностям и давит их. Если у сущности жизней больше, чем у машины, сущность теряет столько, сколько было у машины, а машина сгорает. Не больше 4 гаражей у одного игрока.',
+      price: 1400, cost: 300, color: '#7cff6b', rarity: 'Эпический',
+      base: { dmg: 0, rate: 0, range: 1.2, proj: 'none', passive: true, garage: true, carHp: 60, carInt: 30, carSpeed: 1.7 },
+      top: withCosts([
+        { name: 'Смена водителей', icon: 'gear', desc: 'Машина каждые 29 с', fx: { carInt: -1 } },
+        { name: 'Конвейер', icon: 'gear', desc: 'Машина каждые 28 с, скорость машины +15%', fx: { carInt: -1, carSpeed: 0.25 } },
+        { name: 'Стрелок', icon: 'scope', desc: 'На машине едет стрелок: урон 10, 1.2 выстр./с, радиус 2.5. Машина каждые 27 с', fx: { carInt: -1, gunDmg: 10, gunRate: 1.2, gunRange: 2.5 } },
+        { name: 'Пулемёт', icon: 'burst', desc: 'Урон стрелка ×1.6, скорострельность ×1.5. Машина каждые 26 с', fx: { carInt: -1, gunDmgMul: 1.6, gunRateMul: 1.5 } },
+        { name: 'Конвой', icon: 'star', desc: 'Урон стрелка ×1.6, радиус +1. Машина каждые 25 с', fx: { carInt: -1, gunDmgMul: 1.6, gunRange: 1 } }
+      ], [150, 300, 900, 1600, 3200]),
+      bottom: withCosts([
+        { name: 'Бампер', icon: 'shield', desc: 'Жизни машины +40', fx: { carHp: 40 } },
+        { name: 'Бронелисты', icon: 'shield', desc: 'Жизни машины +60', fx: { carHp: 60 } },
+        { name: 'Бронефургон', icon: 'heart', desc: 'Жизни машины ×2', fx: { carHpMul: 2 } },
+        { name: 'Броневик', icon: 'heart', desc: 'Жизни машины ×1.8', fx: { carHpMul: 1.8 } },
+        { name: 'Танк', icon: 'nova', desc: 'Машина становится танком: жизни ×2 и пушка — урон 150 по области, радиус 3.5, но выстрел лишь раз в 3.5 с', fx: { carHpMul: 2, tank: true, tankDmg: 150, tankRate: 1 / 3.5, tankRange: 3.5, tankSplash: 1.2 } }
+      ], [120, 300, 900, 1800, 3800])
     }
   ];
+  // Лимиты построек: гаражей на игрока и всего башен на игрока (зависит от числа игроков)
+  K.GARAGE_MAX = 4;
+  K.towerCap = n => ({ 1: 25, 2: 20, 3: 18, 4: 15 })[Math.max(1, Math.min(4, n || 1))];
 
   const SKILLS = {
     vision: { name: 'Вижен', cost: 100, desc: 'Башня видит невидимых сущностей и может их атаковать.' },
@@ -295,6 +318,6 @@
   K.SQUAD_MAX = 4;
   K.SECRET_CODE = 'MINES';
   K.THEMES = { hotel: { name: 'Отель', desc: 'Тёмный отель: латунь и мятный свет' }, mine: { name: 'Шахты', desc: 'Камень, крепь и свет фонарей', secret: true } };
-  K.RARITY_ORDER = ['Обычный', 'Необычный', 'Редкий', 'Эпический'];
+  K.RARITY_ORDER = ['Новичковый', 'Обычный', 'Необычный', 'Редкий', 'Эпический', 'Легендарный'];
   K.SELL_RATE = 0.7;
 })(globalThis.KV = globalThis.KV || {});

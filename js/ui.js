@@ -682,7 +682,7 @@
         const v = k === 'dps' ? H.base.dmg * H.base.rate : H.base[k];
         return `<span>${n}</span><div class="bar"><i style="width:${Math.round(100 * v / maxOf(k))}%;background:${H.color}"></i></div><b class="num">${k === 'rate' ? v.toFixed(2) : Math.round(v * 10) / 10}</b>`;
       }).join('');
-      const traits = [H.base.passive && 'Не атакует', H.base.aa && 'ПВО с рождения', H.base.vision && 'Вижен с рождения', H.base.splash && 'Урон по области', H.base.slow && 'Замедление', H.base.chain && 'Цепь ' + H.base.chain, H.base.income && 'Доход +' + H.base.income + ' в начале волны'].filter(Boolean);
+      const traits = [H.base.garage && 'Здание', H.base.garage && 'Машина ' + H.base.carHp + ' жизней каждые ' + H.base.carInt + ' с', H.base.garage && 'Не больше ' + K.GARAGE_MAX + ' на игрока', H.base.passive && !H.base.garage && 'Не атакует', H.base.aa && 'ПВО с рождения', H.base.vision && 'Вижен с рождения', H.base.splash && 'Урон по области', H.base.slow && 'Замедление', H.base.chain && 'Цепь ' + H.base.chain, H.base.income && 'Доход +' + H.base.income + ' в начале волны'].filter(Boolean);
       const blist = (arr, br) => arr.map((u, i) => `<div class="it"><span style="color:${br ? '#ffb7c0' : 'var(--brass-hi)'}">${icon(u.icon)}</span><span class="grow"><b>${i + 1}. ${esc(u.name)}</b><br><span class="mute">${esc(u.desc)}</span></span><span class="num">${u.cost}</span></div>`).join('');
       let action;
       if (!owned) action = `<button class="btn brass block" data-act="buy" ${p.coins < H.price ? 'disabled' : ''}>Купить за <span class="num coin">${H.price}</span></button>${p.coins < H.price ? `<div class="note">Не хватает ${H.price - p.coins} монет. Монеты дают за волны, победы и достижения.</div>` : ''}`;
@@ -699,8 +699,8 @@
           <div class="section card"><div class="note">${esc(H.desc)}</div>
             <div class="chips">${traits.map(t => `<span class="tag">${t}</span>`).join('')}<span class="tag">Установка: ${H.cost}</span></div>
             <div class="cmp">${bars}</div>${action}</div>
-          <div class="section card"><div class="eyebrow">Верхняя ветка · ${H.base.passive ? 'жизни микропета' : 'дальность и скорость'}</div><div class="blist">${blist(H.top, 0)}</div></div>
-          <div class="section card"><div class="eyebrow">Нижняя ветка · ${H.base.passive ? 'больше монет' : 'мощный урон'}</div><div class="blist">${blist(H.bottom, 1)}</div></div>
+          <div class="section card"><div class="eyebrow">Верхняя ветка · ${H.base.garage ? 'чаще машины и стрелок' : H.base.passive ? 'жизни микропета' : 'дальность и скорость'}</div><div class="blist">${blist(H.top, 0)}</div></div>
+          <div class="section card"><div class="eyebrow">Нижняя ветка · ${H.base.garage ? 'крепче машина, на 5-м уровне танк' : H.base.passive ? 'больше монет' : 'мощный урон'}</div><div class="blist">${blist(H.bottom, 1)}</div></div>
           <div class="section note">Уровни 1–2 можно купить в обеих ветках всегда. Выше 2-го уровня можно прокачать только одну ветку — вторая остаётся максимум на 2.</div>
           ${this.codeBox(app)}`;
     },

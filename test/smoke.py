@@ -35,7 +35,7 @@ def run():
     road=ev("KV.App.match.field.paths[0].pts[1]")
     pg.click('[data-act=close]'); pg.click('.hbtn[data-id=ice]')
     x,y=scr(road['x'],road['z']); pg.mouse.move(x,y); pg.mouse.down(); pg.mouse.up()
-    assert ev("KV.App.match.field.towers.length")==1 and 'дорог' in pg.inner_text('#hint'), pg.inner_text('#hint')
+    assert ev("KV.App.match.field.towers.length")==1 and 'дорог' in pg.inner_text('#ntMsg'), pg.inner_text('#ntMsg')
     pg.click('[data-act=cancel]')
     ev("KV.App.match.select(KV.App.match.field.towers[0].id); KV.App.match.field.coins=5000")
     pg.click('.tier[data-br="0"][data-lvl="0"]'); pg.click('[data-act=buy]')

@@ -134,6 +134,23 @@
     return { hp, speed };
   }
 
+  // Здоровье босса: 10 — 1000, 20 — 5000, 30 — 13000, 40 — 25000.
+  // Дальше (бесконечный режим, дуэль) каждые 10 волн +15000…20000, каждая 100-я волна ещё +50000.
+  function bossHp(W, seed) {
+    if (K.BOSS_HP[W]) return K.BOSS_HP[W];
+    if (W < 40) { // боссовая волна не на десятке (на случай нестандартной длины игры)
+      const lo = Math.floor(W / 10) * 10, a = K.BOSS_HP[lo] || 1000, b = K.BOSS_HP[lo + 10] || a;
+      return Math.round(a + (b - a) * (W - lo) / 10);
+    }
+    let hp = K.BOSS_HP[40];
+    for (let k = 50; k <= W; k += 10) {
+      const r = rng((seed * 31 + k * 104729) >>> 0);
+      hp += 15000 + Math.round(r() * 50) * 100;
+    }
+    hp += Math.floor(W / 100) * 50000;
+    return hp;
+  }
+
   function genWave(diffKey, W, seed, map) {
     const D = K.DIFFS[diffKey];
     const r = rng((seed * 1000003 + W * 7919) >>> 0);
@@ -177,10 +194,7 @@
     const finite = isFinite(D.waves);
     const bossWave = W >= 10 && (W % 10 === 0 || (finite && W === D.waves));
     if (bossWave) {
-      const bossCount = W >= 60 ? 2 : 1;
-      for (let i = 0; i < bossCount; i++) {
-        spawns.push({ type: 'boss', t: t + 1.5 + i * 4, path: 0, hpMul: sc.hp * (diffKey === 'easy' ? 0.4 : 0.5) / 1.5, spMul: 1, flying: false, invisible: false });
-      }
+      spawns.push({ type: 'boss', t: t + 1.5, path: 0, hp: bossHp(W, seed), hpMul: 1, spMul: 1, flying: false, invisible: false });
     }
     if (W > 40 && W % 5 === 0) {
       for (let i = 0; i < Math.floor((W - 35) / 5); i++) {
@@ -516,7 +530,7 @@
     // ---- Враги ----
     spawn(sp, waveN, pathIdx, d) {
       const E = K.ENEMIES[sp.type];
-      const hp = Math.round(E.hp * sp.hpMul);
+      const hp = sp.hp || Math.round(E.hp * sp.hpMul);
       const e = {
         id: this.nextId++, type: sp.type, wave: waveN,
         hp, maxHp: hp, speed: E.speed * sp.spMul, armor: E.armor + (sp.type === 'armored' ? Math.floor(this.waveNum / 8) : 0),
@@ -574,12 +588,15 @@
       return dmg;
     }
 
+    // сколько урона нужно нанести за 1 монету: Легко 5, Нормально 10, Тяжело и Бесконечный 15
+    dmgPerCoin() { return (K.DIFFS[this.diffKey] && K.DIFFS[this.diffKey].dmgPerCoin) || 10; }
+
     payDamage(eff, tower) {
       if (!(eff > 0)) return;
       const pid = tower && tower.owner && this.wallets[tower.owner] != null ? tower.owner : null;
       const key = pid || '*';
       this.dmgAcc = this.dmgAcc || {};
-      const acc = (this.dmgAcc[key] || 0) + eff / K.DMG_PER_COIN;
+      const acc = (this.dmgAcc[key] || 0) + eff / this.dmgPerCoin();
       const whole = Math.floor(acc);
       this.dmgAcc[key] = acc - whole;
       if (whole > 0) { if (pid) this.gain(whole, pid); else this.gainShared(whole); }
@@ -591,7 +608,7 @@
       this.kills++;
       if (tower) tower.kills++;
       this.removeEnemy(e);
-      this.emit({ t: 'die', e, reward: Math.round(e.maxHp / K.DMG_PER_COIN), bonus: false });
+      this.emit({ t: 'die', e, reward: Math.round(e.maxHp / this.dmgPerCoin()), bonus: false });
     }
 
     hit(e, s, dmg, tower) {

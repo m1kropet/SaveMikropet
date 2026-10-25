@@ -100,8 +100,9 @@ ok(Math.abs(d1.a.waveNum-d1.b.waveNum)<=0 || d1.over,'sync waves');
   ok(f.cmd({type:'upgrade',tower:a.tower.id,branch:0,owner:'p2'}).ok && f.wallet('p2')===60,'own upgrade');
   ok(!f.cmd({type:'sell',tower:a.tower.id,owner:'p1'}).ok,'cannot sell foreign');
   const e=f.spawn({type:'normal',hpMul:1,spMul:0},1,0,0); const r=e.reward, w1=f.wallet('p1'), w2=f.wallet('p2');
-  f.damage(e,1e6,null,null); ok(f.wallet('p1')===w1+Math.ceil(r/2) && f.wallet('p2')===w2+Math.ceil(r/2),'kill reward split');
-  const s1=f.cmd({type:'sell',tower:a.tower.id,owner:'p2'}); ok(s1.ok && f.wallet('p2')===w2+Math.ceil(r/2)+s1.refund,'refund to owner'); }
+  f.damage(e,1e6,null,null); const share=Math.ceil(Math.floor(e.maxHp/f.dmgPerCoin())/2); ok(f.wallet('p1')===w1+share && f.wallet('p2')===w2+share,'sourceless damage coins split');
+  { const e2=f.spawn({type:'normal',hpMul:1,spMul:0},1,0,0), w2b=f.wallet('p2'), w1b=f.wallet('p1'); f.damage(e2,1e6,null,a.tower); ok(f.wallet('p2')===w2b+Math.floor(e2.maxHp/10) && f.wallet('p1')===w1b,'normal: 10 dmg = 1 coin to tower owner'); }
+  const w2s=f.wallet('p2'), s1=f.cmd({type:'sell',tower:a.tower.id,owner:'p2'}); ok(s1.ok && f.wallet('p2')===w2s+s1.refund,'refund to owner'); }
 // Свинка: не стреляет, доход владельцу, жизни, лечение, щит
 { const f=new K.Field({map:'lobby',diff:'normal',seed:12,squad:['piggy'],autoWave:false}); f.coins=1e4;
   const sp=f.layout.spots[0], t=f.cmd({type:'place',hero:'piggy',x:sp.x,z:sp.z}).tower;
@@ -128,4 +129,15 @@ ok(Math.abs(d1.a.waveNum-d1.b.waveNum)<=0 || d1.over,'sync waves');
   ok(f.cmd({type:'skip'}).ok && f.waveNum===1,'skip starts first wave');
   ok(!f.cmd({type:'skip'}).ok,'cannot skip while spawning'); for(let i=0;i<60*30;i++) f.step(1/60);
   ok(f.canSkip() && f.cmd({type:'skip'}).ok && f.waveNum===2,'skip after all spawned'); }
+// монеты за урон по сложностям, босс, бесконечный = продолжение «Тяжело»
+for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { const f=new K.Field({map:'lobby',diff:d,seed:3,squad:['blaster'],autoWave:false}); ok(f.dmgPerCoin()===r,'dmgPerCoin '+d); }
+{ const bh=(d,W)=>new K.Field({map:'lobby',diff:d,seed:9,squad:['blaster']}).peekWave(W).spawns.filter(s=>s.type==='boss');
+  for (const d of ['easy','normal','hard']) ok(bh(d,10)[0].hp===1000 && bh(d,20)[0].hp===5000,'boss hp 10/20 '+d);
+  ok(bh('normal',30)[0].hp===13000 && bh('hard',40)[0].hp===25000,'boss hp 30/40');
+  const e50=bh('endless',50)[0].hp, e60=bh('endless',60)[0].hp, e90=bh('endless',90)[0].hp, e100=bh('endless',100)[0].hp;
+  ok(e50-25000>=15000 && e50-25000<=20000 && e60-e50>=15000 && e60-e50<=20000,'endless boss +15-20k per 10 waves');
+  ok(e100-e90>=65000 && e100-e90<=70000,'wave 100 adds +50k');
+  ok(bh('endless',40)[0].hp===25000 && bh('endless',60).length===1,'endless boss 40 = hard');
+  const a=new K.Field({map:'lobby',diff:'hard',seed:5,squad:['blaster']}).peekWave(17), b=new K.Field({map:'lobby',diff:'endless',seed:5,squad:['blaster']}).peekWave(17);
+  ok(JSON.stringify(a.spawns)===JSON.stringify(b.spawns),'endless waves = hard waves'); }
 console.log('OK', n, 'checks');

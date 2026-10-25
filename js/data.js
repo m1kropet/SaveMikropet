@@ -152,12 +152,15 @@
   };
 
   const DIFFS = {
-    easy: { name: 'Легко', waves: 20, hpMul: 0.8, countMul: 0.8, speedMul: 0.9, unlockShift: 3, startCoins: 300, petHp: 40, eliteRate: 0.5, winCoins: 60, winXp: 120 },
-    normal: { name: 'Нормально', waves: 30, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: 0, startCoins: 260, petHp: 30, eliteRate: 1, winCoins: 140, winXp: 260 },
-    hard: { name: 'Тяжело', waves: 40, hpMul: 1.15, countMul: 1.15, speedMul: 1.08, unlockShift: -2, startCoins: 260, petHp: 25, eliteRate: 1.4, winCoins: 300, winXp: 500 },
-    endless: { name: 'Бесконечный', waves: Infinity, hpMul: 1.05, countMul: 1.05, speedMul: 1.04, unlockShift: -1, startCoins: 280, petHp: 30, eliteRate: 1.2, winCoins: 0, winXp: 0 },
-    duel: { name: 'Дуэль', waves: Infinity, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: -1, startCoins: 280, petHp: 25, eliteRate: 1.1, winCoins: 0, winXp: 0 }
+    easy: { name: 'Легко', waves: 20, hpMul: 0.8, countMul: 0.8, speedMul: 0.9, unlockShift: 3, startCoins: 300, petHp: 40, eliteRate: 0.5, winCoins: 60, winXp: 120, dmgPerCoin: 5 },
+    normal: { name: 'Нормально', waves: 30, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: 0, startCoins: 260, petHp: 30, eliteRate: 1, winCoins: 140, winXp: 260, dmgPerCoin: 10 },
+    hard: { name: 'Тяжело', waves: 40, hpMul: 1.15, countMul: 1.15, speedMul: 1.08, unlockShift: -2, startCoins: 260, petHp: 25, eliteRate: 1.4, winCoins: 300, winXp: 500, dmgPerCoin: 15 },
+    duel: { name: 'Дуэль', waves: Infinity, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: -1, startCoins: 280, petHp: 25, eliteRate: 1.1, winCoins: 0, winXp: 0, dmgPerCoin: 10 }
   };
+  // Бесконечный режим — продолжение «Тяжело»: первые 40 волн те же, дальше без конца
+  DIFFS.endless = Object.assign({}, DIFFS.hard, { name: 'Бесконечный', waves: Infinity, winCoins: 0, winXp: 0, endless: true });
+  // Здоровье Ковтопа на боссовых волнах основной части (одинаково для всех сложностей)
+  K.BOSS_HP = { 10: 1000, 20: 5000, 30: 13000, 40: 25000 };
 
   // Карты. Координаты: x ∈ [-5,5] (ширина), z ∈ [-10,9.5] (сверху вниз), y — высота.
   // paths — один или несколько маршрутов (развилки). dash — индексы отрезков, где рывок Прыгуна.
@@ -289,7 +292,6 @@
   K.BOUNDS = { x0: -8.6, x1: 8.6, z0: -10, z1: 9.3 };
   K.MAP_WIDEN = 1.6;
   K.SQUAD_MAX = 4;
-  K.DMG_PER_COIN = 5; // 5 урона по сущности = 1 монета
   K.SECRET_CODE = 'MINES';
   K.THEMES = { hotel: { name: 'Отель', desc: 'Тёмный отель: латунь и мятный свет' }, mine: { name: 'Шахты', desc: 'Камень, крепь и свет фонарей', secret: true } };
   K.RARITY_ORDER = ['Обычный', 'Необычный', 'Редкий', 'Эпический'];

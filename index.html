@@ -160,8 +160,30 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .game { background: #000; }
 .hud { padding: 0.5em 0.7em 0.45em; background: linear-gradient(#15110d, #0f0c09); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.4em; z-index: 2; }
 .hud-row { display: flex; align-items: center; gap: 0.5em; min-width: 0; }
-.hud-title { flex: 1; min-width: 0; font-size: 0.78em; color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hud-title b { color: var(--text); }
+.notice { position: relative; flex: 1; min-width: 0; height: calc(2.6em / 0.74); display: flex; flex-direction: column; justify-content: center; padding: 0 0.6em; border-radius: 0.5em; background: #0b0a09; border: 1px solid #2a2622; overflow: hidden; font-size: 0.74em; line-height: 1.18; }
+.notice > [hidden] { display: none !important; }
+.nt-idle { color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nt-idle b { color: var(--text); }
+.nt-msg { color: #dfe; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.nt-msg b { color: var(--brass-hi); }
+.nt-msg b:empty { display: none; }
+.notice.msg { border-color: #2a3a34; }
+.notice.wave { border-color: var(--brass); }
+.notice.boss { border-color: #ff2a3d; background: #1a070b; }
+.notice.boss .nt-msg b { color: #ff6b7d; }
+.notice.pop { animation: ntpop .45s ease-out; }
+@keyframes ntpop { 0% { box-shadow: 0 0 0 0 #ffd25e88; transform: scale(1.03); } 100% { box-shadow: 0 0 0 0.5em #ffd25e00; transform: none; } }
+.nt-boss .bb-row { display: flex; align-items: baseline; gap: 0.5em; color: #ffd0d6; white-space: nowrap; }
+.nt-boss .bb-row .eta { flex: 1; color: #ffb0b8; }
+.nt-boss .bb-row .num { font-family: var(--f-mono); font-weight: 700; color: #fff; }
+.nt-boss .bar { height: 0.45em; margin-top: 0.25em; border-radius: 99px; background: #2a0d12; overflow: hidden; }
+.nt-boss .bar i { display: block; height: 100%; background: #ff2a3d; transition: width .12s linear; }
+.notice:has(.nt-boss:not([hidden])) { border-color: #6a1a24; background: #12080a; }
+.notice.rage { border-color: #ff2a3d; box-shadow: 0 0 0.8em #ff2a3d66; }
+/* сообщение при живом боссе: сверху строка босса, под ней одна строка сообщения */
+.notice.with-boss .nt-boss { display: block !important; }
+.notice.with-boss .nt-boss .bar { margin-top: 0.15em; height: 0.3em; }
+.notice.with-boss .nt-msg { -webkit-line-clamp: 1; margin-top: 0.2em; }
 .stats3 { display: grid; grid-template-columns: 1.15fr 1.4fr 1fr; gap: 0.45em; }
 .stat { background: #0d0b08; border: 1px solid var(--line); border-radius: 0.4em; padding: 0.3em 0.5em; min-width: 0; }
 .stat .eyebrow { font-size: 0.62em; }

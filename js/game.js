@@ -124,7 +124,11 @@
       <div class="screen game" id="game">
         <div class="hud">
           <div class="hud-row">
-            <div class="hud-title"><b>${modeName}</b> · ${esc(diffName)} · ${esc(f.map.name)}</div>
+            <div class="notice" id="notice" role="status" aria-live="polite">
+              <div class="nt-idle" id="ntIdle"><b>${modeName}</b> · ${esc(diffName)} · ${esc(f.map.name)}</div>
+              <div class="nt-boss" id="bossBar" hidden><div class="bb-row"><b>Ковтоп</b><span class="eta" id="bossEta"></span><span class="num" id="bossHp"></span></div><div class="bar"><i id="bossFill"></i></div></div>
+              <div class="nt-msg" id="ntMsg" hidden><b id="ntT"></b> <span id="ntS"></span></div>
+            </div>
             ${this.mode === 'duel' ? '<button class="btn small" data-act="view" id="viewBtn">Карта соперника</button>' : this.online ? '<span class="tag" title="Сетевой матч">онлайн</span>' : '<button class="btn small" data-act="speed" id="speedBtn" aria-label="Скорость игры">×1</button>'}
             ${this.duel ? '' : '<button class="btn small pet skip-top" data-act="skip" id="skipTop" hidden title="Следующая волна начнётся сразу">⏩ Пропуск</button>'}
             <button class="btn small icon-btn" data-act="pause" aria-label="Пауза">${K.UI.icon('pause')}</button>
@@ -138,10 +142,7 @@
           ${this.mode === 'team' ? `<div class="players" id="players">${cfg.players.map(p => `<button class="pchip" ${this.online ? 'disabled' : 'data-act="player"'} data-id="${p.id}" style="color:${p.color}"><i style="background:${p.color}"></i>${esc(p.name)} <span class="num pcoins" data-coins="${p.id}"></span></button>`).join('')}</div>` : ''}
         </div>
         <div class="stage" id="stage">
-          <div class="bossbar" id="bossBar" hidden><div class="bb-row"><b>Ковтоп</b><span class="eta" id="bossEta"></span><span class="num" id="bossHp"></span></div><div class="bar"><i id="bossFill"></i></div></div>
           <div class="viewing" id="viewing" hidden>Карта соперника · только просмотр</div>
-          <div class="announce" id="announce"><div class="h2" id="annT"></div><div class="note" id="annS"></div></div>
-          <div class="hint" id="hint"></div>
         </div>
         <div class="dock" id="dock"></div>
       </div>`;
@@ -233,7 +234,7 @@
       this.app.render.frame(this.shown, run ? dt * this.speed : 0, this.view === 'opp' ? { selected: this.ui.oppSel } : this.ui);
       this.hudT -= dt;
       if (this.hudT <= 0) { this.hudT = 0.1; this.updateHud(); this.renderDock(); }
-      if (this.announceT > 0) { this.announceT -= dt; if (this.announceT <= 0) this.$('announce').classList.remove('show'); }
+      if (this.noticeT > 0) { this.noticeT -= dt; if (this.noticeT <= 0) this.notify(null); }
       const over = this.duel ? this.duel.over : this.field.over;
       if (over && !this.finished) this.finish();
     }
@@ -279,19 +280,26 @@
       else if (e.type === 'elite') this.setHint('Смотритель лечит соседей. Убейте его первым — цель «Сильный».', 5);
     }
 
-    announce(t, s) {
-      const a = this.$('announce');
-      this.$('annT').textContent = t; this.$('annS').textContent = s || '';
-      a.classList.toggle('boss', /Ковтоп/.test(t));
-      a.classList.add('show');
-      this.announceT = 2.6;
+    // Все оповещения — в одном месте вверху (вместо строки «режим · сложность · карта»).
+    notify(title, sub, sec, kind) {
+      const n = this.$('notice'); if (!n) return;
+      if (!title && !sub) { this.noticeT = 0; this.$('ntMsg').hidden = true; n.className = 'notice'; this.syncNotice(); return; }
+      this.$('ntT').textContent = title || ''; this.$('ntS').textContent = sub || '';
+      this.$('ntMsg').hidden = false;
+      n.className = 'notice msg' + (kind ? ' ' + kind : '');
+      n.classList.remove('pop'); void n.offsetWidth; n.classList.add('pop');
+      this.noticeT = sec || 4;
+      this.syncNotice();
     }
-    setHint(t, sec) {
-      const h = this.$('hint');
-      h.textContent = t;
-      clearTimeout(this.hintTimer);
-      this.hintTimer = setTimeout(() => { if (h.textContent === t) h.textContent = ''; }, (sec || 4) * 1000);
+    syncNotice() {
+      const msg = !this.$('ntMsg').hidden, boss = !!this.bossOn;
+      this.$('ntIdle').hidden = msg || boss;
+      this.$('bossBar').hidden = !boss;
+      this.$('notice').classList.toggle('with-boss', boss && msg);
     }
+    announce(t, s) { this.notify(t, s, 3.5, /Ковтоп/.test(t) ? 'boss' : 'wave'); }
+    setHint(t, sec) { this.notify('', t, sec || 4); }
+    get hintText() { const m = this.$('ntMsg'); return m.hidden ? '' : m.textContent; }
 
     updateHud() {
       const f = this.field;
@@ -313,14 +321,14 @@
       // здоровье боссов цифрами вверху поля
       const bosses = this.shown.enemies.filter(e => e.boss && !e.dead && e.hp > 0), bb = this.$('bossBar');
       if (bb) {
-        bb.hidden = !bosses.length;
+        if (this.bossOn !== !!bosses.length) { this.bossOn = !!bosses.length; this.syncNotice(); if (!this.bossOn) this.$('notice').classList.remove('rage'); }
         if (bosses.length) {
           const hp = bosses.reduce((a, e) => a + Math.max(0, Math.ceil(e.hp)), 0), mx = bosses.reduce((a, e) => a + e.maxHp, 0);
           this.$('bossHp').textContent = fmtNum(hp) + ' / ' + fmtNum(Math.ceil(mx)) + (bosses.length > 1 ? ' · ×' + bosses.length : '');
           const eta = Math.min(...bosses.map(e => e.eta == null ? Infinity : e.eta));
-          this.$('bossEta').textContent = isFinite(eta) ? 'дойдёт через ' + Math.ceil(eta) + ' с' : '';
+          this.$('bossEta').textContent = isFinite(eta) ? Math.ceil(eta) + ' с' : '';
           this.$('bossFill').style.width = (100 * hp / mx) + '%';
-          bb.classList.toggle('rage', bosses.some(e => e.enraged));
+          this.$('notice').classList.toggle('rage', bosses.some(e => e.enraged));
         }
       }
       // пропуск волны — рядом с паузой

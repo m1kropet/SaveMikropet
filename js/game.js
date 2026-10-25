@@ -278,7 +278,7 @@
       if (this.seenTypes.has(key)) return;
       this.seenTypes.add(key);
       const f = this.field;
-      if (e.invisible && !f.towers.some(t => t.s.vision)) this.setHint('Невидимая сущность! Купите башне «Вижен» или поставьте Реалганера.', 6);
+      if (e.invisible && !f.towers.some(t => t.s.vision)) this.setHint('Невидимая сущность! Купите башне «Вижен».', 6);
       else if (e.flying && !f.towers.some(t => t.s.aa)) this.setHint('Летающая сущность! Купите ПВО или поставьте Диномайка. Низкие препятствия летающих не закрывают.', 6);
       else if (e.type === 'armored') this.setHint('Глыба в броне: нужны пробивание или мощные выстрелы.', 5);
       else if (e.type === 'jumper') this.setHint('Прыгун делает рывок на участках с зелёными стрелками.', 5);

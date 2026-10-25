@@ -210,4 +210,5 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
   ok(G.decode(tok(good)).name==='Аня','jwt decode utf-8');
   let threw=null; try{G.checkClaims(good,'n')}catch(e){threw=e} ok(!threw,'valid claims pass');
   for (const [bad,why] of [[{aud:'other'},'aud'],[{nonce:'x'},'nonce'],[{exp:1},'exp'],[{iss:'evil.com'},'iss'],[{email_verified:false},'email']]) { let t=null; try{G.checkClaims(Object.assign({},good,bad),'n')}catch(e){t=e} ok(t,'rejects bad '+why); } }
+{ const s0=K.towerStats('prism',[0,0],{}); ok(!s0.vision && K.towerStats('prism',[0,0],{vision:true}).vision,'prism has no free vision, can buy it'); }
 console.log('OK', n, 'checks');

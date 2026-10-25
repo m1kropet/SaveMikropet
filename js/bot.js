@@ -83,10 +83,10 @@
       const squad = f.squad;
       const do_ = (c, label) => { const r = f.cmd(c); if (r.ok) this.lastAction = label; return r.ok; };
 
-      for (const [need, key, hero] of [['ghost', 'vision', 'prism'], ['flyer', 'aa', 'dragon']]) {
+      for (const [need, key, hero] of [['ghost', 'vision', null], ['flyer', 'aa', 'dragon']]) {
         if (!th.has(need) || f.towers.filter(t => t.s[key]).length >= Math.max(1, Math.ceil(f.towers.length / 4))) continue;
         const sp = this.freeSpot(hero);
-        if (squad.includes(hero) && sp && f.coins >= K.HERO[hero].cost) {
+        if (hero && squad.includes(hero) && sp && f.coins >= K.HERO[hero].cost) {
           if (do_({ type: 'place', hero, x: sp.x, z: sp.z, owner: f.me }, 'Ставит ' + K.HERO[hero].name)) return;
         }
         const t = this.bestTower(x => !x.s[key]);

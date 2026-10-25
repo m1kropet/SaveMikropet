@@ -1,0 +1,22 @@
+# Cloudflare Workers: npx wrangler deploy
+name = "mikropet"
+main = "worker/worker.js"
+compatibility_date = "2025-01-01"
+
+[assets]
+directory = "."
+binding = "ASSETS"
+run_worker_first = true
+
+[[durable_objects.bindings]]
+name = "HUB"
+class_name = "GameHub"
+
+# SQLite-класс Durable Object доступен на бесплатном тарифе
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GameHub"]
+
+# [vars]
+# TWITCH_CLIENT_ID = "ваш_client_id"
+# REQUIRE_TWITCH = "1"

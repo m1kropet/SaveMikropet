@@ -1,0 +1,90 @@
+import os, sys
+os.environ['PLAYWRIGHT_BROWSERS_PATH']='/opt/pw-browsers'
+from playwright.sync_api import sync_playwright
+ROOT='/home/claude/game'; OUT='/tmp/claude-0/shots'; os.makedirs(OUT, exist_ok=True)
+errors=[]
+def run():
+  with sync_playwright() as p:
+    b=p.chromium.launch()
+    pg=b.new_page(viewport={'width':450,'height':800})
+    pg.on('pageerror', lambda e: errors.append('PAGEERR '+str(e)))
+    pg.on('console', lambda m: errors.append('CONSOLE '+m.text) if m.type=='error' and 'fonts.g' not in m.text and 'ERR_' not in m.text else None)
+    pg.route('https://fonts.googleapis.com/**', lambda r: r.fulfill(body='', content_type='text/css'))
+    pg.goto('file://'+ROOT+'/index.html'); pg.wait_for_selector('.title-btn')
+    ev=pg.evaluate
+    pg.wait_for_timeout(400); pg.screenshot(path=OUT+'/menu2d.png')
+    for i in range(5): pg.click('.title-btn')
+    assert pg.query_selector('.secret'); pg.click('#secretClose')
+    pg.click('[data-act=play]'); pg.wait_for_timeout(350); pg.screenshot(path=OUT+'/menu_modes.png')
+    pg.click('[data-act=single]'); pg.screenshot(path=OUT+'/single.png')
+    pg.click('[data-act=map][data-id=mirrors]'); pg.click('[data-act=diff][data-id=easy]'); pg.click('[data-act=start]')
+    pg.wait_for_selector('#game'); pg.wait_for_timeout(300)
+    # постановка касанием: экранная точка лучшего места
+    def scr(x,z):
+      return ev(f"(()=>{{const R=KV.App.render,r=R.canvas.getBoundingClientRect();return [r.left+R.ox+{x}*R.S, r.top+R.oy+{z}*R.S];}})()")
+    sp=ev("KV.App.match.field.layout.spots[0]")
+    pg.click('.hbtn[data-id=blaster]')
+    x,y=scr(sp['x'],sp['z']); pg.mouse.move(x,y); pg.mouse.down(); pg.mouse.up()
+    assert ev("KV.App.match.field.towers.length")==1, 'tap place'
+    assert pg.query_selector('.tier'), 'panel opens'
+    # на дорогу нельзя
+    road=ev("KV.App.match.field.paths[0].pts[1]")
+    pg.click('[data-act=close]'); pg.click('.hbtn[data-id=ice]')
+    x,y=scr(road['x'],road['z']); pg.mouse.move(x,y); pg.mouse.down(); pg.mouse.up()
+    assert ev("KV.App.match.field.towers.length")==1 and 'дорог' in pg.inner_text('#hint'), pg.inner_text('#hint')
+    pg.click('[data-act=cancel]')
+    ev("KV.App.match.select(KV.App.match.field.towers[0].id); KV.App.match.field.coins=5000")
+    pg.click('.tier[data-br="0"][data-lvl="0"]'); pg.click('[data-act=buy]')
+    sel=ev("JSON.stringify(KV.App.match.ui.tier)")
+    pg.hover('.tier[data-br="1"][data-lvl="0"]'); pg.wait_for_timeout(150)
+    assert ev("JSON.stringify(KV.App.match.ui.tier)")==sel, 'hover does not change selection'
+    pg.click('[data-act=buy]'); pg.click('.tier[data-br="1"][data-lvl="0"]'); pg.click('[data-act=buy]'); pg.click('[data-act=buy]')
+    assert ev("KV.App.match.field.towers[0].up.join()")=='2,2', ev("KV.App.match.field.towers[0].up.join()")
+    pg.click('.tier[data-br="0"][data-lvl="2"]'); pg.click('[data-act=buy]')
+    pg.click('.tier[data-br="1"][data-lvl="2"]')
+    assert 'заблокировано' in pg.inner_text('.detail').lower()
+    pg.click('[data-act=skill][data-k=vision]'); pg.click('[data-act=target]')
+    assert ev("KV.App.match.field.towers[0].targeting")=='last'
+    pg.screenshot(path=OUT+'/panel2d.png')
+    pg.click('[data-act=sell]'); pg.click('[data-act=sellYes]'); assert ev("KV.App.match.field.towers.length")==0
+    ev("(()=>{const f=KV.App.match.field; ['blaster','ice'].forEach((h,i)=>{const s=f.layout.spots[i*7]; f.cmd({type:'place',hero:h,x:s.x,z:s.z,owner:'p1'});}); f.coins=2000;})()")
+    pg.click('[data-act=wave]'); pg.wait_for_timeout(2500)
+    ev("(()=>{const f=KV.App.match.field; f.waveNum=7; f.startNextWave(false); for(let i=0;i<60*4;i++) f.step(1/60);})()")
+    pg.wait_for_timeout(700); pg.screenshot(path=OUT+'/play2d.png')
+    ev("KV.App.match.field.finish('win')"); pg.wait_for_selector('.result-title', timeout=5000); pg.click('[data-m=menu]')
+    # дуэль
+    pg.click('[data-act=duel]'); pg.screenshot(path=OUT+'/duelscreen.png'); pg.click('[data-act=start]'); pg.wait_for_selector('#dB')
+    ev("(()=>{const m=KV.App.match; const f=m.field; f.coins=900; const s=f.layout.spots[0]; f.cmd({type:'place',hero:f.squad[0],x:s.x,z:s.z,owner:'p1'}); for(let i=0;i<60*40;i++){m.bot.tick(1/60); m.duel.step(1/60);} })()")
+    print('DUEL waves', ev("[KV.App.match.duel.a.waveNum, KV.App.match.duel.b.waveNum]"), 'opp', ev("KV.App.match.oppName"), 'bot towers', ev("KV.App.match.duel.b.towers.length"))
+    pg.click('#viewBtn'); pg.wait_for_timeout(400)
+    assert ev("KV.App.match.view")=='opp' and pg.query_selector('.opp-list')
+    if ev("KV.App.match.duel.b.towers.length"):
+      pg.click('.opp-t'); assert pg.query_selector('.tier[disabled]')
+    pg.screenshot(path=OUT+'/oppview.png')
+    pg.click('#viewBtn'); assert ev("KV.App.match.view")=='me'
+    ev("KV.App.match.duel.a.hp=0"); pg.wait_for_selector('.result-title', timeout=5000); pg.click('[data-m=menu]')
+    # лидерборд без ботов
+    pg.click('[data-act=leaders]'); assert len(pg.query_selector_all('.lb-row'))==1; pg.click('[data-act=back]')
+    # магазин
+    ev("KV.App.profile.coins=5000"); pg.click('[data-act=shop]'); pg.click('[data-act=sel][data-id=prism]'); pg.click('[data-act=buy]'); pg.wait_for_timeout(300); pg.screenshot(path=OUT+'/shop2d.png')
+    assert 'prism' in ev('KV.App.profile.owned'); pg.click('[data-act=back]')
+    # Twitch: без Client ID — честное объяснение
+    pg.click('[data-act=settings]'); pg.click('[data-act=twLogin]'); assert 'Client ID' in pg.inner_text('.modal'); pg.click('[data-m=close]')
+    # Twitch: разбор ответа и проверка токена с подменённым fetch
+    r=ev("""(async()=>{ KV.CONFIG.twitchClientId='abc';
+      const bad=KV.Twitch.readRedirect('#access_token=t&state=zzz','yyy'); const good=KV.Twitch.readRedirect('#access_token=t1&state=s1','s1');
+      const f=async(url)=>({ok:true,json:async()=>url.includes('validate')?{client_id:'abc',login:'streamer',user_id:'42',expires_in:3600}:{data:[{id:'42',login:'streamer',display_name:'Стример',profile_image_url:'https://x/y.png'}]}});
+      const u=await KV.Twitch.verify(good.token,f); KV.CONFIG.twitchClientId=''; return [!!bad.error, good.token, u.display, u.id];})()""")
+    assert r==[True,'t1','Стример','42'], r
+    # требование входа
+    ev("KV.CONFIG.requireTwitch=true"); pg.click('[data-act=back]'); pg.click('[data-act=single]'); pg.click('[data-act=start]')
+    pg.wait_for_selector('text=подтвердите аккаунт Twitch'); ev("KV.CONFIG.requireTwitch=false")
+    # миграция v3
+    ev("KV.App.profile=null; localStorage.setItem('mikropet.save', JSON.stringify({v:3, nick:'Третий', coins:5, owned:['blaster','ice'], squad:['ice'], last:{bot:'hard'}}))"); pg.reload(); pg.wait_for_selector('.title-btn')
+    assert ev("KV.App.profile.v")==4 and ev("KV.App.profile.twitch")==None
+    b.close()
+try:
+  run(); print('SMOKE OK')
+except Exception as e:
+  import traceback; traceback.print_exc()
+print('\n'.join(errors[:20]) or 'no console errors')

@@ -1,0 +1,12 @@
+{
+  "name": "mikropet-tower-defense",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Защити микропета от ковтопа — игра и игровой сервер",
+  "main": "server/server.js",
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server/server.js",
+    "test": "node test/logic.test.js && node test/server.test.js"
+  }
+}

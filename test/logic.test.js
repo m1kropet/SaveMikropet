@@ -140,4 +140,5 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
   ok(bh('endless',40)[0].hp===25000 && bh('endless',60).length===1,'endless boss 40 = hard');
   const a=new K.Field({map:'lobby',diff:'hard',seed:5,squad:['blaster']}).peekWave(17), b=new K.Field({map:'lobby',diff:'endless',seed:5,squad:['blaster']}).peekWave(17);
   ok(JSON.stringify(a.spawns)===JSON.stringify(b.spawns),'endless waves = hard waves'); }
+{ const f=new K.Field({map:'lobby',diff:'normal',seed:2,squad:['blaster']}); ok(f.peekWave(1).bonus===180 && f.peekWave(2).bonus===288 && f.peekWave(3).bonus===396 && f.peekWave(10).bonus===1152,'wave bonus 180 +108'); }
 console.log('OK', n, 'checks');

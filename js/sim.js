@@ -151,6 +151,9 @@
     return hp;
   }
 
+  // Бонус за пройденную волну: 1-я — 180, каждая следующая на 60% от 180 (= +108) больше
+  const waveBonus = W => 180 + 108 * (W - 1);
+
   function genWave(diffKey, W, seed, map) {
     const D = K.DIFFS[diffKey];
     const r = rng((seed * 1000003 + W * 7919) >>> 0);
@@ -202,7 +205,7 @@
       }
     }
     spawns.sort((a, b) => a.t - b.t);
-    return { n: W, spawns, bonus: 40 + 8 * W, hpScale: sc.hp, boss: bossWave };
+    return { n: W, spawns, bonus: waveBonus(W), hpScale: sc.hp, boss: bossWave };
   }
 
   function waveSummary(w) {

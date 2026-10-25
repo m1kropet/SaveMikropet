@@ -634,7 +634,7 @@
         const v = k === 'dps' ? H.base.dmg * H.base.rate : H.base[k];
         return `<span>${n}</span><div class="bar"><i style="width:${Math.round(100 * v / maxOf(k))}%;background:${H.color}"></i></div><b class="num">${k === 'rate' ? v.toFixed(2) : Math.round(v * 10) / 10}</b>`;
       }).join('');
-      const traits = [H.base.passive && 'Не атакует', H.base.aa && 'ПВО с рождения', H.base.vision && 'Вижен с рождения', H.base.splash && 'Урон по области', H.base.slow && 'Замедление', H.base.chain && 'Цепь ' + H.base.chain, H.base.income && 'Доход +' + H.base.income + '/волну'].filter(Boolean);
+      const traits = [H.base.passive && 'Не атакует', H.base.aa && 'ПВО с рождения', H.base.vision && 'Вижен с рождения', H.base.splash && 'Урон по области', H.base.slow && 'Замедление', H.base.chain && 'Цепь ' + H.base.chain, H.base.income && 'Доход +' + H.base.income + ' в начале волны'].filter(Boolean);
       const blist = (arr, br) => arr.map((u, i) => `<div class="it"><span style="color:${br ? '#ffb7c0' : 'var(--brass-hi)'}">${icon(u.icon)}</span><span class="grow"><b>${i + 1}. ${esc(u.name)}</b><br><span class="mute">${esc(u.desc)}</span></span><span class="num">${u.cost}</span></div>`).join('');
       let action;
       if (!owned) action = `<button class="btn brass block" data-act="buy" ${p.coins < H.price ? 'disabled' : ''}>Купить за <span class="num coin">${H.price}</span></button>${p.coins < H.price ? `<div class="note">Не хватает ${H.price - p.coins} монет. Монеты дают за волны, победы и достижения.</div>` : ''}`;

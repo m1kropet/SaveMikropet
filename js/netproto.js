@@ -24,6 +24,7 @@
       case 'wave': return { t: 'wave', n: ev.n, boss: ev.boss };
       case 'waveClear': return { t: 'waveClear', n: ev.n, bonus: ev.bonus, income: ev.income };
       case 'obstacle': return { t: 'obstacle', o: { kind: ev.o.kind, x: ev.o.x, z: ev.o.z } };
+      case 'piggyTotal': return { t: 'piggyTotal', amount: ev.amount };
       case 'piggy': return { t: 'piggy', tid: ev.tid, x: r2(ev.x), z: r2(ev.z), amount: ev.amount };
       case 'over': return { t: 'over', result: ev.result };
       default: return null;

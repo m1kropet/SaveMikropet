@@ -110,6 +110,7 @@ ok(Math.abs(d1.a.waveNum-d1.b.waveNum)<=0 || d1.over,'sync waves');
   ok(f.maxHp===35 && f.hp===35,'petMax +5');
   ok(!f.cmd({type:'skill',tower:t.id,skill:'aa'}).ok,'no skills for piggy');
   f.hp=20; const c0=f.coins; f.startNextWave(true);
+  ok(f.coins>=c0+30 && f.events.some(e=>e.t==='piggy'),'piggy pays at wave start');
   for(let i=0;i<60*120 && f.active.length;i++){ f.enemies.forEach(x=>f.damage(x,1e9,null,null)); f.step(1/60); }
   ok(f.hp===21,'heal 1 per wave'); ok(f.coins>c0+30,'income to owner');
   ok(f.projectiles.length===0 && t.dealt===0,'piggy never fires');

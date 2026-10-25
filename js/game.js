@@ -21,7 +21,7 @@
     ['freezeC', 'Заморозка', v => Math.round(v * 100) + '%', v => v > 0],
     ['stunC', 'Оглуш.', v => Math.round(v * 100) + '%', v => v > 0],
     ['burn', 'Горение', v => v + '/с', v => v > 0],
-    ['income', 'Доход/волну', v => '+' + v, v => v > 0],
+    ['income', 'Доход в начале волны', v => '+' + v, v => v > 0],
     ['interest', 'Проценты', v => Math.round(v * 100) + '%', v => v > 0],
     ['interestCap', 'До', v => v, v => v > 0],
     ['petMax', 'Жизни +', v => v, v => v > 0],
@@ -252,7 +252,8 @@
             A.play(ev.boss ? 'boss' : 'wave');
             this.announce(ev.boss ? 'Ковтоп приближается' : 'Волна ' + ev.n, ev.boss ? 'На телевизоре — сколько секунд ему идти до микропета. Призывает Шмыгов и звереет на половине здоровья' : this.waveNote(ev.n));
             break;
-          case 'waveClear': A.play('clear'); this.setHint('Волна ' + ev.n + ' отбита: +' + Math.ceil(ev.bonus / Math.max(1, this.field.players.length)) + (ev.income ? ' и +' + ev.income + ' от Свинок' : '') + ' монет'); break;
+          case 'waveClear': A.play('clear'); this.setHint('Волна ' + ev.n + ' отбита: +' + Math.ceil(ev.bonus / Math.max(1, this.field.players.length)) + ' монет'); break;
+          case 'piggyTotal': A.play('buy', 200); this.setHint('Свинки принесли +' + ev.amount + ' монет'); break;
           case 'obstacle': this.setHint('Появилось препятствие: ' + K.OBSTACLES[ev.o.kind].name.toLowerCase() + '. Оно закрывает место и обзор башням.', 5); break;
           case 'spawn': this.noticeType(ev.e); break;
           case 'shield': this.setHint('Пушистый щит Свинки спас микропета!', 3); break;

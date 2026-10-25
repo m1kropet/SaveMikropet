@@ -499,6 +499,15 @@
       this.active.push({ n: w.n, spawns: w.spawns, idx: 0, t: 0, remaining: w.spawns.length, bonus: w.bonus, boss: w.boss });
       this.autoTimer = -1;
       this.emit({ t: 'wave', n: w.n, boss: w.boss });
+      // Свинки приносят деньги в самом начале каждой новой волны
+      let income = 0;
+      for (const t of this.towers) {
+        const s2 = t.s;
+        let inc = s2.income;
+        if (s2.interest > 0) inc += Math.min(s2.interestCap, Math.floor(this.wallet(t.owner) * s2.interest));
+        if (inc > 0) { this.gain(inc, t.owner); if (t.owner === this.me) income += inc; this.emit({ t: 'piggy', tid: t.id, x: t.x, z: t.z, amount: inc }); }
+      }
+      if (income > 0) this.emit({ t: 'piggyTotal', amount: income });
       return { ok: true };
     }
 
@@ -832,17 +841,11 @@
           if (!this.rewarded.has(w.n)) {
             this.rewarded.add(w.n);
             this.wavesCleared++;
-            let income = 0, heal = 0;
+            let heal = 0;
             this.gainShared(w.bonus);
-            for (const t of this.towers) {
-              const s2 = t.s;
-              let inc = s2.income;
-              if (s2.interest > 0) inc += Math.min(s2.interestCap, Math.floor(this.wallet(t.owner) * s2.interest));
-              if (inc > 0) { this.gain(inc, t.owner); if (t.owner === this.me) income += inc; if (s2.passive) this.emit({ t: 'piggy', tid: t.id, x: t.x, z: t.z, amount: inc }); }
-              heal += s2.heal;
-            }
+            for (const t of this.towers) heal += t.s.heal;
             if (heal > 0 && this.hp > 0) this.hp = Math.min(this.maxHp, this.hp + heal);
-            this.emit({ t: 'waveClear', n: w.n, bonus: w.bonus, income });
+            this.emit({ t: 'waveClear', n: w.n, bonus: w.bonus, income: 0 });
             if (w.n % 4 === 0 && w.n !== this.finalWave) { this.spawnObstacle(w.n); if (w.n >= 20) this.spawnObstacle(w.n); }
             if (w.n === this.finalWave && this.hp > 0) { this.finish('win'); }
           }

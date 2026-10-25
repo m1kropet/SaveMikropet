@@ -5,6 +5,13 @@
   const KEY = 'mikropet.save';
   const VERSION = 5;
   const STARTERS = ['blaster', 'ice'];
+  const KOV_MAX = 1000; // сколько показанных последовательностей помнить
+  function addKovCode(p, code) {
+    if (!/^\d{10}$/.test(code)) return;
+    p.kovCodes = (p.kovCodes || []).filter(c => c !== code);
+    p.kovCodes.push(code);
+    if (p.kovCodes.length > KOV_MAX) p.kovCodes = p.kovCodes.slice(-KOV_MAX);
+  }
 
   const TAG_ABC = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const randTag = () => Array.from({ length: 3 }, () => TAG_ABC[Math.floor(Math.random() * TAG_ABC.length)]).join('');
@@ -17,7 +24,8 @@
       // тег #XXX: выдаётся один раз и не меняется; сервер подтверждает уникальность
       uid: randUid(), tag: randTag(), tagVerified: false,
       themes: ['hotel'], codes: [],
-      eye: false, kovCode: '',
+      // все последовательности, которые Ковтоп показывал именно этому игроку (подходит любая)
+      eye: false, kovCodes: [],
       nick: 'Постоялец' + Math.floor(100 + Math.random() * 900),
       level: 1, xp: 0, coins: 150,
       owned: STARTERS.slice(), squad: STARTERS.slice(),
@@ -67,7 +75,9 @@
     out.friends = Object.assign({}, def.friends, d.friends || {});
     out.last = Object.assign({}, def.last, d.last || {});
     out.achievements = d.achievements && typeof d.achievements === 'object' ? d.achievements : {};
-    out.eye = !!d.eye; out.kovCode = /^\d{10}$/.test(d.kovCode || '') ? d.kovCode : '';
+    out.eye = !!d.eye;
+    out.kovCodes = (Array.isArray(d.kovCodes) ? d.kovCodes : []).concat(d.kovCode ? [d.kovCode] : []).filter(c => /^\d{10}$/.test(c)).slice(-KOV_MAX);
+    delete out.kovCode;
     const num = (x, min, max, dflt) => (typeof x === 'number' && isFinite(x) ? Math.max(min, Math.min(max, x)) : dflt);
     out.level = Math.floor(num(out.level, 1, 999, 1));
     out.xp = Math.floor(num(out.xp, 0, 1e9, 0));
@@ -230,8 +240,8 @@
     // 10 цифр — пять чисел с экрана Ковтопа (последний показ)
     if (/^\d{10}$/.test(c)) {
       if (p.eye) return { ok: false, reason: 'Глаз Ковтопа уже у вас' };
-      if (!p.kovCode || c !== p.kovCode) return { ok: false, reason: 'Код не подошёл' };
-      p.eye = true; p.kovCode = '';
+      if (!(p.kovCodes || []).includes(c)) return { ok: false, reason: 'Код не подошёл' };
+      p.eye = true;
       return { ok: true, reward: 'eye', achievements: checkAchievements(p) };
     }
     if (c !== K.SECRET_CODE) return { ok: false, reason: 'Код не подошёл' };
@@ -242,6 +252,6 @@
     return { ok: true, reward: 'mine', achievements: checkAchievements(p) };
   }
 
-  K.Save = { load, save, recover, info, defaults, sanitize, VERSION, KEY, MIGRATIONS, redeem };
+  K.Save = { load, save, recover, info, defaults, sanitize, VERSION, KEY, MIGRATIONS, redeem, addKovCode };
   K.Profile = { xpNeed, addXp, checkAchievements, applyMatch, validNick };
 })(globalThis.KV = globalThis.KV || {});

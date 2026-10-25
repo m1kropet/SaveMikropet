@@ -291,7 +291,7 @@
       return x >= kovTv.x0 && x <= kovTv.x1 && y >= kovTv.y0 && y <= kovTv.y1;
     },
     kovStart() {
-      if (kovShow) return null; // пока числа идут, новый показ не начинается
+      // каждое нажатие — новая последовательность; старая сразу перестаёт подходить
       const nums = randomPairs();
       kovShow = { t0: this.lastT || 0, nums };
       return nums.join('');
@@ -361,7 +361,7 @@
         if (!MenuArt.hitTv(cv, e.clientX, e.clientY)) return;
         const code = MenuArt.kovStart();
         if (!code) return;
-        app.profile.kovCode = code; app.persist();
+        K.Save.addKovCode(app.profile, code); app.persist();
         K.Audio.play('boss', 0);
       });
     },

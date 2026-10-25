@@ -165,7 +165,9 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
 // секрет Ковтопа: 10 цифр последнего показа дают глаз возле имени
 { require('../js/save.js'); const p=K.Save.sanitize({}); ok(p.eye===false,'no eye by default');
   ok(!K.Save.redeem(p,'1234567890').ok,'no code shown yet');
-  p.kovCode='7535822169'; ok(!K.Save.redeem(p,'7535822160').ok,'wrong digits');
+  K.Save.addKovCode(p,'7535822169'); K.Save.addKovCode(p,'1122334455'); ok(!K.Save.redeem(p,'7535822160').ok,'wrong digits');
+  const other=K.Save.sanitize({}); K.Save.addKovCode(other,'9988776655'); ok(!K.Save.redeem(p,'9988776655').ok,"another player's code does not work");
+  ok(K.Save.sanitize(JSON.parse(JSON.stringify(p))).kovCodes.length===2,'shown codes persist');
   const r=K.Save.redeem(p,'75 35 82 21 69'); ok(r.ok && p.eye && r.reward==='eye' && p.achievements.secret_eye,'eye granted');
   ok(!K.Save.redeem(p,'7535822169').ok,'eye only once'); ok(K.Save.sanitize(JSON.parse(JSON.stringify(p))).eye===true,'eye persists'); }
 console.log('OK', n, 'checks');

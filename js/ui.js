@@ -170,7 +170,8 @@
   const MORSE = { A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..' };
   const MORSE_UNIT = 0.32;
   const morseTimeline = (() => {
-    const seg = [[6, 1], [2.2, 0]]; // 6 с ровного света, затем темнота
+    // 6 с ровного света, темнота, красная вспышка (сигнал «начало»), снова темнота — и слово кода
+    const seg = [[6, 1], [1.2, 0], [0.7, 2], [1.6, 0]];
     K.SECRET_CODE.split('').forEach((ch, li) => {
       if (li) seg.push([MORSE_UNIT * 3, 0]);
       MORSE[ch].split('').forEach((sym, si) => {
@@ -187,8 +188,14 @@
     for (const [d, on] of morseTimeline.seg) { if (x < d) return on ? 1 : 0.04; x -= d; }
     return 1;
   }
+  // true, пока горит красный сигнал перед началом кода
+  function lampRed(t) {
+    let x = t % morseTimeline.total;
+    for (const [d, on] of morseTimeline.seg) { if (x < d) return on === 2; x -= d; }
+    return false;
+  }
 
-  K.Morse = { lampLevel, timeline: morseTimeline, unit: MORSE_UNIT };
+  K.Morse = { lampLevel, lampRed, timeline: morseTimeline, unit: MORSE_UNIT };
 
   // Анимированная сцена главного меню: коридор (или шахта), дверь, Ковтоп в проёме, микропет.
   // Сцена главного меню (общая для меню и превью скинов).
@@ -227,12 +234,12 @@
       ctx.fillStyle = '#1c1309'; ctx.font = `bold ${Math.round(u * 0.32)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', dx, dy - u * 0.67);
     }
     // лампа: мигает азбукой Морзе (секрет)
-    const fl = lampLevel(t);
-    const lc = mine ? '255,150,60' : '255,176,90';
+    const fl = lampLevel(t), red = lampRed(t);
+    const lc = red ? '255,40,40' : mine ? '255,150,60' : '255,176,90';
     ctx.strokeStyle = '#1a140e'; ctx.lineWidth = Math.max(1, u * 0.05); ctx.beginPath(); ctx.moveTo(dx, 0); ctx.lineTo(dx, u * 0.45); ctx.stroke();
     if (mine) { ctx.fillStyle = '#3a2a1a'; ctx.fillRect(dx - u * 0.16, u * 0.42, u * 0.32, u * 0.36); }
     const lg = ctx.createRadialGradient(dx, u * 0.6, 0, dx, u * 0.6, u * 5); lg.addColorStop(0, `rgba(${lc},${0.35 * fl})`); lg.addColorStop(1, `rgba(${lc},0)`); ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
-    SP.glowDot(ctx, dx, u * 0.6, u * 0.18, `rgba(255,210,138,${Math.max(0.12, fl)})`, u * fl);
+    SP.glowDot(ctx, dx, u * 0.6, u * 0.18, red ? 'rgba(255,70,60,1)' : `rgba(255,210,138,${Math.max(0.12, fl)})`, u * fl);
     // микропет на переднем плане
     ctx.save(); ctx.translate(u * 2.3, h * HZ + u * 0.55); const ps = u * 1.0; ctx.scale(ps, ps); SP.setPx(ps * 0.6); SP.pet(ctx, t, 0, 1); ctx.restore();
     const vg = ctx.createLinearGradient(0, 0, 0, h); vg.addColorStop(0, 'rgba(11,10,9,0.55)'); vg.addColorStop(0.4, 'rgba(11,10,9,0.1)'); vg.addColorStop(0.75, 'rgba(11,10,9,0.7)'); vg.addColorStop(1, 'rgba(11,10,9,0.95)');

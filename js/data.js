@@ -177,9 +177,9 @@
   };
 
   const DIFFS = {
-    easy: { name: 'Легко', waves: 20, hpMul: 0.8, countMul: 0.8, speedMul: 0.9, unlockShift: 3, startCoins: 300, petHp: 40, eliteRate: 0.5, winCoins: 60, winXp: 120, dmgPerCoin: 5, bonusBase: 180 },
-    normal: { name: 'Нормально', waves: 30, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: 0, startCoins: 260, petHp: 30, eliteRate: 1, winCoins: 140, winXp: 260, dmgPerCoin: 10, bonusBase: 150 },
-    hard: { name: 'Тяжело', waves: 40, hpMul: 1.15, countMul: 1.15, speedMul: 1.08, unlockShift: -2, startCoins: 260, petHp: 25, eliteRate: 1.4, winCoins: 300, winXp: 500, dmgPerCoin: 15, bonusBase: 120 },
+    easy: { name: 'Легко', waves: 20, hpMul: 0.8, countMul: 0.8, speedMul: 0.9, unlockShift: 3, startCoins: 300, petHp: 40, eliteRate: 0.5, winCoins: 100, winXp: 30, dmgPerCoin: 5, bonusBase: 180 },
+    normal: { name: 'Нормально', waves: 30, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: 0, startCoins: 260, petHp: 30, eliteRate: 1, winCoins: 200, winXp: 60, dmgPerCoin: 10, bonusBase: 150 },
+    hard: { name: 'Тяжело', waves: 40, hpMul: 1.15, countMul: 1.15, speedMul: 1.08, unlockShift: -2, startCoins: 260, petHp: 25, eliteRate: 1.4, winCoins: 300, winXp: 100, dmgPerCoin: 15, bonusBase: 120 },
     duel: { name: 'Дуэль', waves: Infinity, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: -1, startCoins: 1000, petHp: 25, eliteRate: 1.1, winCoins: 0, winXp: 0, dmgPerCoin: 15, bonusBase: 120 }
   };
   // Бесконечный режим — продолжение «Тяжело»: первые 40 волн те же, дальше без конца

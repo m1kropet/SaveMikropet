@@ -223,4 +223,11 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',10],['duel'
   const q=d.a.layout.spots[0]; const t=d.a.cmd({type:'place',hero:'blaster',x:q.x,z:q.z}).tower; ok(d.a.coins===1000-132 && t.spent===132,'duel placement charged');
   d.a.cmd({type:'upgrade',tower:t.id,branch:0}); ok(d.a.coins===1000-132-88,'duel upgrade charged');
   const inc=u=>K.towerStats('piggy',u,{}).income; ok(inc([2,5])===800 && inc([5,2])===450,'piggy 800 bottom / 450 top'); }
+// награды аккаунта и кривая опыта
+{ const mk=(d,W,res,mode)=>({ mode:mode||'single', D:K.DIFFS[d], diffKey:d, result:res, wavesCleared:W, kills:999 });
+  ok(K.matchRewards(mk('easy',20,'win')).coins===300 && K.matchRewards(mk('normal',30,'win')).coins===500 && K.matchRewards(mk('hard',40,'win')).coins===700,'win: 10/wave + 100/200/300');
+  ok(K.matchRewards(mk('normal',12,'lose')).coins===120,'loss: 10 per wave only');
+  ok(K.matchRewards(mk('endless',50,'lose')).coins===450,'endless: 10/wave to 40, then 5');
+  ok(K.matchRewards(mk('duel',10,null,'duel'),'win').coins===70 && K.matchRewards(mk('duel',10,null,'duel'),'lose').coins===40 && K.matchRewards(mk('duel',10,null,'duel'),'draw').coins===50,'duel: 5/wave ×1.4 / ×0.8');
+  require('../js/save.js'); const N=K.Profile.xpNeed; ok(N(1)===50 && N(2)===185 && N(3)===290 && N(4)===395,'xp curve 50, 2x+80+x/10'); }
 console.log('OK', n, 'checks');

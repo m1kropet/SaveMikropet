@@ -161,7 +161,8 @@
   }
 
   // ---------- Аккаунт ----------
-  const xpNeed = lvl => 100 + 60 * (lvl - 1);
+  // Опыт до следующего уровня: с 1-го на 2-й — 50; дальше 2·x + 80 + x/10, где x = 50 на 2-м уровне, 100 на 3-м и т. д.
+  const xpNeed = lvl => { if (lvl <= 1) return 50; const x = 50 * (lvl - 1); return Math.round(2 * x + 80 + x / 10); };
 
   function addXp(p, xp) {
     let ups = 0;

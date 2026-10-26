@@ -263,7 +263,8 @@
     const lg = ctx.createRadialGradient(dx, u * 0.6, 0, dx, u * 0.6, u * 5); lg.addColorStop(0, `rgba(${lc},${0.35 * fl})`); lg.addColorStop(1, `rgba(${lc},0)`); ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
     SP.glowDot(ctx, dx, u * 0.6, u * 0.18, red ? 'rgba(255,70,60,1)' : `rgba(255,210,138,${Math.max(0.12, fl)})`, u * fl);
     // микропет на переднем плане
-    ctx.save(); ctx.translate(u * 2.3, h * HZ + u * 0.55); const ps = u * 1.0; ctx.scale(ps, ps); SP.setPx(ps * 0.6); SP.pet(ctx, t, 0, 1); ctx.restore();
+    // микропет ростом с Ковтопа: высота Ковтопа 1.93·(1.75u), высота спрайта микропета 1.34
+    ctx.save(); ctx.translate(u * 1.95, h * HZ + u * 0.55); const ps = u * 1.75 * 1.93 / 1.34; ctx.scale(ps, ps); SP.setPx(ps * 0.6); SP.pet(ctx, t, 0, 1); ctx.restore();
     const vg = ctx.createLinearGradient(0, 0, 0, h); vg.addColorStop(0, 'rgba(11,10,9,0.55)'); vg.addColorStop(0.4, 'rgba(11,10,9,0.1)'); vg.addColorStop(0.75, 'rgba(11,10,9,0.7)'); vg.addColorStop(1, 'rgba(11,10,9,0.95)');
     ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
   }

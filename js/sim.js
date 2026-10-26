@@ -1103,16 +1103,19 @@
 
   // ---------- Награды ----------
   function matchRewards(f, duelResult) {
+    // Монеты аккаунта (на покупку башен):
+    //  • дуэль — 5 за волну, при победе итог ×1.4, при поражении ×0.8;
+    //  • остальное — 10 за волну (после 40-й волны — 5 за волну) + за прохождение: Легко 100, Нормально 200, Тяжело 300.
+    const W = f.wavesCleared;
     if (f.mode === 'duel') {
-      const base = duelResult === 'win' ? 80 : duelResult === 'draw' ? 35 : 15;
-      return { coins: base + f.wavesCleared * 2, xp: base + f.wavesCleared * 6 };
+      const mul = duelResult === 'win' ? 1.4 : duelResult === 'lose' ? 0.8 : 1;
+      const xpBase = duelResult === 'win' ? 40 : duelResult === 'draw' ? 20 : 10;
+      return { coins: Math.round(W * 5 * mul), xp: xpBase + W * 2 };
     }
     const D = f.D;
     const win = f.result === 'win';
-    let coins = Math.floor(f.kills * 0.3 + f.wavesCleared * 4 + (win ? D.winCoins : 0));
-    let xp = Math.floor(f.kills * 0.5 + f.wavesCleared * 8 + (win ? D.winXp : 0));
-    if (f.diffKey === 'endless') { coins += f.wavesCleared * 3; xp += f.wavesCleared * 4; }
-    if (f.mode === 'team') coins = Math.floor(coins * 0.9);
+    const coins = Math.min(W, 40) * 10 + Math.max(0, W - 40) * 5 + (win ? D.winCoins : 0);
+    const xp = W * 3 + (win ? D.winXp : 0);
     return { coins, xp };
   }
 

@@ -40,21 +40,21 @@
     // возврат со страницы входа Google (проверяется первым: свой state)
     K.Google.handleReturn(App.profile).then(r => {
       if (!r) return;
-      if (r.error) { K.UI.toast('Google: ' + r.error, 'bad'); return; }
+      if (r.error) { App.go('settings'); K.UI.modal('<div class="h2">Вход через Google не удался</div><div class="banner">' + K.UI.esc(r.error) + '</div><button class="btn block" data-m="close">Понятно</button>', { close: () => K.UI.closeModal() }, { center: true }); return; }
       App.persist();
-      K.UI.toast('Google подтверждён: ' + (r.user.email || r.user.name), 'good');
+      App.go('settings');
+      K.UI.modal('<div class="h2">Google подтверждён</div><div class="banner">Аккаунт <b>' + K.UI.esc(r.user.email || r.user.name) + '</b> привязан к профилю. Рядом с уровнем — значок «G».</div><button class="btn brass block" data-m="close">Отлично</button>', { close: () => K.UI.closeModal() }, { center: true });
       if (K.Net.state === 'open') K.Net.hello(); else if (K.Net.available()) K.Net.connect(App.profile).catch(() => {});
-      App.go('menu');
     });
     // возврат со страницы входа Twitch
     K.Twitch.handleReturn(App.profile).then(r => {
       if (!r) return;
-      if (r.error) { K.UI.toast('Twitch: ' + r.error, 'bad'); return; }
+      if (r.error) { App.go('settings'); K.UI.modal('<div class="h2">Вход через Twitch не удался</div><div class="banner">' + K.UI.esc(r.error) + '</div><button class="btn block" data-m="close">Понятно</button>', { close: () => K.UI.closeModal() }, { center: true }); return; }
       App.persist();
-      K.UI.toast('Twitch подтверждён: ' + r.user.display, 'good');
+      App.go('settings');
+      K.UI.modal('<div class="h2">Twitch подтверждён</div><div class="banner">Аккаунт <b>' + K.UI.esc(r.user.display) + '</b> привязан к профилю. Ник в игре теперь как на Twitch, рядом с уровнем — фиолетовая галочка.</div><button class="btn brass block" data-m="close">Отлично</button>', { close: () => K.UI.closeModal() }, { center: true });
       // токен появился уже после фонового подключения — сообщаем серверу, чтобы он тоже подтвердил вход
       if (K.Net.state === 'open') K.Net.hello(); else if (K.Net.available()) K.Net.connect(App.profile).catch(() => {});
-      App.go('menu');
     });
   }
   // фоновое подключение к серверу: подтверждение тега и подарки по тегу (если сервер есть)

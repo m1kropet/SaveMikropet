@@ -25,7 +25,7 @@
   }
 
   function authUrl(state) {
-    const p = new URLSearchParams({ client_id: cfg().twitchClientId, redirect_uri: redirectUri(), response_type: 'token', scope: '', state, force_verify: 'false' });
+    const p = new URLSearchParams({ client_id: cfg().twitchClientId, redirect_uri: redirectUri(), response_type: 'token', scope: '', state, force_verify: 'true' }); // всегда показывать окно подтверждения Twitch
     return 'https://id.twitch.tv/oauth2/authorize?' + p.toString();
   }
 
@@ -41,7 +41,12 @@
   }
 
   // Разбор возврата с Twitch. Возвращает null, если в адресе нет ответа OAuth.
-  function readRedirect(hash, savedState) {
+  function readRedirect(hash, savedState, search) {
+    // отказ или ошибка Twitch приходят в ?query, успешный вход — в #фрагменте
+    if (search && search.length > 1) {
+      const q = new URLSearchParams(search.slice(1));
+      if (q.get('error') && savedState && q.get('state') === savedState) return { error: q.get('error') === 'access_denied' ? 'Вход отменён на странице Twitch' : (q.get('error_description') || q.get('error')) };
+    }
     if (!hash || hash.length < 2) return null;
     const p = new URLSearchParams(hash.slice(1));
     if (!p.has('access_token') && !p.has('error')) return null;
@@ -66,10 +71,10 @@
 
   // Вызывается при запуске: если пришли с Twitch — подтверждаем и привязываем аккаунт.
   async function handleReturn(profile) {
-    const r = readRedirect(location.hash, ss.get(STATE_KEY));
+    const r = readRedirect(location.hash, ss.get(STATE_KEY), location.search);
     if (!r) return null;
     ss.del(STATE_KEY);
-    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { /* */ }
+    try { history.replaceState(null, '', location.pathname); } catch (e) { /* */ }
     if (r.error) return { error: r.error };
     try {
       const user = await verify(r.token);

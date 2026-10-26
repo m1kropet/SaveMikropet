@@ -94,7 +94,7 @@
       ctx.strokeStyle = '#9aa0aa'; ctx.lineWidth = 0.05; ctx.lineCap = 'round';
       [0.27, -0.27].forEach(off => offsetSegs(paths, off).forEach(([ax, az, bx, bz]) => { ctx.beginPath(); ctx.moveTo(ax, az); ctx.lineTo(bx, bz); ctx.stroke(); }));
     }
-    // участки рывка Прыгуна
+    // участки рывка Раша
     ctx.strokeStyle = 'rgba(157,255,61,0.45)'; ctx.lineWidth = 0.06; ctx.lineCap = 'round';
     paths.forEach(p => p.segs.forEach((s, i) => {
       if (!(map.dash || []).includes(i)) return;

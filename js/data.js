@@ -166,14 +166,14 @@
 
   // Враги. armor — плоское снижение урона (пробивание уменьшает броню).
   const ENEMIES = {
-    normal: { name: 'Шепчущий', hp: 30, speed: 1.4, armor: 0, reward: 6, dmg: 1, cost: 1, desc: 'Тень с белыми глазами. Ничего особенного — пока их мало.' },
-    fast: { name: 'Шмыг', hp: 18, speed: 2.6, armor: 0, reward: 5, dmg: 1, cost: 0.8, desc: 'Мелкий ползун. Очень быстрый, очень хрупкий.' },
-    armored: { name: 'Глыба', hp: 85, speed: 0.9, armor: 3, reward: 12, dmg: 2, cost: 2.4, desc: 'Медленная туша в железных пластинах. Нужна бронебойность.' },
-    ghost: { name: 'Мираж', hp: 34, speed: 1.5, armor: 0, reward: 9, dmg: 1, cost: 1.5, invisible: true, desc: 'Невидим. Атаковать могут только башни с «Виженом».' },
-    flyer: { name: 'Лампадка', hp: 38, speed: 1.7, armor: 0, reward: 9, dmg: 1, cost: 1.5, flying: true, desc: 'Летающий глаз. Нужна ПВО.' },
-    jumper: { name: 'Прыгун', hp: 42, speed: 1.3, armor: 1, reward: 9, dmg: 1, cost: 1.4, dash: 2.4, desc: 'На отмеченных участках маршрута делает рывок.' },
-    elite: { name: 'Смотритель', hp: 200, speed: 1.0, armor: 3, reward: 30, dmg: 3, cost: 6, heal: 0.1, desc: 'Элита. Каждые 4 с лечит сущностей рядом на 10%.' },
-    boss: { name: 'Ковтоп', hp: 1300, speed: 0.55, armor: 6, reward: 250, dmg: 10, cost: 40, boss: true, desc: 'Хозяин отеля с телевизором вместо головы. Призывает Шмыгов, а на половине здоровья экран краснеет и он ускоряется.' }
+    normal: { name: 'Скрич', hp: 30, speed: 1.4, armor: 0, reward: 6, dmg: 1, cost: 1, desc: 'Тень с белыми глазами. Ничего особенного — пока их мало.' },
+    fast: { name: 'Тимоти', hp: 18, speed: 2.6, armor: 0, reward: 5, dmg: 1, cost: 0.8, desc: 'Мелкий ползун. Очень быстрый, очень хрупкий.' },
+    armored: { name: 'Фигура', hp: 85, speed: 0.9, armor: 3, reward: 12, dmg: 2, cost: 2.4, desc: 'Медленная туша в железных пластинах. Нужна бронебойность.' },
+    ghost: { name: 'Шедоу', hp: 34, speed: 1.5, armor: 0, reward: 9, dmg: 1, cost: 1.5, invisible: true, desc: 'Невидим. Атаковать могут только башни с «Виженом».' },
+    flyer: { name: 'Айз', hp: 38, speed: 1.7, armor: 0, reward: 9, dmg: 1, cost: 1.5, flying: true, desc: 'Летающий глаз. Нужна ПВО.' },
+    jumper: { name: 'Раш', hp: 42, speed: 1.3, armor: 1, reward: 9, dmg: 1, cost: 1.4, dash: 2.4, desc: 'На отмеченных участках маршрута делает рывок.' },
+    elite: { name: 'Сик', hp: 200, speed: 1.0, armor: 3, reward: 30, dmg: 3, cost: 6, heal: 0.1, desc: 'Элита. Каждые 4 с лечит сущностей рядом на 10%.' },
+    boss: { name: 'Ковтоп', hp: 1300, speed: 0.55, armor: 6, reward: 250, dmg: 10, cost: 40, boss: true, desc: 'Хозяин отеля с телевизором вместо головы. Призывает Тимоти, а на половине здоровья экран краснеет и он ускоряется.' }
   };
 
   const DIFFS = {
@@ -193,7 +193,7 @@
   K.BOSS_HP = { 10: 1000, 20: 5000, 30: 13000, 40: 25000 };
 
   // Карты. Координаты: x ∈ [-5,5] (ширина), z ∈ [-10,9.5] (сверху вниз), y — высота.
-  // paths — один или несколько маршрутов (развилки). dash — индексы отрезков, где рывок Прыгуна.
+  // paths — один или несколько маршрутов (развилки). dash — индексы отрезков, где рывок Раша.
   const MAPS = [
     {
       id: 'lobby', name: 'Заброшенный холл', cat: 'Отель', stars: 1, theme: 'lobby',
@@ -267,9 +267,9 @@
     { nick: 'Микропетовед', level: 19, endless: 33, duelWins: 22, time: 350000 },
     { nick: 'Тихий_Шаг', level: 17, endless: 29, duelWins: 64, time: 120500 },
     { nick: 'Зеркальце', level: 15, endless: 41, duelWins: 12, time: 98000 },
-    { nick: 'ГлыбаНеПройдёт', level: 12, endless: 22, duelWins: 31, time: 77000 },
+    { nick: 'ФигураНеПройдёт', level: 12, endless: 22, duelWins: 31, time: 77000 },
     { nick: 'Фонарик', level: 9, endless: 18, duelWins: 8, time: 50200 },
-    { nick: 'Шмыг_Шмыгович', level: 6, endless: 12, duelWins: 3, time: 21000 }
+    { nick: 'Тимоти_Тимотиевич', level: 6, endless: 12, duelWins: 3, time: 21000 }
   ];
 
   // Препятствия: r — радиус в клетках, tall — закрывает обзор и для летающих целей,

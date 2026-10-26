@@ -256,7 +256,7 @@
           case 'leak': A.play('leak', 150); break;
           case 'wave':
             A.play(ev.boss ? 'boss' : 'wave');
-            this.announce(ev.boss ? 'Ковтоп приближается' : 'Волна ' + ev.n, ev.boss ? 'На телевизоре — сколько секунд ему идти до микропета. Призывает Шмыгов и звереет на половине здоровья' : this.waveNote(ev.n));
+            this.announce(ev.boss ? 'Ковтоп приближается' : 'Волна ' + ev.n, ev.boss ? 'На телевизоре — сколько секунд ему идти до микропета. Призывает Тимоти и звереет на половине здоровья' : this.waveNote(ev.n));
             break;
           case 'waveClear': A.play('clear'); this.setHint('Волна ' + ev.n + ' отбита: +' + Math.ceil(ev.bonus / Math.max(1, this.field.players.length)) + ' монет'); break;
           case 'piggyTotal': A.play('buy', 200); this.setHint('Свинки принесли +' + ev.amount + ' монет'); break;
@@ -300,9 +300,9 @@
       const f = this.field;
       if (e.invisible && !f.towers.some(t => t.s.vision)) this.setHint('Невидимая сущность! Купите башне «Вижен».', 6);
       else if (e.flying && !f.towers.some(t => t.s.aa)) this.setHint('Летающая сущность! Купите ПВО или поставьте Диномайка. Низкие препятствия летающих не закрывают.', 6);
-      else if (e.type === 'armored') this.setHint('Глыба в броне: нужны пробивание или мощные выстрелы.', 5);
-      else if (e.type === 'jumper') this.setHint('Прыгун делает рывок на участках с зелёными стрелками.', 5);
-      else if (e.type === 'elite') this.setHint('Смотритель лечит соседей. Убейте его первым — цель «Сильный».', 5);
+      else if (e.type === 'armored') this.setHint('Фигура в броне: нужны пробивание или мощные выстрелы.', 5);
+      else if (e.type === 'jumper') this.setHint('Раш делает рывок на участках с зелёными стрелками.', 5);
+      else if (e.type === 'elite') this.setHint('Сик лечит соседей. Убейте его первым — цель «Сильный».', 5);
     }
 
     // Все оповещения — в одном месте вверху (вместо строки «режим · сложность · карта»).
@@ -451,7 +451,7 @@
           const k = b.dataset.k;
           if (this.command({ type: 'skill', tower: t.id, skill: k }).ok) {
             K.Audio.play('buy', 0);
-            this.setHint(k === 'vision' ? 'Вижен: башня видит Миражей и невидимых Лампадок и Смотрителей в радиусе.' : 'ПВО: башня атакует Лампадок и других летающих.', 5);
+            this.setHint(k === 'vision' ? 'Вижен: башня видит Шедоу, а также невидимых Айзов и Сиков в радиусе.' : 'ПВО: башня атакует Айзов и других летающих.', 5);
           }
           break;
         }

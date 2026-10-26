@@ -237,6 +237,10 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .hbtn.poor { opacity: .5; }
 .hbtn.empty { visibility: hidden; }
 .ctrl { display: grid; grid-template-columns: 1fr auto auto; gap: 0.4em; }
+.wave-info { min-height: 3em; display: flex; flex-direction: column; justify-content: center; gap: 0.15em; padding: 0.35em 0.8em; border-radius: 0.6em; border: 1px solid var(--line); background: #120f0bcc; font-size: 0.8em; line-height: 1.25; min-width: 0; }
+.wave-info b { color: var(--text); }
+.wave-info .wi-next { color: var(--mute); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wave-info .wi-warn { color: #ff8a9a; font-weight: 700; }
 .panel { overflow-y: auto; min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 0.5em; scrollbar-width: thin; }
 .panel > *, .dock > *, .hud > * { flex-shrink: 0; }
 .ph { display: flex; align-items: center; gap: 0.55em; }

@@ -268,6 +268,26 @@
       }
     }
 
+    // Вместо «Идёт волна N»: что сейчас на поле и к чему готовиться в следующей волне
+    waveInfo() {
+      const f = this.field, n = f.waveNum;
+      const alive = f.enemies.filter(e => !e.dead).length;
+      const bonus = Math.ceil(f.peekWave(n).bonus / Math.max(1, f.players.length));
+      let next = '', warn = '';
+      if (n < f.finalWave) {
+        const w = f.peekWave(n + 1), c = K.waveSummary(w);
+        next = Object.keys(c).sort((a, b) => c[b] - c[a]).slice(0, 3).map(k => K.ENEMIES[k.split('+')[0]].name + ' ×' + c[k]).join(', ');
+        const fly = w.spawns.some(s => s.type === 'flyer' || s.flying), inv = w.spawns.some(s => s.type === 'ghost' || s.invisible);
+        const w2 = [];
+        if (w.boss) w2.push('Ковтоп');
+        if (fly && !f.towers.some(t => t.s.aa)) w2.push('нужно ПВО');
+        if (inv && !f.towers.some(t => t.s.vision)) w2.push('нужен Вижен');
+        warn = w2.join(' · ');
+      }
+      return `<div class="wave-info" role="status"><div><b>Волна ${n}</b> · на поле ${alive} · за волну <span class="coin mcoin">+${bonus}</span></div>
+        <div class="wi-next">${warn ? `<span class="wi-warn">⚠ ${esc(warn)}</span> · ` : ''}${next ? 'дальше: ' + esc(next) : 'Это последняя волна — держитесь!'}</div></div>`;
+    }
+
     waveNote(n) {
       const c = K.waveSummary(this.field.peekWave(n));
       return Object.keys(c).map(k => { const [t, g] = k.split('+'); return K.ENEMIES[t].name + (g ? ' (невидимая)' : '') + ' ×' + c[k]; }).slice(0, 4).join(' · ');
@@ -482,7 +502,7 @@
           sig = 'T' + t.id + t.up.join('') + t.skills.vision + t.skills.aa + t.targeting + JSON.stringify(ui.tier) + ui.sellArm + aff + f.over;
         } else {
           const gap = this.duel ? (this.duel.gap == null ? 'w' + this.duel.waiting() : Math.ceil(this.duel.gap)) : '';
-          sig = 'B' + ui.placing + f.squad.map(h => this.wallet() >= K.placeCost(h, f.mode) ? 1 : 0).join('') + f.canStartWave() + f.canSkip() + f.waveNum + f.active.length + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over + JSON.stringify(this.skipVotes || '');
+          sig = 'B' + ui.placing + f.squad.map(h => this.wallet() >= K.placeCost(h, f.mode) ? 1 : 0).join('') + f.canStartWave() + f.canSkip() + f.waveNum + f.active.length + '/' + (f.active.length ? f.enemies.length + '' + f.towers.filter(t => t.s.aa || t.s.vision).length : '') + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over + JSON.stringify(this.skipVotes || '');
         }
       }
       if (!force && sig === this.dockSig) return;
@@ -517,7 +537,7 @@
         const voted = sv && sv[0].includes(ui.player);
         const votes = sv && sv[1] > 1 ? ` · ${sv[0].length}/${sv[1]}` : '';
         if (f.canStartWave() || (!f.active.length && f.canSkip())) waveBtn = `<button class="btn brass" data-act="skip" ${voted ? 'disabled' : ''}>${f.autoWave && f.autoTimer > 0 ? 'Волна ' + (f.waveNum + 1) + ' · авто ' + Math.ceil(f.autoTimer) + ' с' : 'Начать волну ' + (f.waveNum + 1)}${votes}</button>`;
-        else if (f.active.length) waveBtn = `<button class="btn" disabled>Идёт волна ${f.waveNum}</button>`;
+        else if (f.active.length) waveBtn = this.waveInfo();
         else waveBtn = '<button class="btn" disabled>Волн больше нет</button>';
       }
       const ctrl = waveBtn || ui.placing ? `<div class="ctrl">${waveBtn}${ui.placing ? '<button class="btn" data-act="cancel">Отмена</button>' : ''}</div>` : '';

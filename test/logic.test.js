@@ -230,4 +230,8 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',10],['duel'
   ok(K.matchRewards(mk('endless',50,'lose')).coins===450,'endless: 10/wave to 40, then 5');
   ok(K.matchRewards(mk('duel',10,null,'duel'),'win').coins===70 && K.matchRewards(mk('duel',10,null,'duel'),'lose').coins===40 && K.matchRewards(mk('duel',10,null,'duel'),'draw').coins===50,'duel: 5/wave ×1.4 / ×0.8');
   require('../js/save.js'); const N=K.Profile.xpNeed; ok(N(1)===50 && N(2)===185 && N(3)===290 && N(4)===395,'xp curve 50, 2x+80+x/10'); }
+{ const hp=(d,W)=>{ const w=new K.Field({map:'lobby',diff:d,seed:7,squad:['blaster']}).peekWave(W); return [w.hpScale, w.spawns.filter(s=>s.type==='boss').map(s=>s.hp)]; };
+  const base=(d,W)=>{ const D=K.DIFFS[d], w=W-1; let h=(1+0.09*w+0.0025*w*w)*D.hpMul; if(W>40) h*=Math.pow(1.035,W-40); return h; };
+  for (const d of ['easy','normal','hard','endless','duel']) { ok(Math.abs(hp(d,10)[0]-base(d,10))<1e-9 && Math.abs(hp(d,11)[0]-base(d,11)*1.05)<1e-9 && Math.abs(hp(d,20)[0]-base(d,20)*1.5)<1e-9,'+5%/wave from 11: '+d); }
+  ok(hp('normal',20)[1][0]===5000 && hp('hard',40)[1][0]===25000,'bosses unaffected'); }
 console.log('OK', n, 'checks');

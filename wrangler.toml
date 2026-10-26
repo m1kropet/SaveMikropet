@@ -2,6 +2,8 @@
 name = "savemikropet"
 main = "worker/worker.js"
 compatibility_date = "2025-01-01"
+# не стирать переменные, заданные в панели Cloudflare (TWITCH_CLIENT_ID, GOOGLE_CLIENT_ID), при каждом деплое
+keep_vars = true
 
 [assets]
 directory = "."

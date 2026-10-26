@@ -23,8 +23,8 @@
 
 1. Откройте https://console.cloud.google.com → создайте проект → **APIs & Services → OAuth consent screen**: тип External, укажите название игры и свою почту. Пока приложение в режиме Testing, войти смогут только добавленные тестовые пользователи; чтобы входили все — нажмите **Publish app** (для scope `openid email profile` проверка Google не нужна).
 2. **APIs & Services → Credentials → Create credentials → OAuth client ID**, тип **Web application**.
-3. **Authorized JavaScript origins:** адрес игры без пути, например `https://savemikropet.kolyahollyday134.workers.dev`.
-   **Authorized redirect URIs:** адрес страницы игры со слешем в конце, например `https://savemikropet.kolyahollyday134.workers.dev/`.
+3. **Authorized JavaScript origins:** адрес игры без пути, например `https://savemikropet.savemikropet.workers.dev`.
+   **Authorized redirect URIs:** адрес страницы игры со слешем в конце, например `https://savemikropet.savemikropet.workers.dev/`.
 4. Скопируйте Client ID (`…apps.googleusercontent.com`) и укажите его:
    - Cloudflare: Workers & Pages → savemikropet → Settings → Variables and Secrets → добавить `GOOGLE_CLIENT_ID` (или раскомментировать строку в `[vars]` файла `wrangler.toml`);
    - Node-сервер: переменная окружения `GOOGLE_CLIENT_ID`.

@@ -266,8 +266,8 @@ function createHub(K, opts) {
         if (!p.squad.length) p.squad = ['blaster', 'ice'];
         p.endless = !!m.endless;
         p.eye = !!m.eye;
-        if (m.token) verifyTwitch(String(m.token)).then(tw => { p.twitch = tw; p.name = cleanNick(tw.login); send(p, 'authed', tw); }, e => send(p, 'error', { reason: e.message }));
-        if (m.gtoken) verifyGoogle(String(m.gtoken)).then(g => { p.google = g; send(p, 'authed', { google: true, login: g.email }); }, e => send(p, 'error', { reason: e.message }));
+        if (m.token) verifyTwitch(String(m.token)).then(tw => { p.twitch = tw; p.name = cleanNick(tw.login); send(p, 'authed', tw); }, e => send(p, 'error', { reason: /Twitch|приложению/.test(e.message) ? e.message : 'Сервер не смог связаться с Twitch для проверки входа' }));
+        if (m.gtoken) verifyGoogle(String(m.gtoken)).then(g => { p.google = g; send(p, 'authed', { google: true, login: g.email }); }, e => send(p, 'error', { reason: /Google/.test(e.message) ? e.message : 'Сервер не смог связаться с Google для проверки входа' }));
         if (m.uid) ensureTag(p, String(m.uid), m.tag).then(tag => {
           if (!tag) return;
           p.tag = tag; send(p, 'tag', { tag });

@@ -43,7 +43,7 @@
       if (r.error) { K.UI.toast('Google: ' + r.error, 'bad'); return; }
       App.persist();
       K.UI.toast('Google подтверждён: ' + (r.user.email || r.user.name), 'good');
-      if (K.Net.state === 'open') K.Net.hello();
+      if (K.Net.state === 'open') K.Net.hello(); else if (K.Net.available()) K.Net.connect(App.profile).catch(() => {});
       App.go('menu');
     });
     // возврат со страницы входа Twitch
@@ -52,6 +52,8 @@
       if (r.error) { K.UI.toast('Twitch: ' + r.error, 'bad'); return; }
       App.persist();
       K.UI.toast('Twitch подтверждён: ' + r.user.display, 'good');
+      // токен появился уже после фонового подключения — сообщаем серверу, чтобы он тоже подтвердил вход
+      if (K.Net.state === 'open') K.Net.hello(); else if (K.Net.available()) K.Net.connect(App.profile).catch(() => {});
       App.go('menu');
     });
   }

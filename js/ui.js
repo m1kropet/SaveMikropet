@@ -344,7 +344,7 @@
       return `<div class="screen">
         <div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div>
         <div class="menu-top">
-          <button class="profile-chip" data-act="chip" aria-label="Профиль ${esc(p.nick)}, уровень ${p.level}" title="${esc(p.nick)} #${esc(p.tag)}"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span class="pc-more"><span class="pc-name"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}${googleBadge(!!p.google)}</span></button>
+          <button class="profile-chip" data-act="chip" aria-label="Профиль ${esc(p.nick)}, уровень ${p.level}" title="${esc(p.nick)} #${esc(p.tag)}"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span>${p.twitch ? '<i class="lvl-ok tw" title="Подтверждено через Twitch">' + icon('check') + '</i>' : p.google ? '<i class="lvl-ok gg" title="Подтверждено через Google">' + G_LOGO + '</i>' : ''}</span><span class="pc-more"><span class="pc-name"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}${googleBadge(!!p.google)}</span></button>
           <span class="plaque coin" title="Монеты аккаунта">${p.coins}</span>
         </div>
         <div class="menu-main">

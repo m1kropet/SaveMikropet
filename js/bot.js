@@ -86,7 +86,7 @@
       for (const [need, key, hero] of [['ghost', 'vision', null], ['flyer', 'aa', 'dragon']]) {
         if (!th.has(need) || f.towers.filter(t => t.s[key]).length >= Math.max(1, Math.ceil(f.towers.length / 4))) continue;
         const sp = this.freeSpot(hero);
-        if (hero && squad.includes(hero) && sp && f.coins >= K.HERO[hero].cost) {
+        if (hero && squad.includes(hero) && sp && f.coins >= K.placeCost(hero, f.mode)) {
           if (do_({ type: 'place', hero, x: sp.x, z: sp.z, owner: f.me }, 'Ставит ' + K.HERO[hero].name)) return;
         }
         const t = this.bestTower(x => !x.s[key]);
@@ -108,13 +108,13 @@
           if (!sp) continue;
           // худшие места видят меньше дороги — новая башня там стоит меньше
           const cov = Math.pow(sp.cov / (f.layout.spots[0].cov || 1), 2);
-          const v = power(K.towerStats(h, [0, 0], {}), cap, arm) * cov / K.HERO[h].cost;
-          opts.push({ v: v * (f.towers.length < 2 ? 3 : 1), cost: K.HERO[h].cost, c: { type: 'place', hero: h, x: sp.x, z: sp.z, owner: f.me }, label: 'Ставит ' + K.HERO[h].name });
+          const v = power(K.towerStats(h, [0, 0], {}), cap, arm) * cov / K.placeCost(h, f.mode);
+          opts.push({ v: v * (f.towers.length < 2 ? 3 : 1), cost: K.placeCost(h, f.mode), c: { type: 'place', hero: h, x: sp.x, z: sp.z, owner: f.me }, label: 'Ставит ' + K.HERO[h].name });
         }
       }
       for (const t of f.towers) {
         for (const br of [0, 1]) {
-          const st = K.upgradeState(t.hero, t.up, br, null);
+          const st = K.upgradeState(t.hero, t.up, br, null, f.mode);
           if (!st.ok) continue;
           const up = t.up.slice(); up[br]++;
           let gain = power(K.towerStats(t.hero, up, t.skills), cap, arm) - power(t.s, cap, arm);

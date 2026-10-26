@@ -153,7 +153,8 @@
 
   // Бонус за пройденную волну: 1-я — 120, каждая следующая на 50% от 120 (= +60) больше.
   // В дуэли: 1-я — 160, каждая следующая на 40% от 160 (= +64) больше.
-  const waveBonus = (W, diffKey) => diffKey === 'duel' ? 160 + 64 * (W - 1) : 120 + 60 * (W - 1);
+  // 1-я волна — base, каждая следующая на 50% от base больше. Легко 180, Нормально и Бесконечный 150, Тяжело и Дуэль 120.
+  const waveBonus = (W, diffKey) => { const b = (K.DIFFS[diffKey] && K.DIFFS[diffKey].bonusBase) || 120; return b + b * 0.5 * (W - 1); };
 
   function genWave(diffKey, W, seed, map) {
     const D = K.DIFFS[diffKey];
@@ -264,16 +265,17 @@
   }
 
   // Правила блокировки веток: вне зависимости от интерфейса.
-  function upgradeState(heroId, up, br, coins) {
+  function upgradeState(heroId, up, br, coins, mode) {
     const H = K.HERO[heroId];
     const lvl = up[br], other = up[1 - br];
     if (lvl >= 5) return { ok: false, code: 'max', reason: 'Ветка полностью прокачана' };
     // Уровни 1–2 доступны всегда. Выше 2-го может подняться только одна ветка.
     if (other >= 3 && lvl >= 2) return { ok: false, code: 'locked', reason: 'Закрыто: ' + (br === 0 ? 'нижняя' : 'верхняя') + ' ветка выше 2 уровня, эта — максимум до 2' };
     const node = (br === 0 ? H.top : H.bottom)[lvl];
-    if (coins != null && coins < node.cost) return { ok: false, code: 'money', reason: 'Не хватает монет', cost: node.cost, node };
+    const cost = K.upCost(node, lvl, mode);
+    if (coins != null && coins < cost) return { ok: false, code: 'money', reason: 'Не хватает монет', cost, node };
     const note = lvl + 1 === 3 && other < 3 ? (br === 0 ? 'Нижняя' : 'Верхняя') + ' ветка после этого прокачается максимум до 2 уровня' : '';
-    return { ok: true, cost: node.cost, node, next: lvl + 1, note };
+    return { ok: true, cost, node, next: lvl + 1, note };
   }
 
   // ---------- Поле боя ----------
@@ -444,10 +446,11 @@
       if (can.perch) { x = can.x; z = can.z; }
       const lim = this.placeLimit(heroId, owner);
       if (!lim.ok) return lim;
-      if (!this.trySpend(H.cost, owner)) return { ok: false, reason: 'Не хватает монет' };
+      const cost = K.placeCost(heroId, this.mode);
+      if (!this.trySpend(cost, owner)) return { ok: false, reason: 'Не хватает монет' };
       const t = {
         id: this.nextId++, hero: heroId, x: +x.toFixed(3), y: 0, z: +z.toFixed(3),
-        owner, up: [0, 0], skills: { vision: false, aa: false }, spent: H.cost,
+        owner, up: [0, 0], skills: { vision: false, aa: false }, spent: cost,
         cd: 0.2, aim: 0, targeting: H.base.target || 'first', dealt: 0, kills: 0, blocked: false,
         carT: 5, carPath: -1
       };
@@ -496,7 +499,7 @@
       if (!t) return { ok: false, reason: 'Башня не найдена' };
       const own = this.ownCheck(t, pid); if (own) return own;
       if (br !== 0 && br !== 1) return { ok: false, reason: 'Нет такой ветки' };
-      const st = upgradeState(t.hero, t.up, br, this.wallet(pid));
+      const st = upgradeState(t.hero, t.up, br, this.wallet(pid), this.mode);
       if (!st.ok) return st;
       if (!this.trySpend(st.cost, pid)) return { ok: false, reason: 'Не хватает монет' };
       t.up[br]++;

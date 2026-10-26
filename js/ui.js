@@ -343,7 +343,7 @@
       return `<div class="screen">
         <div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div>
         <div class="menu-top">
-          <button class="profile-chip" data-act="settings" aria-label="Профиль и настройки"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9em;text-align:left;line-height:1.1"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}${googleBadge(!!p.google)}</button>
+          <button class="profile-chip" data-act="chip" aria-label="Профиль ${esc(p.nick)}, уровень ${p.level}" title="${esc(p.nick)} #${esc(p.tag)}"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span class="pc-more"><span class="pc-name"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}${googleBadge(!!p.google)}</span></button>
           <span class="plaque coin" title="Монеты аккаунта">${p.coins}</span>
         </div>
         <div class="menu-main">
@@ -390,6 +390,13 @@
       leaders: app => app.go('leaders'),
       friends: app => app.go('friends'),
       settings: app => app.go('settings'),
+      // свёрнутый профиль: на устройствах с мышью раскрывается при наведении, на касание — первым нажатием
+      chip(app, d, b) {
+        const hover = window.matchMedia && matchMedia('(hover: hover)').matches;
+        if (hover || b.classList.contains('open')) { app.go('settings'); return; }
+        b.classList.add('open');
+        clearTimeout(S.menu.chipT); S.menu.chipT = setTimeout(() => b.classList.remove('open'), 4000);
+      },
       title(app, d, b) {
         const now = performance.now();
         const scr = S.menu;

@@ -117,7 +117,7 @@ def run():
     assert r==[True,'t1','Стример','42'], r
     # требование входа
     ev("KV.CONFIG.requireTwitch=true"); pg.click('[data-act=back]'); pg.click('[data-act=single]'); pg.click('[data-act=start]')
-    pg.wait_for_selector('text=подтвердите аккаунт Twitch'); ev("KV.CONFIG.requireTwitch=false")
+    pg.wait_for_selector('text=подтвердите аккаунт через Twitch или Google'); ev("KV.CONFIG.requireTwitch=false")
     # миграция v3
     ev("KV.App.profile=null; localStorage.setItem('mikropet.save', JSON.stringify({v:3, nick:'Третий', coins:5, owned:['blaster','ice'], squad:['ice'], last:{bot:'hard'}}))"); pg.reload(); pg.wait_for_selector('.title-btn')
     assert ev("KV.App.profile.v")==5 and ev("KV.App.profile.twitch")==None and ev("/^[A-Z0-9]{3}$/.test(KV.App.profile.tag)")

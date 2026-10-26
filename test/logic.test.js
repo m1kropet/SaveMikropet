@@ -130,7 +130,7 @@ ok(Math.abs(d1.a.waveNum-d1.b.waveNum)<=0 || d1.over,'sync waves');
   ok(!f.cmd({type:'skip'}).ok,'cannot skip while spawning'); for(let i=0;i<60*30;i++) f.step(1/60);
   ok(f.canSkip() && f.cmd({type:'skip'}).ok && f.waveNum===2,'skip after all spawned'); }
 // монеты за урон по сложностям, босс, бесконечный = продолжение «Тяжело»
-for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { const f=new K.Field({map:'lobby',diff:d,seed:3,squad:['blaster'],autoWave:false}); ok(f.dmgPerCoin()===r,'dmgPerCoin '+d); }
+for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',10],['duel',15]]) { const f=new K.Field({map:'lobby',diff:d,seed:3,squad:['blaster'],autoWave:false}); ok(f.dmgPerCoin()===r,'dmgPerCoin '+d); }
 { const bh=(d,W)=>new K.Field({map:'lobby',diff:d,seed:9,squad:['blaster']}).peekWave(W).spawns.filter(s=>s.type==='boss');
   for (const d of ['easy','normal','hard']) ok(bh(d,10)[0].hp===1000 && bh(d,20)[0].hp===5000,'boss hp 10/20 '+d);
   ok(bh('normal',30)[0].hp===13000 && bh('hard',40)[0].hp===25000,'boss hp 30/40');
@@ -140,8 +140,8 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
   ok(bh('endless',40)[0].hp===25000 && bh('endless',60).length===1,'endless boss 40 = hard');
   const a=new K.Field({map:'lobby',diff:'hard',seed:5,squad:['blaster']}).peekWave(17), b=new K.Field({map:'lobby',diff:'endless',seed:5,squad:['blaster']}).peekWave(17);
   ok(JSON.stringify(a.spawns)===JSON.stringify(b.spawns),'endless waves = hard waves'); }
-{ const f=new K.Field({map:'lobby',diff:'normal',seed:2,squad:['blaster']}); ok(f.peekWave(1).bonus===120 && f.peekWave(2).bonus===180 && f.peekWave(3).bonus===240 && f.peekWave(10).bonus===660,'wave bonus 120 +60'); }
-{ const f=new K.Field({map:'lobby',diff:'duel',seed:2,squad:['blaster']}); ok(f.peekWave(1).bonus===160 && f.peekWave(2).bonus===224 && f.peekWave(3).bonus===288,'duel wave bonus 160 +64'); }
+{ const f=new K.Field({map:'lobby',diff:'normal',seed:2,squad:['blaster']}); ok(f.peekWave(1).bonus===150 && f.peekWave(2).bonus===225 && f.peekWave(3).bonus===300,'normal wave bonus 150 +75'); }
+{ const f=new K.Field({map:'lobby',diff:'duel',seed:2,squad:['blaster']}); ok(f.peekWave(1).bonus===120 && f.peekWave(2).bonus===180 && f.peekWave(3).bonus===240,'duel wave bonus as hard 120 +60'); }
 // Реалганер: только на препятствия, стреляет поверх них, дальность от улучшений
 { const f=new K.Field({map:'lobby',diff:'normal',seed:4,squad:['prism','blaster'],autoWave:false}); f.coins=1e5;
   const sp=f.layout.spots[0];
@@ -211,4 +211,16 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',15]]) { con
   let threw=null; try{G.checkClaims(good,'n')}catch(e){threw=e} ok(!threw,'valid claims pass');
   for (const [bad,why] of [[{aud:'other'},'aud'],[{nonce:'x'},'nonce'],[{exp:1},'exp'],[{iss:'evil.com'},'iss'],[{email_verified:false},'email']]) { let t=null; try{G.checkClaims(Object.assign({},good,bad),'n')}catch(e){t=e} ok(t,'rejects bad '+why); } }
 { const s0=K.towerStats('prism',[0,0],{}); ok(!s0.vision && K.towerStats('prism',[0,0],{vision:true}).vision,'prism has no free vision, can buy it'); }
+// экономика по сложностям, дуэль, Свинка
+{ const B=(d,w)=>new K.Field({map:'lobby',diff:d,seed:2,squad:['blaster']}).peekWave(w).bonus;
+  ok(B('easy',1)===180&&B('easy',2)===270&&B('easy',3)===360,'easy 180 +90');
+  ok(B('hard',1)===120&&B('hard',2)===180,'hard unchanged 120 +60');
+  ok(B('endless',1)===150&&B('endless',2)===225,'endless coins like normal');
+  ok(new K.Field({map:'lobby',diff:'endless',seed:2,squad:['blaster']}).coins===500,'endless start 500');
+  const d=new K.DuelMatch({map:'lobby',seed:3,squadA:['blaster'],squadB:['blaster']}); ok(d.a.coins===1000&&d.b.coins===1000,'duel start 1000 each');
+  ok(K.placeCost('blaster','duel')===132 && K.placeCost('blaster','single')===120,'duel placement +10%');
+  const H=K.HERO.blaster; ok([0,1,2,3,4].map(i=>K.upCost(H.top[i],i,'duel')).join()===[80*1.1,150*1.15,550*1.2,800*1.25,2500*1.3].map(Math.round).join(),'duel upgrades +10/15/20/25/30%');
+  const q=d.a.layout.spots[0]; const t=d.a.cmd({type:'place',hero:'blaster',x:q.x,z:q.z}).tower; ok(d.a.coins===1000-132 && t.spent===132,'duel placement charged');
+  d.a.cmd({type:'upgrade',tower:t.id,branch:0}); ok(d.a.coins===1000-132-88,'duel upgrade charged');
+  const inc=u=>K.towerStats('piggy',u,{}).income; ok(inc([2,5])===800 && inc([5,2])===450,'piggy 800 bottom / 450 top'); }
 console.log('OK', n, 'checks');

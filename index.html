@@ -120,7 +120,12 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .peek::before { left: 30%; } .peek::after { right: 30%; }
 @keyframes bob { 50% { transform: translateY(-0.3em) } }
 .menu-top { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 0.9em 1em 0; gap: 0.6em; }
-.profile-chip { display: flex; align-items: center; gap: 0.55em; background: #120f0bcc; border: 1px solid var(--line); border-radius: 999px; padding: 0.3em 0.8em 0.3em 0.3em; cursor: pointer; min-width: 0; }
+.profile-chip { display: flex; align-items: center; gap: 0; background: #120f0bcc; border: 1px solid var(--line); border-radius: 999px; padding: 0.3em; cursor: pointer; min-width: 0; transition: padding .25s; }
+.profile-chip .pc-more { display: flex; align-items: center; gap: 0.45em; max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; transition: max-width .3s ease, opacity .2s, margin .3s; }
+.profile-chip .pc-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 9em; text-align: left; line-height: 1.1; }
+.profile-chip.open, .profile-chip:focus-visible { padding-right: 0.8em; }
+.profile-chip.open .pc-more, .profile-chip:focus-visible .pc-more { max-width: 16em; opacity: 1; margin-left: 0.55em; }
+@media (hover: hover) { .profile-chip:hover { padding-right: 0.8em; } .profile-chip:hover .pc-more { max-width: 16em; opacity: 1; margin-left: 0.55em; } }
 .lvl { width: 2.2em; height: 2.2em; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-mono); font-weight: 700; background: conic-gradient(var(--pet) calc(var(--p) * 1%), #2a241c 0); position: relative; flex: none; }
 .lvl > span { position: relative; width: 1.75em; height: 1.75em; border-radius: 50%; display: grid; place-items: center; background: #120f0b; font-size: 0.8em; }
 .menu-main { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 0.7em; padding: 0 1.2em 1.4em; }

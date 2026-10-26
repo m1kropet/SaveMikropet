@@ -120,16 +120,16 @@
       top: withCosts([
         { name: 'Пластырь', icon: 'heal', desc: 'После каждой волны лечит микропета на 1', fx: { heal: 1 } },
         { name: 'Тёплый свитер', icon: 'heart', desc: 'Жизни микропета +5', fx: { petMax: 5 } },
-        { name: 'Аптечка', icon: 'heal', desc: 'Лечение после волны +2, жизни +5', fx: { heal: 2, petMax: 5 } },
-        { name: 'Пушистый щит', icon: 'shield', desc: 'Каждую волну блокирует 2 сущности, дошедшие до микропета', fx: { shield: 2 } },
-        { name: 'Ангел-хранитель', icon: 'star', desc: 'Жизни +15, лечение +3, щит +3', fx: { petMax: 15, heal: 3, shield: 3 } }
+        { name: 'Аптечка', icon: 'heal', desc: 'Лечение после волны +2, жизни +5; доход +60', fx: { heal: 2, petMax: 5, income: 60 } },
+        { name: 'Пушистый щит', icon: 'shield', desc: 'Каждую волну блокирует 2 сущности, дошедшие до микропета; доход +100', fx: { shield: 2, income: 100 } },
+        { name: 'Ангел-хранитель', icon: 'star', desc: 'Жизни +15, лечение +3, щит +3; доход +160 (с 2 нижними улучшениями — 450 за волну)', fx: { petMax: 15, heal: 3, shield: 3, income: 160 } }
       ], [150, 300, 700, 1300, 2600]),
       bottom: withCosts([
-        { name: 'Звонкая щель', icon: 'coin', desc: 'Доход +20 за волну', fx: { income: 20 } },
-        { name: 'Вклад', icon: 'coin', desc: 'Доход +30 за волну', fx: { income: 30 } },
-        { name: 'Проценты', icon: 'core', desc: 'Каждую волну +5% к вашим монетам (до 150)', fx: { interest: 0.05, interestCap: 150 } },
-        { name: 'Золотая жила', icon: 'burst', desc: 'Доход +80 за волну, проценты до 300', fx: { income: 80, interestCap: 300 } },
-        { name: 'Джекпот', icon: 'nova', desc: 'Доход +200 за волну, проценты 8% до 600', fx: { income: 200, interest: 0.03, interestCap: 600 } }
+        { name: 'Звонкая щель', icon: 'coin', desc: 'Доход +40 за волну', fx: { income: 40 } },
+        { name: 'Вклад', icon: 'coin', desc: 'Доход +60 за волну', fx: { income: 60 } },
+        { name: 'Копилка побольше', icon: 'core', desc: 'Доход +120 за волну', fx: { income: 120 } },
+        { name: 'Золотая жила', icon: 'burst', desc: 'Доход +200 за волну', fx: { income: 200 } },
+        { name: 'Джекпот', icon: 'nova', desc: 'Доход +350 за волну — итого 800 за волну', fx: { income: 350 } }
       ], [120, 300, 800, 1500, 3000])
     },
     {
@@ -177,13 +177,18 @@
   };
 
   const DIFFS = {
-    easy: { name: 'Легко', waves: 20, hpMul: 0.8, countMul: 0.8, speedMul: 0.9, unlockShift: 3, startCoins: 300, petHp: 40, eliteRate: 0.5, winCoins: 60, winXp: 120, dmgPerCoin: 5 },
-    normal: { name: 'Нормально', waves: 30, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: 0, startCoins: 260, petHp: 30, eliteRate: 1, winCoins: 140, winXp: 260, dmgPerCoin: 10 },
-    hard: { name: 'Тяжело', waves: 40, hpMul: 1.15, countMul: 1.15, speedMul: 1.08, unlockShift: -2, startCoins: 260, petHp: 25, eliteRate: 1.4, winCoins: 300, winXp: 500, dmgPerCoin: 15 },
-    duel: { name: 'Дуэль', waves: Infinity, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: -1, startCoins: 280, petHp: 25, eliteRate: 1.1, winCoins: 0, winXp: 0, dmgPerCoin: 10 }
+    easy: { name: 'Легко', waves: 20, hpMul: 0.8, countMul: 0.8, speedMul: 0.9, unlockShift: 3, startCoins: 300, petHp: 40, eliteRate: 0.5, winCoins: 60, winXp: 120, dmgPerCoin: 5, bonusBase: 180 },
+    normal: { name: 'Нормально', waves: 30, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: 0, startCoins: 260, petHp: 30, eliteRate: 1, winCoins: 140, winXp: 260, dmgPerCoin: 10, bonusBase: 150 },
+    hard: { name: 'Тяжело', waves: 40, hpMul: 1.15, countMul: 1.15, speedMul: 1.08, unlockShift: -2, startCoins: 260, petHp: 25, eliteRate: 1.4, winCoins: 300, winXp: 500, dmgPerCoin: 15, bonusBase: 120 },
+    duel: { name: 'Дуэль', waves: Infinity, hpMul: 1.0, countMul: 1.0, speedMul: 1.0, unlockShift: -1, startCoins: 1000, petHp: 25, eliteRate: 1.1, winCoins: 0, winXp: 0, dmgPerCoin: 15, bonusBase: 120 }
   };
   // Бесконечный режим — продолжение «Тяжело»: первые 40 волн те же, дальше без конца
-  DIFFS.endless = Object.assign({}, DIFFS.hard, { name: 'Бесконечный', waves: Infinity, winCoins: 0, winXp: 0, endless: true });
+  // волны как на «Тяжело», а монеты — как на «Нормально»; стартовых монет 500
+  DIFFS.endless = Object.assign({}, DIFFS.hard, { name: 'Бесконечный', waves: Infinity, winCoins: 0, winXp: 0, endless: true, startCoins: 500, dmgPerCoin: DIFFS.normal.dmgPerCoin, bonusBase: DIFFS.normal.bonusBase });
+  // Дуэль дороже: установка +10%, улучшения 1–5 уровня +10/15/20/25/30%
+  const DUEL_PLACE = 1.1, DUEL_UP = [1.1, 1.15, 1.2, 1.25, 1.3];
+  K.placeCost = (heroId, mode) => { const c = K.HERO[heroId].cost; return mode === 'duel' ? Math.round(c * DUEL_PLACE) : c; };
+  K.upCost = (node, lvl, mode) => mode === 'duel' ? Math.round(node.cost * DUEL_UP[Math.max(0, Math.min(4, lvl))]) : node.cost;
   // Здоровье Ковтопа на боссовых волнах основной части (одинаково для всех сложностей)
   K.BOSS_HP = { 10: 1000, 20: 5000, 30: 13000, 40: 25000 };
 

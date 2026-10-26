@@ -401,7 +401,7 @@
           const id = b.dataset.id;
           if (this.ui.placing === id) { this.deselect(); break; }
           Object.assign(this.ui, { selected: null, placing: id, tier: null, ghost: null });
-          this.setHint(this.wallet() < K.HERO[id].cost ? 'Не хватает монет: нужно ' + K.HERO[id].cost : K.HERO[id].base.perch ? 'Коснитесь подсвеченного препятствия — «' + K.HERO[id].name + '» встанет на него и будет стрелять поверх любых препятствий.' : 'Коснитесь места для «' + K.HERO[id].name + '». Можно вести пальцем — покажется зона обзора.', 5);
+          this.setHint(this.wallet() < K.placeCost(id, this.field.mode) ? 'Не хватает монет: нужно ' + K.placeCost(id, this.field.mode) : K.HERO[id].base.perch ? 'Коснитесь подсвеченного препятствия — «' + K.HERO[id].name + '» встанет на него и будет стрелять поверх любых препятствий.' : 'Коснитесь места для «' + K.HERO[id].name + '». Можно вести пальцем — покажется зона обзора.', 5);
           this.renderDock(true);
           break;
         }
@@ -419,7 +419,7 @@
           if (r.ok) {
             K.Audio.play('buy', 0);
             // выбор остаётся на этой ветке: следующий уровень, если он доступен
-            this.ui.tier = t.up[br] < 5 && K.upgradeState(t.hero, t.up, br, null).ok ? { br, lvl: t.up[br] } : { br, lvl: t.up[br] - 1 };
+            this.ui.tier = t.up[br] < 5 && K.upgradeState(t.hero, t.up, br, null, this.field.mode).ok ? { br, lvl: t.up[br] } : { br, lvl: t.up[br] - 1 };
             this.renderDock(true);
           }
           break;
@@ -478,11 +478,11 @@
         const t = ui.selected != null ? f.getTower(ui.selected) : null;
         if (ui.selected != null && !t) ui.selected = null;
         if (t) {
-          const aff = [0, 1].map(br => K.upgradeState(t.hero, t.up, br, this.wallet()).ok ? 1 : 0).join('') + ['vision', 'aa'].map(k => this.wallet() >= K.SKILLS[k].cost ? 1 : 0).join('');
+          const aff = [0, 1].map(br => K.upgradeState(t.hero, t.up, br, this.wallet(), f.mode).ok ? 1 : 0).join('') + ['vision', 'aa'].map(k => this.wallet() >= K.SKILLS[k].cost ? 1 : 0).join('');
           sig = 'T' + t.id + t.up.join('') + t.skills.vision + t.skills.aa + t.targeting + JSON.stringify(ui.tier) + ui.sellArm + aff + f.over;
         } else {
           const gap = this.duel ? (this.duel.gap == null ? 'w' + this.duel.waiting() : Math.ceil(this.duel.gap)) : '';
-          sig = 'B' + ui.placing + f.squad.map(h => this.wallet() >= K.HERO[h].cost ? 1 : 0).join('') + f.canStartWave() + f.canSkip() + f.waveNum + f.active.length + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over + JSON.stringify(this.skipVotes || '');
+          sig = 'B' + ui.placing + f.squad.map(h => this.wallet() >= K.placeCost(h, f.mode) ? 1 : 0).join('') + f.canStartWave() + f.canSkip() + f.waveNum + f.active.length + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over + JSON.stringify(this.skipVotes || '');
         }
       }
       if (!force && sig === this.dockSig) return;
@@ -504,9 +504,9 @@
         const id = f.squad[i];
         if (!id) { slots.push('<div class="hbtn empty"></div>'); continue; }
         const H = K.HERO[id];
-        slots.push(`<button class="hbtn ${ui.placing === id ? 'on' : ''} ${this.wallet() < H.cost ? 'poor' : ''}" data-act="hero" data-id="${id}" aria-pressed="${ui.placing === id}">
+        slots.push(`<button class="hbtn ${ui.placing === id ? 'on' : ''} ${this.wallet() < K.placeCost(id, this.field.mode) ? 'poor' : ''}" data-act="hero" data-id="${id}" aria-pressed="${ui.placing === id}">
           <span class="hero-thumb" style="background-image:url(${K.thumbs[id] || ''})"></span>
-          <span class="nm">${esc(H.name)}</span><span class="num coin mcoin" style="font-size:.78em">${H.cost}</span></button>`);
+          <span class="nm">${esc(H.name)}</span><span class="num coin mcoin" style="font-size:.78em">${K.placeCost(id, this.field.mode)}</span></button>`);
       }
       let waveBtn = '';
       // в дуэли волны идут сами, а номер волны уже есть в верхней панели — кнопка не нужна
@@ -542,12 +542,12 @@
       };
       const row = br => {
         const list = br === 0 ? H.top : H.bottom;
-        const st = K.upgradeState(t.hero, t.up, br, null);
+        const st = K.upgradeState(t.hero, t.up, br, null, f.mode);
         const locked = !st.ok && st.code === 'locked';
         return `<div class="branch"><span class="lbl">${br === 0 ? 'Верх' : 'Низ'}${locked ? ' ' + K.UI.icon('lock') : ''}</span>${list.map((u, i) => {
-          const owned = i < t.up[br], next = i === t.up[br] && st.ok, can = next && !readOnly && coins >= u.cost;
+          const owned = i < t.up[br], next = i === t.up[br] && st.ok, can = next && !readOnly && coins >= K.upCost(u, i, f.mode);
           const sel = !readOnly && ui.tier && ui.tier.br === br && ui.tier.lvl === i;
-          return `<button class="tier ${owned ? 'owned b' + br : ''} ${next ? 'next' : ''} ${can ? 'can' : ''} ${!owned && !next ? 'locked' : ''} ${sel ? 'sel' : ''}" ${readOnly ? 'disabled' : `data-act="tier" data-br="${br}" data-lvl="${i}"`} aria-label="${esc(u.name)}" title="${esc(u.name)}">${K.UI.icon(u.icon)}<span class="c">${owned ? '✓' : u.cost}</span></button>`;
+          return `<button class="tier ${owned ? 'owned b' + br : ''} ${next ? 'next' : ''} ${can ? 'can' : ''} ${!owned && !next ? 'locked' : ''} ${sel ? 'sel' : ''}" ${readOnly ? 'disabled' : `data-act="tier" data-br="${br}" data-lvl="${i}"`} aria-label="${esc(u.name)}" title="${esc(u.name)}">${K.UI.icon(u.icon)}<span class="c">${owned ? '✓' : K.upCost(u, i, f.mode)}</span></button>`;
         }).join('')}</div>`;
       };
       let detail = '';
@@ -556,13 +556,13 @@
           const { br, lvl: L } = ui.tier;
           const u = (br === 0 ? H.top : H.bottom)[L];
           const owned = L < t.up[br];
-          const st = K.upgradeState(t.hero, t.up, br, coins);
+          const st = K.upgradeState(t.hero, t.up, br, coins, f.mode);
           let action = '', note = '';
           if (owned) note = '<span class="tag">куплено</span>';
           else if (L > t.up[br]) note = `<span class="tag lock">сначала ур. ${t.up[br] + 1}</span>`;
           else if (!st.ok && st.code !== 'money') note = `<span class="tag lock">${K.UI.icon('lock')} ${esc(st.reason)}</span>`;
           else {
-            action = `<button class="btn brass mini" data-act="buy" ${st.ok ? '' : 'disabled'}>Купить <span class="num">${u.cost}</span></button>`;
+            action = `<button class="btn brass mini" data-act="buy" ${st.ok ? '' : 'disabled'}>Купить <span class="num">${K.upCost(u, L, f.mode)}</span></button>`;
             if (st.ok && st.note) note = `<span class="tag demo">${esc(st.note)}</span>`;
           }
           let diffs = '';

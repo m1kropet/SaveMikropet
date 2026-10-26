@@ -913,6 +913,7 @@
         </div>
         <div class="section"><div class="eyebrow">Twitch</div>${twitchBlock(p)}</div>
         <div class="section"><div class="eyebrow">Google</div>${googleBlock(p)}</div>
+        <div class="section note"><a href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a> · <a href="terms.html" target="_blank" rel="noopener">Условия использования</a></div>
         <div class="section"><div class="eyebrow">Никнейм</div>${p.twitch ? `<div class="card note">Никнейм взят из Twitch: <b>${esc(p.twitch.display)}</b>. Чтобы сменить его вручную, отвяжите Twitch.</div>` : `<div class="row"><input type="text" id="nick" value="${esc(p.nick)}" maxlength="16" autocomplete="off"><button class="btn" data-act="nick">Сохранить</button></div><div class="err" id="nickErr"></div>`}</div>
         <div class="section"><div class="eyebrow">Игра</div>
           ${sw('sound', 'Звук')}

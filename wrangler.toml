@@ -19,7 +19,8 @@ class_name = "GameHub"
 tag = "v1"
 new_sqlite_classes = ["GameHub"]
 
-# [vars]
-# TWITCH_CLIENT_ID = "ваш_client_id"
+# Client ID входа (не секрет: они видны в адресе при входе)
+[vars]
+TWITCH_CLIENT_ID = "emi37q21jetu9wwmf02ilryig66nug"
+GOOGLE_CLIENT_ID = "1087888432747-og7avctdmps9ttqk7b16da3lffr0j84m.apps.googleusercontent.com"
 # REQUIRE_TWITCH = "1"
-# GOOGLE_CLIENT_ID = "ваш_client_id.apps.googleusercontent.com"

@@ -90,7 +90,7 @@
     while (box.children.length > 3) box.firstChild.remove();
   }
 
-  K.UI = { icon, eyeBadge, modal, closeModal, confirm: confirmBox, toast, esc };
+  K.UI = { icon, eyeBadge, modeArt, modal, closeModal, confirm: confirmBox, toast, esc };
 
   // ---------- Общие фрагменты ----------
   const topbar = (title, right) => `<div class="topbar"><button class="btn small icon-btn" data-act="back" aria-label="Назад">${icon('back')}</button><div class="h2">${esc(title)}</div>${right || ''}</div>`;
@@ -407,8 +407,69 @@
     eyeSign(ctx, bx - u * 0.5, by - u * 0.8, u * 0.35, t, '#e8d8b8');
   }
 
+  // Фоны скинов по макету игрока (картинка 653×518). Поверх — живой свет, секреты и частицы.
+  const MENU_IMG = {}, IMG_W = 653, IMG_H = 518;
+  ['hotel', 'mine'].forEach(k => { if (typeof Image === 'undefined') return; const im = new Image(); im.decoding = 'async'; im.src = 'img/menu-' + k + '.jpg'; MENU_IMG[k] = im; });
+  const SPOTS = {
+    hotel: {
+      morse: [276, 108, 95],
+      lights: [[378, 214, 34], [75, 265, 30], [157, 262, 28], [445, 248, 30], [4, 232, 26]],
+      tv: [458, 318, 72, 44], hit: [448, 288, 115, 86], eye: [580, 246, 15, '#2a140c'],
+      petGlow: [222, 400], kovGlow: [470, 400], tint: '255,170,90'
+    },
+    mine: {
+      morse: [176, 198, 46],
+      lights: [[333, 252, 22], [268, 279, 16], [612, 344, 36], [226, 294, 12]],
+      tv: [366, 326, 72, 44], hit: [356, 298, 106, 76], eye: [627, 236, 14, '#3a2a1c'],
+      petGlow: [165, 400], kovGlow: [390, 400], tint: '255,150,60'
+    }
+  };
+  function paintImageScene(ctx, w, h, t, mine, live) {
+    const im = MENU_IMG[mine ? 'mine' : 'hotel'], S = SPOTS[mine ? 'mine' : 'hotel'];
+    const s = Math.max(w / IMG_W, (h * 0.45) / IMG_H), ox = (w - IMG_W * s) / 2;
+    const P = (x, y) => [ox + x * s, y * s];
+    ctx.fillStyle = '#0c0705'; ctx.fillRect(0, 0, w, h);
+    ctx.drawImage(im, 0, 0, IMG_W, IMG_H, ox, 0, IMG_W * s, IMG_H * s);
+    // мерцание светильников
+    S.lights.forEach(([x, y, r], i) => { const [X, Y] = P(x, y); glow(ctx, X, Y, r * s * 2.2, S.tint, 0.16 * (flick(t, i + 4) - 0.8) * 5, true); });
+    // секретная лампа: гаснет и вспыхивает азбукой Морзе, перед кодом — красная вспышка
+    const lamp = lampLevel(t), red = lampRed(t), [MX, MY] = P(S.morse[0], S.morse[1]), MR = S.morse[2] * s;
+    if (lamp < 0.5) { const g = ctx.createRadialGradient(MX, MY, 0, MX, MY, MR * 1.6); g.addColorStop(0, 'rgba(8,4,2,0.93)'); g.addColorStop(0.6, 'rgba(8,4,2,0.72)'); g.addColorStop(1, 'rgba(8,4,2,0)'); ctx.fillStyle = g; ctx.fillRect(MX - MR * 1.6, MY - MR * 1.6, MR * 3.2, MR * 3.2); }
+    else glow(ctx, MX, MY, MR * 2.4, red ? '255,40,40' : S.tint, red ? 0.75 : 0.22 * flick(t, 1), true);
+    // глаз моргает
+    const ph = (t * 0.21) % 1;
+    if (ph > 0.965) { const [EX, EY] = P(S.eye[0], S.eye[1]); const k = Math.sin((ph - 0.965) / 0.035 * Math.PI); ctx.fillStyle = S.eye[3]; ctx.beginPath(); ctx.ellipse(EX, EY - S.eye[2] * s * (1 - k), S.eye[2] * s * 1.25, S.eye[2] * s * k * 0.9 + 1, 0, 0, Math.PI * 2); ctx.fill(); }
+    // живое неоновое свечение героев
+    const [PX, PY] = P(S.petGlow[0], S.petGlow[1]); const hue = (t * 40) % 360;
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; const pg = ctx.createRadialGradient(PX, PY, 0, PX, PY, 120 * s); pg.addColorStop(0, `hsla(${hue},100%,60%,${0.12 + 0.05 * Math.sin(t * 2)})`); pg.addColorStop(1, 'hsla(0,0%,0%,0)'); ctx.fillStyle = pg; ctx.fillRect(PX - 120 * s, PY - 120 * s, 240 * s, 240 * s); ctx.restore();
+    const [KX, KY] = P(S.kovGlow[0], S.kovGlow[1]); glow(ctx, KX, KY, 110 * s, '255,30,50', 0.1 + 0.05 * Math.sin(t * 1.3), true);
+    // экран Ковтопа: секретные числа
+    const [TX, TY] = P(S.tv[0], S.tv[1]), TW = S.tv[2] * s, TH = S.tv[3] * s;
+    if (live) { const [HX, HY] = P(S.hit[0], S.hit[1]); kovTv = { x0: HX, y0: HY, x1: HX + S.hit[2] * s, y1: HY + S.hit[3] * s }; }
+    const dg = live ? kovDigits(t) : undefined;
+    if (dg != null) {
+      ctx.fillStyle = '#120406'; ctx.fillRect(TX, TY, TW, TH);
+      if (dg !== '--') { ctx.save(); ctx.fillStyle = '#ff2a2a'; ctx.shadowColor = '#ff2a2a'; ctx.shadowBlur = 10 * s; ctx.font = `700 ${Math.round(TH * 0.92)}px "JetBrains Mono", "Courier New", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(dg, TX + TW / 2, TY + TH * 0.55); ctx.restore(); }
+    }
+    // пылинки / искры
+    const pr = K.rng(mine ? 5 : 3), u = w / 10;
+    for (let i = 0; i < 30; i++) {
+      const x0 = pr() * w, sp = 0.02 + pr() * 0.05, p0 = pr();
+      const y = (((p0 - t * sp) % 1 + 1) % 1) * IMG_H * s, x = x0 + Math.sin(t * 0.6 + i) * u * 0.3;
+      const a = 0.25 + 0.4 * Math.sin(t * 2 + i) ** 2;
+      ctx.fillStyle = mine ? `rgba(255,${150 + (i % 4) * 20},70,${a})` : `rgba(255,225,180,${a * 0.7})`;
+      ctx.fillRect(x, y, mine ? 2 : 1.6, mine ? 2 : 1.6);
+    }
+    // плавный переход картинки в тёмный низ под меню
+    const y0 = IMG_H * s * 0.78, y1 = IMG_H * s;
+    const vg = ctx.createLinearGradient(0, y0, 0, y1 + 4); vg.addColorStop(0, 'rgba(12,7,5,0)'); vg.addColorStop(1, 'rgba(12,7,5,1)');
+    ctx.fillStyle = vg; ctx.fillRect(0, y0, w, h - y0);
+    const tg = ctx.createLinearGradient(0, 0, 0, h * 0.1); tg.addColorStop(0, 'rgba(8,5,4,0.35)'); tg.addColorStop(1, 'rgba(8,5,4,0)'); ctx.fillStyle = tg; ctx.fillRect(0, 0, w, h * 0.1);
+  }
+
   // Сцена главного меню (общая для меню и превью скинов). Секреты: мигающая лампа (азбука Морзе) и экран Ковтопа.
-  function paintMenu(ctx, w, h, t, mine, live) {
+  function paintMenu(ctx, w, h, t, mine, live, noImg) {
+    { const im = MENU_IMG[mine ? 'mine' : 'hotel']; if (!noImg && im && im.complete && im.naturalWidth) { ctx.setTransform(1, 0, 0, 1, 0, 0); paintImageScene(ctx, w, h, t, mine, live); return; } }
     const u = w / 10, VX = w * 0.6, FY = h * 0.43;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     const lamp = lampLevel(t), red = lampRed(t);
@@ -468,9 +529,14 @@
       const key = theme + w + 'x' + h;
       this.cache = this.cache || {};
       if (this.cache[key]) return this.cache[key];
+      const im = MENU_IMG[theme === 'mine' ? 'mine' : 'hotel'], ready = im && im.complete && im.naturalWidth;
       const c = document.createElement('canvas'); c.width = w; c.height = h;
       paintMenu(c.getContext('2d'), w, h, 2, theme === 'mine');
-      return (this.cache[key] = c.toDataURL('image/jpeg', 0.85));
+      let url;
+      try { url = c.toDataURL('image/jpeg', 0.85); }
+      catch (e) { const c2 = document.createElement('canvas'); c2.width = w; c2.height = h; paintMenu(c2.getContext('2d'), w, h, 2, theme === 'mine', false, true); url = c2.toDataURL('image/jpeg', 0.85); } // file:// — картинка «пачкает» холст
+      if (ready) this.cache[key] = url;
+      return url;
     }
   };
 
@@ -518,9 +584,9 @@
             <button class="btn small ghost collapse" data-act="collapse" id="collapseBtn" aria-label="Свернуть выбор режима" ${app.session.playOpen ? '' : 'hidden'}>${icon('x')} Свернуть</button></div>
           <button class="btn brass block" data-act="play" id="playBtn" style="font-size:1.15em;min-height:3.3em" ${app.session.playOpen ? 'hidden' : ''}>${icon('play')} Играть</button>
           <div class="play-modes ${app.session.playOpen ? 'open' : ''}" id="modes"><div>
-            <button class="btn mode-btn" data-act="single"><img class="mode-art" alt="" src="${modeArt('single' + mt)}"><span class="ml">${icon('user')} Одиночка</span><small>3 сложности</small></button>
-            <button class="btn mode-btn" data-act="team"><img class="mode-art" alt="" src="${modeArt('team' + mt)}"><span class="ml">${icon('people')} Команда</span><small>2–4 игрока</small></button>
-            <button class="btn mode-btn" data-act="duel"><img class="mode-art" alt="" src="${modeArt('duel' + mt)}"><span class="ml">${icon('swords')} Дуэль</span><small>карта соперника</small></button>
+            <button class="btn mode-btn" data-act="single"><img class="mode-art" alt="" src="img/mode-single-${mt ? 'mine' : 'hotel'}.jpg" onerror="this.onerror=null;this.src=KV.UI.modeArt('single' + '${mt}')"><span class="ml">${icon('user')} Одиночка</span><small>3 сложности</small></button>
+            <button class="btn mode-btn" data-act="team"><img class="mode-art" alt="" src="img/mode-team-${mt ? 'mine' : 'hotel'}.jpg" onerror="this.onerror=null;this.src=KV.UI.modeArt('team' + '${mt}')"><span class="ml">${icon('people')} Команда</span><small>2–4 игрока</small></button>
+            <button class="btn mode-btn" data-act="duel"><img class="mode-art" alt="" src="img/mode-duel-${mt ? 'mine' : 'hotel'}.jpg" onerror="this.onerror=null;this.src=KV.UI.modeArt('duel' + '${mt}')"><span class="ml">${icon('swords')} Дуэль</span><small>карта соперника</small></button>
           </div></div>
           <div class="menu-grid">
             <button class="btn" data-act="shop">${icon('shop')} Магазин</button>

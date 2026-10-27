@@ -31,7 +31,7 @@ function fileStore(file) {
 }
 const hub = createHub(K, { twitchClientId: TWITCH_CLIENT_ID, googleClientId: GOOGLE_CLIENT_ID, requireTwitch: REQUIRE_TWITCH, store: process.env.NO_STORE ? null : fileStore(DATA_FILE), voteMs: +process.env.VOTE_MS || undefined });
 
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.json': 'application/json', '.ico': 'image/x-icon' };
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml', '.json': 'application/json', '.ico': 'image/x-icon' };
 const configJs = () => 'globalThis.KV = globalThis.KV || {}; globalThis.KV.CONFIG = ' + JSON.stringify({ twitchClientId: TWITCH_CLIENT_ID, googleClientId: GOOGLE_CLIENT_ID, requireTwitch: REQUIRE_TWITCH, serverUrl: 'auto' }) + ';';
 const wrapHtml = html => '<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"></head><body>' + html + '</body></html>';
 

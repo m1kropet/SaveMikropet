@@ -120,6 +120,10 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .peek::before { left: 30%; } .peek::after { right: 30%; }
 @keyframes bob { 50% { transform: translateY(-0.3em) } }
 .menu-top { position: relative; display: flex; justify-content: space-between; align-items: center; padding: 0.9em 1em 0; gap: 0.6em; }
+/* как на макете: крупное кольцо уровня и золотая «пилюля» с монетами */
+.menu-top .profile-chip .lvl { width: 2.9em; height: 2.9em; font-size: 1.3em; }
+.menu-top .profile-chip { background: #0d0907b3; }
+.menu-top .plaque.coin { font-family: var(--f-body); font-weight: 800; font-size: 1.15em; padding: 0.3em 0.8em 0.3em 0.45em; border-radius: 999px; background: linear-gradient(#3a2a12, #20160a); color: #ffe6a8; border: 2px solid #c9a35a; box-shadow: 0 0 14px #c9a35a55, inset 0 1px 0 #ffffff22; letter-spacing: 0.02em; }
 .profile-chip { display: flex; align-items: center; gap: 0; background: #120f0bcc; border: 1px solid var(--line); border-radius: 999px; padding: 0.3em; cursor: pointer; min-width: 0; transition: padding .25s; }
 .profile-chip .lvl { position: relative; }
 .lvl-ok { position: absolute; right: -0.25em; bottom: -0.2em; width: 1.05em; height: 1.05em; border-radius: 50%; display: grid; place-items: center; border: 2px solid #120f0b; }
@@ -345,7 +349,7 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .mapthumb { width: 2.7em; height: 4.5em; border-radius: 0.3em; object-fit: cover; flex: none; border: 1px solid #00000080; background: #111; }
 .mode-btn .ml { display: inline-flex; align-items: center; gap: 0.3em; }
 .mode-btn .ml svg { width: 1.05em; height: 1.05em; }
-.mode-art { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 0.35em; margin-bottom: 0.25em; display: block; }
+.mode-art { width: 100%; aspect-ratio: 17 / 10; object-fit: cover; border-radius: 0.35em; margin-bottom: 0.25em; display: block; }
 .menu-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
 .pub-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; }

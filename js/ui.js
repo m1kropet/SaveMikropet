@@ -407,6 +407,135 @@
     eyeSign(ctx, bx - u * 0.5, by - u * 0.8, u * 0.35, t, '#e8d8b8');
   }
 
+  // ---------- Скин «Шахты»: штольня с дверью номера 0000 (нарисовано кодом по макету игрока) ----------
+  const MW = 941, MH = 1672;
+  function rockPoly(ctx, r, cx, cy, rad, col, rim) {
+    const n = 5 + Math.floor(r() * 3);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2 + r() * 0.5, rr = rad * (0.65 + r() * 0.45); ctx.lineTo(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.8); }
+    ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+    if (rim) { ctx.strokeStyle = rim; ctx.lineWidth = 2; ctx.stroke(); }
+  }
+  function woodRect(ctx, x, y, w, h, vertical, dark) {
+    const g = vertical ? ctx.createLinearGradient(x, 0, x + w, 0) : ctx.createLinearGradient(0, y, 0, y + h);
+    const k = dark ? 0.45 : 0.7;
+    g.addColorStop(0, `rgb(${58 * k | 0},${34 * k | 0},${18 * k | 0})`); g.addColorStop(0.45, `rgb(${112 * k | 0},${70 * k | 0},${36 * k | 0})`); g.addColorStop(1, `rgb(${46 * k | 0},${27 * k | 0},${14 * k | 0})`);
+    ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+    ctx.strokeStyle = 'rgba(20,10,4,0.55)'; ctx.lineWidth = 1.5;
+    for (let i = 1; i < 4; i++) { ctx.beginPath(); if (vertical) { const xx = x + w * i / 4 + Math.sin(i * 7) * 2; ctx.moveTo(xx, y); ctx.lineTo(xx + 2, y + h); } else { const yy = y + h * i / 4; ctx.moveTo(x, yy); ctx.lineTo(x + w, yy + 2); } ctx.stroke(); }
+    ctx.strokeStyle = 'rgba(255,170,90,0.18)'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
+  }
+  // старый фонарь: железная рамка, стекло, огонёк
+  function lantern(ctx, x, y, sz, t, lvl, red, i) {
+    const sw = Math.sin(t * 1.2 + i) * 0.06;
+    ctx.save(); ctx.translate(x, y); ctx.rotate(sw);
+    const rgb = red ? '255,40,30' : '255,160,60';
+    glow(ctx, 0, sz * 0.9, sz * 4.5, red ? rgb : '255,110,35', 0.3 * lvl, true);
+    glow(ctx, 0, sz * 0.9, sz * 1.6, red ? '255,80,60' : '255,210,120', 0.7 * lvl, true);
+    ctx.strokeStyle = '#1a120b'; ctx.lineWidth = sz * 0.06;
+    ctx.beginPath(); ctx.arc(0, -sz * 0.05, sz * 0.18, Math.PI, 0); ctx.stroke();
+    ctx.fillStyle = '#20160d'; ctx.fillRect(-sz * 0.42, sz * 0.12, sz * 0.84, sz * 0.14); ctx.fillRect(-sz * 0.48, sz * 1.5, sz * 0.96, sz * 0.18);
+    const gg = ctx.createLinearGradient(0, sz * 0.26, 0, sz * 1.5);
+    gg.addColorStop(0, `rgba(${red ? '255,120,90' : '255,220,150'},${0.55 + 0.4 * lvl})`); gg.addColorStop(1, `rgba(${red ? '200,30,20' : '230,120,30'},${0.5 + 0.4 * lvl})`);
+    ctx.fillStyle = gg; ctx.fillRect(-sz * 0.36, sz * 0.26, sz * 0.72, sz * 1.24);
+    glow(ctx, 0, sz * 0.9, sz * 0.55, red ? '255,120,90' : '255,250,210', 0.95 * lvl, true);
+    SP().glowDot(ctx, 0, sz * 0.95, sz * 0.13, red ? 'rgba(255,140,110,1)' : `rgba(255,248,215,${Math.max(0.25, lvl)})`, sz * 1.2 * lvl);
+    ctx.strokeStyle = '#1a120b'; ctx.lineWidth = sz * 0.07;
+    [-0.36, 0, 0.36].forEach(k => { ctx.beginPath(); ctx.moveTo(sz * k, sz * 0.26); ctx.lineTo(sz * k, sz * 1.5); ctx.stroke(); });
+    ctx.restore();
+  }
+
+  function mineDoorScene(ctx, w, h, t, live) {
+    const s = Math.max(w / MW, h / MH), ox = (w - MW * s) / 2, oy = Math.min(0, (h - MH * s) * 0.35);
+    ctx.save(); ctx.setTransform(s, 0, 0, s, ox, oy);
+    const r = K.rng(42), lamp = lampLevel(t), red = lampRed(t);
+    // скала
+    ctx.fillStyle = '#0f0805'; ctx.fillRect(0, 0, MW, MH);
+    for (let i = 0; i < 140; i++) {
+      const x = r() * MW, y = r() * 1150, rad = 30 + r() * 70;
+      const near = Math.max(0, 1 - Math.hypot(x - 505, y - 470) / 700);
+      const c = ['#140b06', '#1a0f08', '#21130a', '#100804'][i % 4];
+      rockPoly(ctx, r, x, y, rad, c, `rgba(255,140,50,${0.03 + near * near * 0.28})`);
+    }
+    // общий тёплый свет и красный отсвет из двери
+    glow(ctx, 490, 520, 360, '255,30,30', 0.32, true);
+    // потолок: доски и балка
+    for (let i = 0; i < 11; i++) woodRect(ctx, i * 90 - 20, -10, 92, 58, true, true);
+    ctx.save(); ctx.translate(0, 70); ctx.rotate(-0.04); woodRect(ctx, -20, 0, MW + 60, 52, false); ctx.restore();
+    // боковые стойки крепи
+    woodRect(ctx, 40, 80, 62, 700, true, true); woodRect(ctx, 770, 90, 60, 690, true, true);
+    // пол: мокрый камень и рельсы
+    const fg = ctx.createLinearGradient(0, 680, 0, MH); fg.addColorStop(0, '#1f1008'); fg.addColorStop(0.35, '#130905'); fg.addColorStop(1, '#090403');
+    ctx.fillStyle = fg; ctx.beginPath(); ctx.moveTo(0, 760); ctx.lineTo(330, 690); ctx.lineTo(680, 690); ctx.lineTo(MW, 790); ctx.lineTo(MW, MH); ctx.lineTo(0, MH); ctx.fill();
+    for (let i = 0; i < 70; i++) { const y = 700 + r() ** 1.5 * 900, x = r() * MW, rw = 20 + (y - 690) * 0.08 * (0.6 + r()); ctx.fillStyle = ['rgba(60,32,14,0.35)', 'rgba(40,20,9,0.4)', 'rgba(80,44,18,0.25)'][i % 3]; ctx.beginPath(); ctx.ellipse(x, y, rw, rw * 0.3, 0, 0, Math.PI * 2); ctx.fill(); }
+    // отражения света на мокром полу
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    [[505, 760, 120, '255,40,30', 0.35], [180, 820, 90, '255,150,60', 0.2 * lamp], [860, 820, 110, '255,150,60', 0.22]].forEach(([x, y, rw, c, a]) => { const g = ctx.createRadialGradient(x, y, 0, x, y, rw * 2); g.addColorStop(0, `rgba(${c},${a})`); g.addColorStop(1, `rgba(${c},0)`); ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rw * 2, rw * 0.7, 0, 0, Math.PI * 2); ctx.fill(); });
+    ctx.restore();
+    // шпалы и рельсы к двери
+    for (let k = 0; k < 18; k++) { const f = (k / 17) ** 1.7, y = 690 + f * 980, x0 = 445 - f * 230, x1 = 565 + f * 330; ctx.fillStyle = `rgba(${44 - f * 18 | 0},${25 - f * 10 | 0},${13 - f * 6 | 0},1)`; ctx.fillRect(x0 - 10, y, x1 - x0 + 20, 8 + f * 26); }
+    ctx.lineCap = 'round';
+    [[455, 270], [555, 760]].forEach(([xt, xb]) => { ctx.strokeStyle = '#3a3f46'; ctx.lineWidth = 14; ctx.beginPath(); ctx.moveTo(xt, 690); ctx.lineTo(xb, MH); ctx.stroke(); ctx.strokeStyle = 'rgba(255,170,110,0.75)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(xt, 688); ctx.lineTo(xb, MH - 4); ctx.stroke(); });
+    // дверной проём с красной комнатой
+    const rg = ctx.createLinearGradient(0, 270, 0, 690); rg.addColorStop(0, '#3a0406'); rg.addColorStop(0.6, '#8a0a10'); rg.addColorStop(1, '#5a0508');
+    ctx.fillStyle = rg; ctx.fillRect(330, 270, 300, 420);
+    glow(ctx, 480, 480, 230, '255,30,40', 0.45 + 0.08 * Math.sin(t * 1.7), true);
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 3; for (let x = 360; x < 630; x += 45) { ctx.beginPath(); ctx.moveTo(x, 280); ctx.lineTo(x, 690); ctx.stroke(); }
+    // рама проёма и табличка 0000
+    woodRect(ctx, 272, 210, 62, 485, true); woodRect(ctx, 628, 210, 62, 485, true);
+    woodRect(ctx, 250, 200, 462, 66, false);
+    ctx.save(); ctx.translate(483, 178); ctx.rotate(-0.01);
+    const pg = ctx.createLinearGradient(0, -34, 0, 34); pg.addColorStop(0, '#c9a477'); pg.addColorStop(1, '#8a6a44');
+    ctx.fillStyle = pg; ctx.fillRect(-75, -34, 150, 68); ctx.strokeStyle = '#3a2412'; ctx.lineWidth = 4; ctx.strokeRect(-75, -34, 150, 68);
+    ctx.fillStyle = '#2a1a0c'; ctx.font = '800 46px "JetBrains Mono", monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', 0, 3);
+    ctx.restore();
+    // вагонетка с золотой рудой слева
+    ctx.fillStyle = '#2e2620'; ctx.beginPath(); ctx.moveTo(-10, 520); ctx.lineTo(140, 520); ctx.lineTo(125, 690); ctx.lineTo(-10, 690); ctx.fill();
+    ctx.strokeStyle = '#5a4a3a'; ctx.lineWidth = 6; ctx.strokeRect(-10, 520, 150, 170);
+    for (let i = 0; i < 9; i++) { const x = 5 + (i % 5) * 28, y = 505 - (i > 4 ? 18 : 0); SP().glowDot(ctx, x, y, 13, i % 2 ? '#ffcf4a' : '#e8a020', 18); }
+    ctx.fillStyle = '#121010'; [30, 110].forEach(x => { ctx.beginPath(); ctx.arc(x, 700, 26, 0, Math.PI * 2); ctx.fill(); });
+    // справа: камни, табличка HOTEL с глазом, бочка
+    for (let i = 0; i < 9; i++) rockPoly(ctx, r, 720 + r() * 160, 600 + r() * 120, 40 + r() * 40, ['#2a1a10', '#3a2416', '#221509'][i % 3], 'rgba(255,150,60,0.35)');
+    ctx.save(); ctx.translate(868, 425); ctx.rotate(0.05);
+    woodRect(ctx, -60, -80, 125, 165, false, true); ctx.strokeStyle = '#140a04'; ctx.lineWidth = 5; ctx.strokeRect(-60, -80, 125, 165);
+    ctx.fillStyle = '#d8c3a0'; ctx.font = '800 34px "Rubik", "Arial Black", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('HOTEL', 2, -42);
+    ctx.restore();
+    eyeSign(ctx, 870, 470, 26, t, '#d8c3a0');
+    const bg2 = ctx.createLinearGradient(850, 0, MW, 0); bg2.addColorStop(0, '#3a2414'); bg2.addColorStop(0.5, '#6a4426'); bg2.addColorStop(1, '#2a180c');
+    ctx.fillStyle = bg2; ctx.beginPath(); ctx.ellipse(905, 620, 70, 22, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(835, 620, 140, 170);
+    ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 7; [650, 740].forEach(y => { ctx.beginPath(); ctx.moveTo(835, y); ctx.lineTo(MW + 30, y); ctx.stroke(); });
+    // тонировка как на макете: глубокие красно-бурые тени (фонари и герои рисуются после — остаются яркими)
+    ctx.save(); ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = 'rgb(215,120,104)'; ctx.fillRect(0, 0, MW, MH); ctx.restore();
+    // Ковтоп в проёме (мониторы выходят за раму)
+    const ks = 330 / 1.93, kx = 512, ky = 694;
+    ctx.save(); ctx.translate(kx, ky); ctx.scale(ks, ks); SP().setPx(ks * 0.6 * s); SP().kovtop(ctx, t, false, 1, live ? kovDigits(t) : undefined); ctx.restore();
+    if (live) kovTv = { x0: ox + (kx - 0.42 * ks) * s, x1: ox + (kx + 0.42 * ks) * s, y0: oy + (ky - 1.7 * ks) * s, y1: oy + (ky - 1.0 * ks) * s };
+    // фонари: слева — секретный (азбука Морзе), справа большой и маленький вдали
+    lantern(ctx, 155, 175, 68, t, Math.max(0.05, lamp), red, 1);
+    lantern(ctx, 870, 175, 88, t, flick(t, 2), false, 2);
+    lantern(ctx, 735, 330, 34, t, flick(t, 3), false, 3);
+    ctx.strokeStyle = '#1a120b'; ctx.lineWidth = 6; [[155, 80], [870, 95], [735, 280]].forEach(([x, y0]) => { ctx.beginPath(); ctx.moveTo(x, y0); ctx.lineTo(x, y0 + 75); ctx.stroke(); });
+    // микропет
+    const ps = 305 / 1.34;
+    glow(ctx, 265, 745, 240, '120,255,230', 0.12, true);
+    ctx.save(); ctx.translate(262, 748); ctx.scale(ps, ps); SP().setPx(ps * 0.6 * s); SP().pet(ctx, t, 0, 1); ctx.restore();
+    // искры и боке у пола
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    const er = K.rng(9);
+    for (let i = 0; i < 46; i++) {
+      const x0 = er() * MW, sp = 0.03 + er() * 0.06, p0 = er(), side = x0 < MW / 2 ? -1 : 1;
+      const y = MH - ((((p0 + t * sp) % 1) + 1) % 1) * MH * 0.85, x = x0 + Math.sin(t + i) * 14;
+      const a = 0.35 + 0.45 * Math.sin(t * 3 + i) ** 2, sz = 2 + (i % 3);
+      ctx.fillStyle = `rgba(255,${130 + (i % 5) * 18},50,${a})`; ctx.fillRect(x, y, sz, sz);
+    }
+    [[40, 1500, 120], [900, 1560, 140], [120, 1640, 90]].forEach(([x, y, rr], i) => glow(ctx, x, y, rr, '255,140,40', 0.22 + 0.06 * Math.sin(t * 1.5 + i)));
+    ctx.restore();
+    // виньетка
+    const vg = ctx.createRadialGradient(MW / 2, 600, 250, MW / 2, 750, 1050); vg.addColorStop(0, 'rgba(0,0,0,0)'); vg.addColorStop(0.6, 'rgba(0,0,0,0.35)'); vg.addColorStop(1, 'rgba(0,0,0,0.85)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, MW, MH);
+    ctx.restore();
+  }
+
   // Фоны скинов по макету игрока (картинка 653×518). Поверх — живой свет, секреты и частицы.
   const MENU_IMG = {}, IMG_W = 653, IMG_H = 1199, SCENE_H = 518;
   ['hotel', 'mine'].forEach(k => { if (typeof Image === 'undefined') return; const im = new Image(); im.decoding = 'async'; im.src = 'img/menu-' + k + '.jpg'; MENU_IMG[k] = im; });
@@ -466,6 +595,7 @@
 
   // Сцена главного меню (общая для меню и превью скинов). Секреты: мигающая лампа (азбука Морзе) и экран Ковтопа.
   function paintMenu(ctx, w, h, t, mine, live, noImg) {
+    if (mine) { mineDoorScene(ctx, w, h, t, live); return; }
     { const im = MENU_IMG[mine ? 'mine' : 'hotel']; if (!noImg && im && im.complete && im.naturalWidth) { ctx.setTransform(1, 0, 0, 1, 0, 0); paintImageScene(ctx, w, h, t, mine, live); return; } }
     const u = w / 10, VX = w * 0.6, FY = h * 0.43;
     ctx.setTransform(1, 0, 0, 1, 0, 0);

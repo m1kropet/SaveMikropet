@@ -245,4 +245,43 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',10],['duel'
   f.startNextWave(true); ok(f.shieldLeft===2,'shield not refilled at wave start');
   f.shieldLeft=0; f.cmd({type:'upgrade',tower:t.id,branch:0}); ok(f.shieldLeft===3,'spent shield: next upgrade adds only its 3');
   const e=f.spawn({type:'normal',hpMul:1,spMul:1},f.waveNum,0,f.paths[0].length-0.01); const hp0=f.hp; f.step(1/60); ok(f.hp===hp0 && f.shieldLeft===2,'shield blocks a leak and is used up'); }
+
+// Новые достижения
+{ const p=K.Save.sanitize(K.Save.defaults()); p.stats.feats={}; p.achievements={};
+  const ids=new Set(K.ACHIEVEMENTS.map(a=>a.id)); ok(ids.size===K.ACHIEVEMENTS.length,'unique achievement ids');
+  ok(K.ACHIEVEMENTS.length>=45 && K.ACHIEVEMENTS.filter(a=>a.secret).length>=10,'many achievements and secrets');
+  ok(K.ACHIEVEMENTS.every(a=>a.group && a.name && a.desc && a.coins>0),'achievements have group/name/desc/reward');
+  // идеальная победа на «Тяжело» одним видом башен, с 3 жизнями, на карте «Холл», в 3 часа ночи
+  const f=new K.Field({map:'lobby',diff:'hard',seed:7,squad:['blaster','ice']});
+  const s0=f.layout.spots.find(q=>f.canPlace(q.x,q.z).ok); f.wallets[f.me]=1e6; f.cmd({type:'place',hero:'blaster',x:s0.x,z:s0.z,owner:f.me});
+  f.result='win'; f.over=true; f.leaks=0; f.hp=3; f.wavesCleared=40; f.waveNum=40; f.bossKills=4; f.feats.add('bossClose');
+  const at=new Date(2026,9,27,3,30).getTime();
+  const r=K.Profile.applyMatch(p,{field:f,mode:'single',now:at}); const got=new Set(r.achievements.map(a=>a.id));
+  for (const id of ['win_hard','perfect','perfect_hard','clutch','mono','boss_1','secret_close','secret_3am']) ok(got.has(id),'got '+id);
+  ok(!got.has('all_maps') && K.Profile.achProgress(p,'all_maps').join()==='1,6','map progress 1/6');
+  ok(K.Profile.achProgress(p,'boss_25').join()==='4,25','boss progress');
+  // повторно не выдаётся
+  const r2=K.Profile.applyMatch(p,{field:f,mode:'single',now:at}); ok(!r2.achievements.some(a=>a.id==='perfect'),'no repeat');
+  // все карты
+  for (const m of K.MAPS) p.stats.mapWins[m.id]=1; ok(K.Profile.checkAchievements(p).some(a=>a.id==='all_maps'),'all maps');
+  // «Гостеприимство» и «Выселение»
+  const g=new K.Field({map:'lobby',diff:'easy',seed:3,squad:['blaster']}); g.wavesCleared=1; g.result='lose';
+  ok(K.Profile.applyMatch(p,{field:g,mode:'single',now:Date.UTC(2026,0,1,12)}).achievements.some(a=>a.id==='secret_guest'),'guest');
+  const h=new K.Field({map:'lobby',diff:'easy',seed:3,squad:['blaster']}); h.result='lose';
+  ok(K.Profile.applyMatch(p,{field:h,mode:'single'}).achievements.some(a=>a.id==='secret_checkout'),'checkout');
+  // ник
+  p.nick='Ковтоп'; ok(K.Profile.checkAchievements(p).some(a=>a.id==='secret_impostor'),'impostor');
+  // четыре свинки — тайное; машины
+  const q=new K.Field({map:'lobby',diff:'easy',seed:5,squad:['piggy','garage']}); q.wallets[q.me]=1e6;
+  let placed=0; for (const s of q.layout.spots) { if (placed>=4) break; if (q.cmd({type:'place',hero:'piggy',x:s.x,z:s.z,owner:q.me}).ok) placed++; }
+  ok(q.feats.has('piggy4'),'piggy4 feat');
+  const gs=q.layout.spots.find(s=>q.canPlace(s.x,s.z).ok); const gt=q.cmd({type:'place',hero:'garage',x:gs.x,z:gs.z,owner:q.me}).tower;
+  for (let k=0;k<5;k++) q.cmd({type:'upgrade',tower:gt.id,branch:1,owner:q.me}); ok(q.tier5.has('garage:1'),'tank tier5');
+  const car={tower:gt,kills:4}; const en={dead:true}; q.carKill(car,en); ok(q.carKills===1 && q.feats.has('car5'),'car5 feat');
+  q.result='lose'; q.wavesCleared=2; const r3=K.Profile.applyMatch(p,{field:q,mode:'single'}); const g3=new Set(r3.achievements.map(a=>a.id));
+  ok(g3.has('secret_piggy') && g3.has('secret_rush') && g3.has('tank') && g3.has('max_tier'),'piggy/rush/tank');
+  ok(p.stats.tier5.includes('garage') && p.stats.carKills===1,'stats saved');
+  // старое сохранение без новых полей
+  const old=K.Save.sanitize({v:K.Save.VERSION, stats:{kills:5}}); ok(old.stats.mapWins && Array.isArray(old.stats.tier5) && old.stats.bossKills===0,'sanitize old stats');
+}
 console.log('OK', n, 'checks');

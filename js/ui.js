@@ -1308,6 +1308,31 @@
     }
   };
 
+  // Достижения: по разделам, с прогрессом; тайные скрыты до получения
+  S.achievements = {
+    html(app) {
+      const p = app.profile, A = K.ACHIEVEMENTS;
+      const total = A.length, got = A.filter(a => p.achievements[a.id]).length;
+      const fmt = n => n >= 10000 ? Math.floor(n / 1000) + 'k' : String(n);
+      const groups = [];
+      A.forEach(a => { let g = groups.find(x => x.name === a.group); if (!g) groups.push(g = { name: a.group, list: [] }); g.list.push(a); });
+      const card = a => {
+        const ok = !!p.achievements[a.id], hide = a.secret && !ok;
+        const pr = !ok && !hide ? K.Profile.achProgress(p, a.id) : null;
+        const prog = pr && pr[1] > 1 ? `<div class="ach-prog"><span class="bar"><i style="width:${Math.min(100, 100 * pr[0] / pr[1])}%"></i></span><span class="num">${fmt(Math.min(pr[0], pr[1]))} / ${fmt(pr[1])}</span></div>` : '';
+        const when = ok ? `<span class="note ach-when">${new Date(p.achievements[a.id]).toLocaleDateString('ru-RU')}</span>` : '';
+        return `<div class="ach ${ok ? 'got' : ''} ${hide ? 'hidden' : ''} ${a.secret ? 'sec' : ''}"><span class="medal">${ok ? icon(a.secret ? 'eye' : 'star') : hide ? '?' : icon('lock')}</span>
+          <div class="grow"><b>${hide ? '???' : esc(a.name)}</b><div class="note">${hide ? '<i>«' + esc(a.hint || 'Тайное достижение') + '»</i>' : esc(a.desc)}</div>${prog}</div>
+          <span class="ach-rew"><span class="num coin">+${a.coins}</span>${when}</span></div>`;
+      };
+      return `<div class="screen">${topbar('Достижения')}<div class="scroll">
+        <div class="section card ach-sum"><div class="row"><span class="medal big">${icon('trophy')}</span><div class="grow"><div class="h2">${got} из ${total}</div><div class="note">Тайных найдено: ${A.filter(a => a.secret && p.achievements[a.id]).length} из ${A.filter(a => a.secret).length}</div></div></div><div class="bar"><i style="width:${100 * got / total}%"></i></div></div>
+        ${groups.map(g => `<div class="section"><div class="eyebrow">${esc(g.name)} · ${g.list.filter(a => p.achievements[a.id]).length} / ${g.list.length}</div><div class="list">${g.list.map(card).join('')}</div></div>`).join('')}
+      </div></div>`;
+    },
+    act: {}
+  };
+
   // Друзья
   S.friends = {
     html(app) {
@@ -1381,12 +1406,13 @@
       const need = K.Profile.xpNeed(p.level);
       const inf = K.Save.info(p);
       const sw = (key, label, sub) => `<div class="toggle"><div><b>${label}</b>${sub ? `<div class="note">${sub}</div>` : ''}</div><button class="switch" role="switch" aria-checked="${!!st[key]}" data-act="sw" data-k="${key}" aria-label="${label}"></button></div>`;
-      const achs = K.ACHIEVEMENTS.map(a => { const got = !!p.achievements[a.id]; return `<div class="ach ${got ? 'got' : ''}"><span class="medal">${got ? icon('star') : icon('lock')}</span><div class="grow"><b>${a.secret && !got ? '???' : esc(a.name)}</b><div class="note">${a.secret && !got ? 'Тайное достижение' : esc(a.desc)}</div></div><span class="num note">+${a.coins}</span></div>`; }).join('');
+      const achGot = K.ACHIEVEMENTS.filter(a => p.achievements[a.id]).length;
       return `<div class="screen">${topbar('Профиль и настройки')}<div class="scroll">
         <div class="section card">
           <div class="row"><div class="lvl" style="--p:${Math.round(100 * p.xp / need)};font-size:1.3em"><span>${p.level}</span></div><div class="grow"><div class="h2">${esc(p.nick)}${eyeBadge(p.eye)} <span class="ptag">#${esc(p.tag)}</span></div><div class="note">Тег выдаётся один раз и не меняется${p.tagVerified ? '' : ' (подтвердится при подключении к серверу)'} · Опыт ${p.xp} / ${need} · до уровня ${need - p.xp}</div><div class="bar" style="margin-top:.3em"><i style="width:${100 * p.xp / need}%"></i></div></div></div>
           <div class="kv"><span>Открыто башен</span><b>${p.owned.length} / ${K.HEROES.length}</b><span>Максимальная волна</span><b>${p.maxWave}</b><span>Рекорд бесконечного</span><b>${p.endless.best}${p.endless.bestTime ? ' · ' + fmtTime(p.endless.bestTime) : ''}</b><span>Дуэли: победы / поражения / ничьи</span><b>${p.duel.w} / ${p.duel.l} / ${p.duel.d}</b><span>Всего уничтожено</span><b>${p.stats.kills}</b><span>Время в игре</span><b>${fmtHours(p.playTime)}</b><span>Монеты аккаунта</span><b class="coin">${p.coins}</b></div>
         </div>
+        <button class="section card ach-link" data-act="achs"><span class="medal">${icon('trophy')}</span><span class="grow"><b>Достижения</b><span class="bar"><i style="width:${100 * achGot / K.ACHIEVEMENTS.length}%"></i></span></span><b class="num">${achGot} / ${K.ACHIEVEMENTS.length}</b>${icon('back')}</button>
         <div class="section"><div class="eyebrow">Twitch</div>${twitchBlock(p)}</div>
         <div class="section"><div class="eyebrow">Google</div>${googleBlock(p)}</div>
         <div class="section note" style="display:flex;flex-wrap:wrap;gap:.3em 1em"><a style="display:inline" href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a><a style="display:inline" href="terms.html" target="_blank" rel="noopener">Условия использования</a></div>
@@ -1402,10 +1428,10 @@
         <div class="section"><div class="eyebrow">Сохранение</div><div class="card kv"><span>Формат</span><b>v${inf.version}</b><span>Хранилище</span><b>${inf.storage ? 'браузер (localStorage)' : 'недоступно — прогресс не сохранится'}</b><span>Размер</span><b>${(inf.size / 1024).toFixed(1)} КБ</b><span>Последнее сохранение</span><b>${new Date(inf.savedAt).toLocaleString('ru-RU')}</b></div>
           <div class="note">Прогресс хранится только в этом браузере. Рейтинговые результаты будут засчитываться сервером, а не клиентом.</div>
           <button class="btn danger block" data-act="reset">Сбросить весь прогресс</button></div>
-        <div class="section"><div class="eyebrow">Достижения · ${Object.keys(p.achievements).length} / ${K.ACHIEVEMENTS.length}</div><div>${achs}</div></div>
       </div></div>`;
     },
     act: {
+      achs(app) { app.go('achievements', { back: 'settings' }); },
       sw(app, d) {
         const st = app.profile.settings;
         st[d.k] = !st[d.k];
@@ -1429,7 +1455,11 @@
         const scr = b.closest('.screen');
         const v = K.Profile.validNick(scr.querySelector('#nick').value);
         if (!v.ok) { scr.querySelector('#nickErr').textContent = v.reason; return; }
-        app.profile.nick = v.value; app.persist(); toast('Никнейм сохранён', 'good'); app.refresh();
+        app.profile.nick = v.value;
+        const got = K.Profile.checkAchievements(app.profile);
+        app.persist(); toast('Никнейм сохранён', 'good');
+        got.forEach(a => toast('Достижение: ' + a.name + ' · +' + a.coins, 'gold'));
+        app.refresh();
       },
       full() {
         const el = document.documentElement;

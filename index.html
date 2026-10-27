@@ -332,9 +332,28 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .lb-row.me { border-color: var(--pet); background: #10261f; }
 .dot { width: 0.55em; height: 0.55em; border-radius: 50%; display: inline-block; background: #555; }
 .dot.on { background: var(--good); }
-.ach { display: flex; gap: 0.6em; align-items: center; padding: 0.45em 0; border-bottom: 1px solid #241e17; }
-.ach .medal { width: 2em; height: 2em; border-radius: 50%; flex: none; display: grid; place-items: center; background: #221c15; border: 1px solid var(--line); }
-.ach.got .medal { background: radial-gradient(circle at 35% 35%, #fff1b0, #c9a35a 60%, #7a5a20); border-color: #f2dc9f; }
+.ach { display: flex; gap: 0.7em; align-items: center; padding: 0.6em 0.7em; border: 1px solid var(--line); border-radius: var(--r); background: var(--card-bg, var(--panel)); box-shadow: var(--card-hi, none); }
+.ach .medal, .ach-link .medal, .ach-sum .medal { width: 2.3em; height: 2.3em; border-radius: 50%; flex: none; display: grid; place-items: center; background: rgba(20, 10, 7, 0.85); border: 1px solid var(--line); color: #8d7a62; font-weight: 800; }
+.ach.got { border-color: #9a7440; }
+.ach.got .medal { background: radial-gradient(circle at 35% 35%, #fff1b0, #c9a35a 60%, #7a5a20); border-color: #f2dc9f; color: #3a2408; box-shadow: 0 0 10px #ffb84a66; }
+.ach.got.sec { border-color: #9a2a46; background: linear-gradient(180deg, rgba(58, 12, 22, 0.85), rgba(22, 6, 10, 0.92)); }
+.ach.got.sec .medal { background: radial-gradient(circle at 40% 35%, #ffd0da, #ff2d6a 55%, #6a0a24); border-color: #ff8aa8; color: #fff; box-shadow: 0 0 12px #ff2d6a88; }
+.ach.hidden { border-style: dashed; opacity: 0.8; }
+.ach.hidden .medal { color: #ff6b8a; font-size: 1.1em; }
+.ach:not(.got):not(.hidden) b { color: #e6d8c2; }
+.ach-prog { display: flex; align-items: center; gap: 0.5em; margin-top: 0.3em; }
+.ach-prog .bar { flex: 1; height: 0.35em; }
+.ach-prog .num { font-size: 0.72em; color: var(--mute); white-space: nowrap; }
+.ach-rew { display: flex; flex-direction: column; align-items: flex-end; gap: 0.15em; font-size: 0.85em; white-space: nowrap; }
+.ach:not(.got) .ach-rew .num { color: var(--mute); }
+.ach-when { font-size: 0.75em; }
+.ach-link { display: flex; flex-direction: row; align-items: center; gap: 0.7em; width: 100%; cursor: pointer; text-align: left; font: inherit; color: inherit; }
+.ach-link .medal, .ach-sum .medal { color: #ffd98a; border-color: #c9a35a; box-shadow: 0 0 10px rgba(255, 154, 42, 0.3); }
+.ach-link .grow { display: flex; flex-direction: column; gap: 0.3em; }
+.ach-link > svg:last-child { transform: rotate(180deg); color: var(--mute); }
+.ach-link:hover { border-color: #f0b850; }
+.ach-sum { gap: 0.6em; }
+.ach-sum .medal.big { width: 2.8em; height: 2.8em; font-size: 1.1em; }
 
 /* Компактная панель прокачки и новые элементы */
 .btn.mini { min-height: 2.1em; padding: 0.25em 0.55em; font-size: 0.78em; border-radius: 0.4em; gap: 0.3em; }
@@ -482,9 +501,6 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .chip { border-color: var(--line); background: rgba(30, 16, 10, 0.8); border-radius: 999px; }
 .chip.on { border-color: var(--pet); color: var(--pet); background: rgba(8, 40, 40, 0.75); box-shadow: 0 0 10px rgba(78, 240, 226, 0.25); }
 .note { color: var(--mute); }
-.ach { border-bottom-color: rgba(122, 90, 50, 0.3); }
-.ach .medal { background: rgba(30, 16, 10, 0.8); border-color: var(--line); }
-.ach.got .medal { box-shadow: 0 0 10px #ffb84a66; }
 .toggle { border-bottom-color: rgba(122, 90, 50, 0.3); }
 
 /* вкладки-переключатели */

@@ -329,6 +329,13 @@
       this.nonces = new Set();
       this.towersBuilt = 0;
       this.maxTierHit = false;
+      // для достижений (считаются только для «своего» игрока — this.me)
+      this.bossKills = 0;
+      this.carKills = 0;
+      this.piggyEarned = 0;
+      this.heroesUsed = new Set();
+      this.tier5 = new Set();
+      this.feats = new Set();
       this.end = this.paths[0].pts[this.paths[0].pts.length - 1];
     }
 
@@ -460,6 +467,10 @@
       t.s = towerStats(heroId, t.up, t.skills);
       this.towers.push(t);
       this.towersBuilt++;
+      if (owner === this.me) {
+        this.heroesUsed.add(heroId);
+        if (heroId === 'piggy' && this.towers.filter(q => q.owner === owner && q.hero === 'piggy').length >= 4) this.feats.add('piggy4');
+      }
       this.emit({ t: 'place', tower: t });
       return { ok: true, tower: t };
     }
@@ -511,7 +522,7 @@
       t.s = towerStats(t.hero, t.up, t.skills);
       // щит одноразовый: улучшение добавляет к запасу только новые заряды (жизни микропета прибавятся в начале волны)
       if ((t.s.shield || 0) > shield0) { this.shieldLeft += t.s.shield - shield0; this.emit({ t: 'shieldUp', tower: t, n: t.s.shield - shield0 }); }
-      if (t.up[br] === 5) this.maxTierHit = true;
+      if (t.up[br] === 5) { this.maxTierHit = true; if (t.owner === this.me) this.tier5.add(t.hero + ':' + br); }
       this.emit({ t: 'upgrade', tower: t, branch: br, level: t.up[br] });
       return { ok: true };
     }
@@ -585,7 +596,7 @@
         const s2 = t.s;
         let inc = s2.income;
         if (s2.interest > 0) inc += Math.min(s2.interestCap, Math.floor(this.wallet(t.owner) * s2.interest));
-        if (inc > 0) { this.gain(inc, t.owner); if (t.owner === this.me) income += inc; this.emit({ t: 'piggy', tid: t.id, x: t.x, z: t.z, amount: inc }); }
+        if (inc > 0) { this.gain(inc, t.owner); if (t.owner === this.me) { income += inc; this.piggyEarned += inc; } this.emit({ t: 'piggy', tid: t.id, x: t.x, z: t.z, amount: inc }); }
       }
       if (income > 0) this.emit({ t: 'piggyTotal', amount: income });
       return { ok: true };
@@ -668,11 +679,19 @@
       if (whole > 0) { if (pid) this.gain(whole, pid); else this.gainShared(whole); }
     }
 
+    carKill(c, e) {
+      if (!e.dead || !c.tower || c.tower.owner !== this.me) return;
+      this.carKills++;
+      c.kills = (c.kills || 0) + 1;
+      if (c.kills >= 5) this.feats.add('car5');
+    }
+
     kill(e, tower) {
       if (e.dead) return;
       e.dead = true;
       this.kills++;
       if (tower) tower.kills++;
+      if (e.boss) { this.bossKills++; if (e.eta != null && e.eta < 3) this.feats.add('bossClose'); }
       this.removeEnemy(e);
       this.emit({ t: 'die', e, reward: Math.round(e.maxHp / this.dmgPerCoin()), bonus: false });
     }
@@ -840,10 +859,12 @@
           if (e.hp <= c.hp) {
             c.hp -= e.hp;
             this.damage(e, e.hp, null, c.tower);
+            this.carKill(c, e);
             this.emit({ t: 'ram', x: e.x, z: e.z });
             if (c.hp <= 0) { c.dead = true; this.emit({ t: 'carBoom', car: c }); }
           } else {
             this.damage(e, c.hp, null, c.tower);
+            this.carKill(c, e);
             c.hp = 0; c.dead = true;
             this.emit({ t: 'carBoom', car: c });
           }

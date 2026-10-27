@@ -36,7 +36,8 @@
       playTime: 0,
       settings: { sound: true, autoWave: false, quality: 'mid', effects: true, theme: 'hotel' },
       achievements: {},
-      stats: { kills: 0, games: 0, wavesTotal: 0, wins: { easy: 0, normal: 0, hard: 0 }, team: 0, maxTier: false, secret: false },
+      stats: { kills: 0, games: 0, wavesTotal: 0, wins: { easy: 0, normal: 0, hard: 0 }, team: 0, maxTier: false, secret: false,
+        bossKills: 0, carKills: 0, piggyEarned: 0, mapWins: {}, hardMapWins: {}, tier5: [], feats: {} },
       friends: {
         list: [{ nick: 'Ночной портье', since: now }],
         incoming: [{ nick: 'Фонарик', at: now }, { nick: 'Зеркальце', at: now }],
@@ -70,6 +71,10 @@
     out.settings = Object.assign({}, def.settings, d.settings || {});
     out.stats = Object.assign({}, def.stats, d.stats || {});
     out.stats.wins = Object.assign({}, def.stats.wins, (d.stats && d.stats.wins) || {});
+    const obj = v => v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+    out.stats.mapWins = obj(out.stats.mapWins); out.stats.hardMapWins = obj(out.stats.hardMapWins); out.stats.feats = obj(out.stats.feats);
+    out.stats.tier5 = Array.isArray(out.stats.tier5) ? out.stats.tier5.filter(h => typeof h === 'string') : [];
+    ['bossKills', 'carKills', 'piggyEarned'].forEach(k => { out.stats[k] = Math.max(0, +out.stats[k] || 0); });
     out.duel = Object.assign({}, def.duel, d.duel || {});
     out.endless = Object.assign({}, def.endless, d.endless || {});
     out.friends = Object.assign({}, def.friends, d.friends || {});
@@ -171,23 +176,66 @@
     return ups;
   }
 
+  const won = o => Object.keys(o).filter(k => o[k] > 0 && K.MAP[k]).length;
+  const feat = id => p => !!p.stats.feats[id];
+  // Прогресс [сейчас, цель] — для полоски в списке достижений
+  const ACH_PROG = {
+    all_maps: p => [won(p.stats.mapWins), K.MAPS.length],
+    hard_all_maps: p => [won(p.stats.hardMapWins), K.MAPS.length],
+    endless_25: p => [p.endless.best, 25],
+    endless_50: p => [p.endless.best, 50],
+    endless_100: p => [p.endless.best, 100],
+    kills_1000: p => [p.stats.kills, 1000],
+    kills_10000: p => [p.stats.kills, 10000],
+    boss_1: p => [p.stats.bossKills, 1],
+    boss_25: p => [p.stats.bossKills, 25],
+    waves_100: p => [p.stats.wavesTotal, 100],
+    waves_1000: p => [p.stats.wavesTotal, 1000],
+    all_heroes: p => [p.owned.length, K.HEROES.length],
+    max_tier_all: p => [K.HEROES.filter(h => p.stats.tier5.includes(h.id)).length, K.HEROES.length],
+    garage_100: p => [p.stats.carKills, 100],
+    piggy_10k: p => [p.stats.piggyEarned, 10000],
+    duel_10: p => [p.duel.w, 10],
+    team_10: p => [p.stats.team, 10],
+    games_10: p => [p.stats.games, 10],
+    games_100: p => [p.stats.games, 100],
+    level_10: p => [p.level, 10],
+    level_25: p => [p.level, 25],
+    rich: p => [p.coins, 5000],
+    time_1h: p => [Math.floor(p.playTime / 60), 60],
+    time_10h: p => [Math.floor(p.playTime / 60), 600],
+    secret_all: p => [K.ACHIEVEMENTS.filter(a => a.id !== 'secret_all' && p.achievements[a.id]).length, K.ACHIEVEMENTS.length - 1]
+  };
+  const reached = id => p => { const r = ACH_PROG[id](p); return r[0] >= r[1]; };
+
   const ACH_CHECK = {
     first_wave: p => p.stats.wavesTotal >= 1,
     win_easy: p => p.stats.wins.easy > 0,
     win_normal: p => p.stats.wins.normal > 0,
     win_hard: p => p.stats.wins.hard > 0,
+    perfect: feat('perfect'),
+    perfect_hard: feat('perfect_hard'),
+    clutch: feat('clutch'),
+    mono: feat('mono'),
     endless_open: p => p.endlessUnlocked,
-    endless_25: p => p.endless.best >= 25,
-    kills_1000: p => p.stats.kills >= 1000,
-    all_heroes: p => p.owned.length >= K.HEROES.length,
     max_tier: p => p.stats.maxTier,
+    tank: feat('tank'),
     duel_win: p => p.duel.w > 0,
     team_win: p => p.stats.team > 0,
-    time_1h: p => p.playTime >= 3600,
     secret_title: p => p.stats.secret,
     secret_morse: p => p.themes.includes('mine'),
-    secret_eye: p => !!p.eye
+    secret_eye: p => !!p.eye,
+    secret_guest: feat('guest'),
+    secret_checkout: feat('checkout'),
+    secret_3am: feat('3am'),
+    secret_impostor: p => String(p.nick || '').toLowerCase().includes('ковтоп'),
+    secret_close: feat('close'),
+    secret_piggy: feat('piggy4'),
+    secret_rush: feat('car5')
   };
+  Object.keys(ACH_PROG).forEach(id => { if (!ACH_CHECK[id]) ACH_CHECK[id] = reached(id); });
+  function achProgress(p, id) { return ACH_PROG[id] ? ACH_PROG[id](p) : null; }
+
 
   // Каждое достижение выдаётся ровно один раз — награда не фармится.
   function checkAchievements(p) {
@@ -210,6 +258,31 @@
     p.stats.kills += f.kills;
     p.stats.wavesTotal += f.wavesCleared;
     if (f.maxTierHit) p.stats.maxTier = true;
+    // счётчики и разовые подвиги для достижений
+    const st = p.stats, fe = st.feats, mark = k => { fe[k] = fe[k] || Date.now(); };
+    st.bossKills += f.bossKills || 0;
+    st.carKills += f.carKills || 0;
+    st.piggyEarned += f.piggyEarned || 0;
+    for (const k of f.tier5 || []) {
+      const h = k.split(':')[0];
+      if (!st.tier5.includes(h)) st.tier5.push(h);
+      if (k === 'garage:1') mark('tank');
+    }
+    for (const k of f.feats || []) mark(k === 'bossClose' ? 'close' : k);
+    const hour = new Date(m.now || Date.now()).getHours();
+    if (hour === 3) mark('3am');
+    if (m.mode !== 'duel') {
+      const win = f.result === 'win';
+      if (f.wavesCleared >= 1 && f.towersBuilt === 0) mark('guest');
+      if (f.result === 'lose' && f.wavesCleared === 0) mark('checkout');
+      if (win) {
+        const id = f.map && f.map.id;
+        if (id) { st.mapWins[id] = (st.mapWins[id] || 0) + 1; if (f.diffKey === 'hard') st.hardMapWins[id] = (st.hardMapWins[id] || 0) + 1; }
+        if (f.leaks === 0) { mark('perfect'); if (f.diffKey === 'hard') mark('perfect_hard'); }
+        if (f.hp <= 3) mark('clutch');
+        if (f.heroesUsed && f.heroesUsed.size === 1) mark('mono');
+      }
+    }
     let unlocked = false;
     if (m.mode === 'duel') {
       const res = m.duelResult;
@@ -257,5 +330,5 @@
   }
 
   K.Save = { load, save, recover, info, defaults, sanitize, VERSION, KEY, MIGRATIONS, redeem, addKovCode };
-  K.Profile = { xpNeed, addXp, checkAchievements, applyMatch, validNick };
+  K.Profile = { xpNeed, addXp, checkAchievements, achProgress, applyMatch, validNick };
 })(globalThis.KV = globalThis.KV || {});

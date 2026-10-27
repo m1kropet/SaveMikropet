@@ -1278,16 +1278,53 @@
       const tab = app.session.lbTab || 'level', desc = app.session.lbDesc !== false;
       const def = LB.find(x => x[0] === tab);
       const me = { nick: p.nick, level: p.level, endless: p.endless.best, duelWins: p.duel.w, time: p.playTime, me: true, verified: !!p.twitch };
-      const rows = [me].concat((app.session.serverLeaders || []).filter(r => !(p.twitch && r.nick === p.twitch.login)));
-      rows.sort((a, b) => (desc ? 1 : -1) * (def[2](b) - def[2](a)));
-      return `<div class="screen">${topbar('Лидерборд')}<div class="scroll">
-        <div class="section"><div class="banner">${K.Net.available() ? 'Рейтинг загружается с сервера: учитываются только матчи, проверенные сервером, и игроки, вошедшие через Twitch или Google.' : 'Игровой сервер не подключён, поэтому здесь только ваш результат. Ботов в рейтинге нет — они встречаются только в дуэлях. Когда сервер заработает, появятся игроки, подтверждённые через Twitch или Google.'}</div></div>
-        <div class="section"><div class="tabs">${LB.map(t => `<button class="btn small ${tab === t[0] ? 'brass' : ''}" data-act="tab" data-id="${t[0]}">${t[1]}</button>`).join('')}</div>
-          ${rows.length > 1 ? `<div class="row"><span class="note grow">Сортировка: ${desc ? 'лучшие сверху' : 'с конца'}</span><button class="btn small" data-act="sort">Перевернуть</button></div>` : ''}</div>
-        <div class="section"><div class="list">${rows.map((r, i) => `<button class="lb-row ${r.me ? 'me' : ''}" data-act="profile" data-i="${r.me ? 'me' : i}">
-          <span class="num">${desc ? i + 1 : rows.length - i}</span>
-          <span style="min-width:0"><b>${esc(r.nick)}</b>${eyeBadge(r.me ? p.eye : r.eye)} <span class="ptag">${r.me ? '#' + esc(p.tag) : r.tag ? '#' + esc(r.tag) : ''}</span>${r.verified ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}<br><span class="note">ур. ${r.level} · ${r.me ? (p.twitch ? 'вы · Twitch подтверждён' : p.google ? 'вы · Google подтверждён' : 'вы · локально') : '<span class="dot ' + (r.online ? 'on' : '') + '"></span> ' + (r.online ? 'в сети' : 'не в сети')}</span></span>
-          <b class="num">${def[3](def[2](r))}</b></button>`).join('')}</div></div>
+      const srv = app.session.serverLeaders || [];
+      // индекс в списке сервера нужен для карточки профиля
+      const rows = [me].concat(srv.map((r, i) => Object.assign({}, r, { si: i })).filter(r => !(p.twitch && r.nick === p.twitch.login)));
+      // место всегда считается от лучшего результата; «Перевернуть» меняет только порядок списка
+      rows.sort((a, b) => def[2](b) - def[2](a));
+      rows.forEach((r, i) => { r.rank = i + 1; });
+      const MEDAL = ['', 'gold', 'silver', 'bronze'];
+      const medal = r => MEDAL[r.rank] || '';
+      const key = r => r.me ? 'me' : r.si;
+      const tag = r => r.me ? '#' + esc(p.tag) : r.tag ? '#' + esc(r.tag) : '';
+      const badges = r => eyeBadge(r.me ? p.eye : r.eye) + (r.verified ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : '');
+      const status = r => r.me ? (p.twitch ? 'вы · Twitch' : p.google ? 'вы · Google' : 'вы · локально') : '<span class="dot ' + (r.online ? 'on' : '') + '"></span> ' + (r.online ? 'в сети' : 'не в сети');
+      const val = r => def[3](def[2](r));
+      const initial = r => esc((String(r.nick || '?').trim()[0] || '?').toUpperCase());
+
+      // пьедестал: 2 — 1 — 3
+      const podSlot = rank => {
+        const r = rows[rank - 1], m = MEDAL[rank];
+        if (!r) return `<div class="pod-col empty ${m}"><span class="pod-ava">?</span><span class="pod-nick note">свободно</span><div class="pod-base"><span class="pod-place">${rank}</span></div></div>`;
+        return `<button class="pod-col ${m} ${r.me ? 'me' : ''}" data-act="profile" data-i="${key(r)}">
+          ${rank === 1 ? `<span class="pod-crown">${icon('trophy')}</span>` : ''}
+          <span class="pod-ava">${initial(r)}</span>
+          <span class="pod-nick"><b class="lb-nick ${m}">${esc(r.nick)}</b>${badges(r)}</span>
+          <span class="ptag">${tag(r)}</span>
+          <div class="pod-base"><span class="pod-place">${rank}</span><b class="num pod-val">${val(r)}</b>${r.me ? '<span class="tag on">вы</span>' : ''}</div>
+        </button>`;
+      };
+      const rest = rows.slice(3);
+      if (!desc) rest.reverse();
+      const mine = rows.find(r => r.me);
+      return `<div class="screen leaders">${topbar('Лидерборд')}<div class="scroll">
+        <div class="section"><div class="tabs">${LB.map(t => `<button class="btn small ${tab === t[0] ? 'brass' : ''}" data-act="tab" data-id="${t[0]}">${t[1]}</button>`).join('')}</div></div>
+        <div class="section"><div class="podium">${podSlot(2)}${podSlot(1)}${podSlot(3)}</div></div>
+        <div class="section card lb-mine ${medal(mine)}">
+          <span class="lb-rank ${medal(mine)}">${mine.rank}</span>
+          <div class="grow"><div class="eyebrow">Ваше место · ${esc(def[1])}</div><b class="lb-nick ${medal(mine)}">${esc(mine.nick)}</b> <span class="ptag">${tag(mine)}</span></div>
+          <b class="num">${val(mine)}</b>
+        </div>
+        <div class="section">
+          <div class="row"><span class="eyebrow grow">Остальные игроки${rest.length ? ' · ' + rest.length : ''}</span>${rest.length > 1 ? `<button class="btn small" data-act="sort">${desc ? 'Лучшие сверху' : 'С конца'}</button>` : ''}</div>
+          ${rest.length ? `<div class="list">${rest.map(r => `<button class="lb-row ${r.me ? 'me' : ''}" data-act="profile" data-i="${key(r)}">
+            <span class="lb-rank">${r.rank}</span>
+            <span class="lb-who"><span class="lb-ava">${initial(r)}</span><span style="min-width:0"><b class="lb-nick">${esc(r.nick)}</b>${badges(r)} <span class="ptag">${tag(r)}</span><br><span class="note">ур. ${r.level} · ${status(r)}</span></span></span>
+            <b class="num">${val(r)}</b></button>`).join('')}</div>`
+          : `<div class="card lb-empty note">После третьего места пока никого нет.</div>`}
+        </div>
+        <div class="section"><div class="note lb-info">${K.Net.available() ? 'Рейтинг загружается с сервера: учитываются только матчи, проверенные сервером, и игроки, вошедшие через Twitch или Google.' : 'Игровой сервер не подключён, поэтому здесь только ваш результат. Ботов в рейтинге нет — они встречаются только в дуэлях. Когда сервер заработает, появятся игроки, подтверждённые через Twitch или Google.'}</div></div>
       </div></div>`;
     },
     async mount(el, app) {

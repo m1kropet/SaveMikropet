@@ -111,10 +111,31 @@
       : `<button class="btn pick diff" data-act="diffLocked"><b>???</b><span class="num">${icon('lock')} закрыто</span></button>`);
     return `<div class="diff-grid">${opts.join('')}</div>`;
   }
-  function squadPicker(p) {
-    return `<div class="chips">${p.owned.map(h => `<button class="chip ${p.squad.includes(h) ? 'on' : ''}" data-act="squad" data-id="${h}" aria-pressed="${p.squad.includes(h)}"><span class="hero-thumb" style="width:1.5em;height:1.5em;background-image:url(${K.thumbs[h] || ''})"></span>${K.HERO[h].name}</button>`).join('')}</div>
-      <div class="row"><span class="note grow">В отряде ${p.squad.length} из ${K.SQUAD_MAX}. Остальных героев можно купить в магазине.</span><button class="btn small" data-act="toShop">Магазин</button></div>`;
+  // Выбор карты: крупная карточка выбранной и сетка миниатюр по категориям
+  function mapSelect(sel, act) {
+    act = act || 'map';
+    const M = K.MAP[sel] || K.MAPS[0];
+    const th = m => K.Render2D ? K.Render2D.mapThumb(m, 96, 160) : '';
+    const stars = n => `<span class="stars">${'●'.repeat(n)}${'○'.repeat(5 - n)}</span>`;
+    const cats = [...new Set(K.MAPS.map(m => m.cat))];
+    return `<div class="card map-feat"><img class="map-feat-img" alt="" src="${th(M)}"><div class="grow" style="min-width:0"><div class="eyebrow">${M.cat} · ${stars(M.stars)}</div><div class="h2">${M.name}</div><div class="note">${M.blurb}</div></div></div>
+      ${cats.map(c => `<div class="map-cat"><div class="note map-cat-h">${c}</div><div class="map-grid">${K.MAPS.filter(m => m.cat === c).map(m => `<button class="map-tile ${m.id === M.id ? 'on' : ''}" data-act="${act}" data-id="${m.id}" aria-pressed="${m.id === M.id}"><img alt="" src="${th(m)}"><b>${m.name}</b>${stars(m.stars)}</button>`).join('')}</div></div>`).join('')}`;
   }
+  // Отряд: 4 слота (нажатие убирает героя) и открытые герои вне отряда (нажатие добавляет)
+  function squadPicker(p) {
+    const nm = h => K.HERO[h].name, thumb = (h, sz) => `<span class="hero-thumb" style="${sz ? 'width:' + sz + ';height:' + sz + ';' : ''}background-image:url(${K.thumbs[h] || ''})"></span>`;
+    const slots = Array.from({ length: K.SQUAD_MAX }, (_, i) => p.squad[i]);
+    const rest = p.owned.filter(h => !p.squad.includes(h));
+    return `<div class="squad-slots">${slots.map(h => h
+        ? `<button class="sq-slot" data-act="squad" data-id="${h}" title="Убрать из отряда: ${nm(h)}" aria-label="Убрать из отряда: ${nm(h)}">${thumb(h)}<span class="note">${nm(h)}</span><i class="sq-x">${icon('x')}</i></button>`
+        : `<div class="sq-slot empty"><span class="sq-plus">+</span><span class="note">свободно</span></div>`).join('')}</div>
+      ${rest.length ? `<div class="chips">${rest.map(h => `<button class="chip" data-act="squad" data-id="${h}" aria-label="Добавить в отряд: ${nm(h)}">${thumb(h, '1.5em')}${nm(h)} <span class="mute">+</span></button>`).join('')}</div>` : ''}
+      <div class="row"><span class="note grow">${rest.length ? 'Нажмите на героя внизу, чтобы добавить, на слот — чтобы убрать.' : 'Все открытые герои уже в отряде. Новых можно купить в магазине.'}</span><button class="btn small" data-act="toShop">${icon('shop')} Магазин</button></div>`;
+  }
+  // Нижняя панель запуска: сводка и главная кнопка всегда под рукой
+  const startBar = (label, sum, act, opts) => { opts = opts || {}; return `<div class="start-bar">${sum ? `<div class="sb-sum">${sum}</div>` : ''}<button class="btn ${opts.cls == null ? 'brass' : opts.cls} block" data-act="${act}" ${opts.disabled ? 'disabled' : ''}>${opts.noIcon ? '' : icon('play') + ' '}${label}</button></div>`; };
+  const sec = (title, body, right) => `<div class="section"><div class="row"><span class="eyebrow grow">${title}</span>${right || ''}</div>${body}</div>`;
+  const modeHead = (ic, title, sub) => `<div class="mode-head"><span class="set-ic">${icon(ic)}</span><div class="grow"><b>${title}</b>${sub ? `<div class="note">${sub}</div>` : ''}</div></div>`;
   function toggleSquad(app, id) {
     const p = app.profile;
     if (!p.owned.includes(id)) return;
@@ -257,20 +278,25 @@
     // латунный корпус: центральная колонна и две чаши
     ctx.fillStyle = '#7a5420'; ctx.beginPath(); ctx.moveTo(-s * 0.08, -s * 0.32); ctx.lineTo(s * 0.08, -s * 0.32); ctx.lineTo(s * 0.06, s * 0.22); ctx.lineTo(-s * 0.06, s * 0.22); ctx.fill();
     ctx.fillStyle = '#b8893a'; ctx.beginPath(); ctx.ellipse(0, s * 0.22, s * 0.12, s * 0.06, 0, 0, Math.PI * 2); ctx.fill();
-    const tiers = s > 50 ? [[0.62, 0.02, 7], [0.36, -0.22, 5]] : [[0.5, 0, 5]];
+    // ярусы: верхний (дальний) рисуется первым, нижний — поверх него
+    const tiers = s > 50 ? [[0.36, -0.22, 5], [0.62, 0.02, 7]] : [[0.5, 0, 5]];
+    const flames = [];
+    // 1) весь каркас: дуги, рожки, чашечки и свечи
     tiers.forEach(([R, ty, n], ti) => {
       ctx.strokeStyle = '#a07a30'; ctx.lineWidth = Math.max(1, s * 0.035);
       ctx.beginPath(); ctx.ellipse(0, s * ty + s * 0.06, s * R, s * R * 0.22, 0, 0, Math.PI); ctx.stroke();
       for (let k = 0; k < n; k++) {
         const a = Math.PI * (k + 0.5) / n, cx = -Math.cos(a) * s * R, cy = s * ty + Math.sin(a) * s * R * 0.22;
+        ctx.strokeStyle = '#a07a30';
         ctx.beginPath(); ctx.moveTo(0, s * ty); ctx.quadraticCurveTo(cx * 0.6, cy + s * 0.12, cx, cy); ctx.stroke();
         ctx.fillStyle = '#c9a35a'; ctx.fillRect(cx - s * 0.045, cy - s * 0.02, s * 0.09, s * 0.03);
         ctx.fillStyle = '#f2e6c8'; ctx.fillRect(cx - s * 0.022, cy - s * 0.12, s * 0.044, s * 0.1);
-        const fl = lvl * flick(t, i * 9 + k + ti * 4);
-        glow(ctx, cx, cy - s * 0.16, s * 0.28, red ? '255,80,60' : '255,220,150', 0.9 * fl, true);
-        SP().glowDot(ctx, cx, cy - s * 0.16, s * 0.04, red ? 'rgba(255,110,90,1)' : `rgba(255,248,220,${Math.max(0.2, fl)})`, s * 0.3 * fl);
+        flames.push([cx, cy, lvl * flick(t, i * 9 + k + ti * 4)]);
       }
     });
+    // 2) огоньки свечей — поверх каркаса, чтобы латунь не перекрывала свет
+    flames.forEach(([cx, cy, fl]) => glow(ctx, cx, cy - s * 0.16, s * 0.28, red ? '255,80,60' : '255,220,150', 0.9 * fl, true));
+    flames.forEach(([cx, cy, fl]) => SP().glowDot(ctx, cx, cy - s * 0.16, s * 0.04, red ? 'rgba(255,110,90,1)' : `rgba(255,248,220,${Math.max(0.2, fl)})`, s * 0.3 * fl));
     ctx.restore();
   }
   const SP = () => K.Sprites;
@@ -898,14 +924,13 @@
   // Одиночка
   S.single = {
     html(app) {
-      const p = app.profile, L = p.last;
+      const p = app.profile, L = p.last, M = K.MAP[L.map] || K.MAPS[0];
+      const dn = (K.DIFFS[L.diff] || {}).name || (L.diff === 'endless' ? 'Бесконечный' : '');
       return `<div class="screen">${topbar('Одиночка', coinsChip(p))}<div class="scroll">
-        <div class="section"><div class="eyebrow">Карта</div><div class="list">${mapPicker(L.map)}</div></div>
-        <div class="section"><div class="eyebrow">Сложность</div>${diffPicker(p, L.diff)}
-          ${p.endlessUnlocked ? '' : '<div class="note">Победите на сложности «Тяжело», чтобы узнать, что за «???».</div>'}</div>
-        <div class="section"><div class="eyebrow">Отряд</div>${squadPicker(p)}</div>
-        <div class="section"><button class="btn brass block" data-act="start" style="min-height:3.2em">${icon('play')} Начать матч</button></div>
-      </div></div>`;
+        ${sec('Карта', mapSelect(L.map))}
+        ${sec('Сложность', diffPicker(p, L.diff) + (p.endlessUnlocked ? '' : '<div class="note">Победите на сложности «Тяжело», чтобы узнать, что за «???».</div>'))}
+        ${sec('Отряд · ' + p.squad.length + ' из ' + K.SQUAD_MAX, squadPicker(p))}
+      </div>${startBar('Начать матч', `<b>${esc(M.name)}</b> · ${esc(dn)} · героев: ${p.squad.length}`, 'start')}</div>`;
     },
     act: {
       map(app, d) { app.profile.last.map = d.id; app.persist(); app.refresh(); },
@@ -973,14 +998,14 @@
     const full = room.mode === 'duel' ? 2 : 4, need = room.mode === 'duel' ? 2 : 2;
     const can = room.players.length >= need && room.players.every(x => x.ready);
     const D = K.DIFFS[room.cfg.diff] || K.DIFFS.normal, M = K.MAP[room.cfg.map];
-    return `<div class="section"><div class="row"><div class="grow"><div class="eyebrow">Код ${room.mode === 'duel' ? 'дуэли' : 'комнаты'} · онлайн</div><span class="plaque" style="font-size:1.3em">${room.code}</span></div>
+    return `<div class="section card room-code"><div class="row"><div class="grow"><div class="eyebrow">Код ${room.mode === 'duel' ? 'дуэли' : 'комнаты'} · онлайн</div><span class="plaque" style="font-size:1.5em">${room.code}</span></div>
         <button class="btn small" data-act="copyCode" data-code="${room.code}">Скопировать</button><button class="btn small danger" data-act="netLeave">Выйти</button></div>
         <div class="note">Отправьте код ${room.mode === 'duel' ? 'сопернику' : 'друзьям'}: в разделе «${room.mode === 'duel' ? 'Дуэль' : 'Команда'}» они вводят его в поле «Войти по коду».</div></div>
       <div class="section"><div class="eyebrow">Игроки · ${room.players.length} из ${full}</div><div class="list">${room.players.map(x => `<div class="card row"><i class="dot" style="background:${x.color}"></i>
         <b class="grow">${esc(x.name)}${eyeBadge(x.eye)}${x.verified ? ' <span class="tw-badge" title="Twitch">' + icon('check') + '</span>' : ''} <span class="ptag">${x.tag ? '#' + esc(x.tag) : ''}</span> <span class="mute">ур. ${x.level}</span>${x.id === room.host ? ' <span class="tag">хост</span>' : ''}${x.id === room.you ? ' <span class="tag">вы</span>' : ''}</b>
         <span class="tag ${x.ready ? '' : 'lock'}" style="${x.ready ? 'color:var(--pet);border-color:#3e8f7c' : ''}">${x.ready ? 'готов' : 'не готов'}</span></div>`).join('')}</div>
         <button class="btn block ${me.ready ? 'pet' : 'brass'}" data-act="netReady">${me.ready ? 'Готов ✓ · отменить' : 'Я готов'}</button></div>
-      ${host ? `<div class="section"><div class="eyebrow">Карта</div><div class="list">${mapPicker(room.cfg.map, true, 'netMap')}</div></div>
+      ${host ? `<div class="section"><div class="eyebrow">Карта</div><div class="list">${mapSelect(room.cfg.map, 'netMap')}</div></div>
         ${room.mode === 'team' ? `<div class="section"><div class="note">Сложность выберете голосованием после старта: 30 секунд на выбор.</div>
           <div class="toggle"><div><b>Автозапуск волн</b></div><button class="switch" role="switch" aria-checked="${!!room.cfg.autoWave}" data-act="netAuto" aria-label="Автозапуск волн"></button></div></div>` : ''}
         <div class="section"><button class="btn brass block" data-act="netStart" ${can ? '' : 'disabled'}>${can ? 'Начать матч' : room.players.length < need ? 'Ждём игроков…' : 'Ждём, пока все будут готовы'}</button></div>`
@@ -1014,32 +1039,32 @@
   S.team = {
     html(app, params) {
       const p = app.profile, L = p.last, room = app.session.room, nr = app.session.netRoom;
-      let online;
-      if (!K.Net.available()) online = `<div class="section"><div class="banner">${esc(K.Net.unavailableReason)}</div></div>`;
-      else if (nr && nr.mode === 'team') online = netLobby(app, nr);
-      else online = publicLobbies(app) + `<div class="section"><div class="eyebrow">Своя комната с друзьями</div>
+      let online, bar = '';
+      const inNet = nr && nr.mode === 'team';
+      if (inNet) online = netLobby(app, nr);
+      else if (room) online = '';
+      else if (!K.Net.available()) online = `<div class="section card mode-card">${modeHead('people', 'Онлайн', 'Публичные лобби и комнаты с друзьями')}<div class="note">${esc(K.Net.unavailableReason)}</div></div>`;
+      else online = `<div class="section card mode-card">${modeHead('people', 'Онлайн', 'Деньги общие, сервер проверяет каждую покупку, у каждого свой цвет башен.')}</div>` + publicLobbies(app) + `<div class="section card"><div class="eyebrow">Своя комната с друзьями</div>
           <button class="btn brass block" data-act="netCreate" data-mode="team">Создать онлайн-комнату</button>
           <div class="row"><input type="text" id="netCode" maxlength="4" placeholder="XXXX" style="text-transform:uppercase;font-family:var(--f-mono)" autocomplete="off" aria-label="Код комнаты"><button class="btn" data-act="netJoin">Войти по коду</button></div>
-          ${netStatus(app)}<div class="note">Деньги общие, сервер проверяет каждую покупку, у каждого свой цвет башен.</div></div>`;
+          ${netStatus(app)}</div>`;
       let local = '';
-      if (!(nr && nr.mode === 'team')) {
-        if (!room) local = `<div class="section"><div class="eyebrow">На одном устройстве</div><button class="btn block" data-act="create">Создать локальную комнату</button>
-          <div class="note">Игроки по очереди строят на этом экране, кошелёк общий.</div></div>`;
+      if (!inNet) {
+        if (!room) local = `<div class="section card mode-card">${modeHead('user', 'На одном устройстве', 'Игроки по очереди строят на этом экране, кошелёк общий. Интернет не нужен.')}<button class="btn block" data-act="create">Создать локальную комнату</button></div>`;
         else {
-          const players = room.players.map(pl => `<div class="card row"><i class="dot" style="background:${pl.color}"></i>
+          const M = K.MAP[L.map] || K.MAPS[0], dn = (K.DIFFS[L.diff] || {}).name || '';
+          const players = room.players.map(pl => `<div class="card row pl-row" style="--pc:${pl.color}"><i class="dot" style="background:${pl.color}"></i>
             ${pl.host ? `<b class="grow">${esc(p.nick)}${eyeBadge(p.eye)} <span class="tag">хост</span></b>` : `<input type="text" class="grow" id="pn_${pl.id}" data-pid="${pl.id}" value="${esc(pl.name)}" maxlength="16" aria-label="Имя игрока">`}
             <button class="btn small ${pl.ready ? 'pet' : ''}" data-act="ready" data-id="${pl.id}">${pl.ready ? 'Готов ✓' : 'Не готов'}</button>
             ${pl.host ? '' : `<button class="btn small icon-btn" data-act="kick" data-id="${pl.id}" aria-label="Убрать игрока">${icon('x')}</button>`}</div>`).join('');
-          local = `<div class="section"><div class="row"><div class="eyebrow grow">На одном устройстве · ${room.players.length} из 4</div><button class="btn small" data-act="leave">Закрыть</button></div>
-            <div class="list">${players}</div>
-            <button class="btn block" data-act="add" ${room.players.length >= 4 ? 'disabled' : ''}>Добавить игрока на этом устройстве</button></div>
-          <div class="section"><div class="eyebrow">Карта</div><div class="list">${mapPicker(L.map, true)}</div></div>
-          <div class="section"><div class="eyebrow">Сложность</div>${diffPicker(p, L.diff)}</div>
-          <div class="section"><div class="eyebrow">Отряд команды</div>${squadPicker(p)}</div>
-          <div class="section"><button class="btn brass block" data-act="start" ${room.canStart() ? '' : 'disabled'}>${room.canStart() ? 'Начать локальный матч' : 'Нужно 2+ игрока, все готовы'}</button></div>`;
+          const empty = Array.from({ length: 4 - room.players.length }, () => '<div class="card row pl-row empty note"><i class="dot"></i><span class="grow">Свободное место</span></div>').join('');
+          local = sec('На одном устройстве · ' + room.players.length + ' из 4', `<div class="list">${players}${empty}</div>
+            <button class="btn block" data-act="add" ${room.players.length >= 4 ? 'disabled' : ''}>Добавить игрока на этом устройстве</button>`, '<button class="btn small" data-act="leave">Закрыть</button>')
+            + sec('Карта', mapSelect(L.map)) + sec('Сложность', diffPicker(p, L.diff)) + sec('Отряд команды · ' + p.squad.length + ' из ' + K.SQUAD_MAX, squadPicker(p));
+          bar = startBar(room.canStart() ? 'Начать локальный матч' : 'Нужно 2+ игрока, все готовы', `<b>${esc(M.name)}</b> · ${esc(dn)} · игроков: ${room.players.length}`, 'start', { disabled: !room.canStart() });
         }
       }
-      return `<div class="screen">${topbar('Команда', coinsChip(p))}<div class="scroll">${online}${local}</div></div>`;
+      return `<div class="screen">${topbar('Команда', coinsChip(p))}<div class="scroll">${online}${local}</div>${bar}</div>`;
     },
     mount(el, app, params) {
       clearInterval(this.cdTimer);
@@ -1090,26 +1115,29 @@
   S.duel = {
     html(app) {
       const p = app.profile, L = p.last, D = p.duel, nr = app.session.netRoom;
-      const hist = D.history.length ? D.history.map(h => `<div class="row card"><span class="tag ${h.result === 'win' ? '' : 'lock'}" style="${h.result === 'win' ? 'color:var(--good);border-color:#2f6a3a' : ''}">${h.result === 'win' ? 'Победа' : h.result === 'lose' ? 'Поражение' : 'Ничья'}</span><span class="grow note">${esc(h.opp)} · ${new Date(h.at).toLocaleDateString('ru-RU')}</span><span class="num">${h.wave} в · ${fmtTime(h.time)}</span></div>`).join('') : '<div class="note">Пока нет сыгранных дуэлей.</div>';
+      const RES = { win: ['Победа', 'win'], lose: ['Поражение', 'lose'], draw: ['Ничья', 'draw'] };
+      const hist = D.history.length ? D.history.map(h => { const r = RES[h.result] || RES.draw; return `<div class="card row hist ${r[1]}"><span class="hist-res">${r[0]}</span><span class="grow note" style="min-width:0">${esc(h.opp)} · ${new Date(h.at).toLocaleDateString('ru-RU')}</span><span class="num">${h.wave} в · ${fmtTime(h.time)}</span></div>`; }).join('') : '<div class="card note" style="text-align:center">Пока нет сыгранных дуэлей.</div>';
+      const inNet = nr && nr.mode === 'duel', games = D.w + D.l + D.d;
       let online;
-      if (!K.Net.available()) online = `<div class="section"><div class="eyebrow">Онлайн</div><div class="banner">${esc(K.Net.unavailableReason)}</div></div>`;
-      else if (nr && nr.mode === 'duel') online = netLobby(app, nr);
-      else if (app.session.queued) online = `<div class="section"><div class="card row"><div class="grow"><b>Ищем соперника…</b><div class="note">Подбираем игрока с близким уровнем. Сейчас в очереди: ${app.session.queueSize || 1}</div></div><button class="btn small" data-act="netUnqueue">Отмена</button></div></div>`;
-      else online = `<div class="section"><div class="eyebrow">Онлайн против живого игрока</div>
+      if (!K.Net.available()) online = `<div class="section card mode-card">${modeHead('swords', 'Онлайн против живого игрока', '')}<div class="note">${esc(K.Net.unavailableReason)}</div></div>`;
+      else if (inNet) online = netLobby(app, nr);
+      else if (app.session.queued) online = `<div class="section card countdown go"><b>Ищем соперника…</b><div class="note">Подбираем игрока с близким уровнем. Сейчас в очереди: ${app.session.queueSize || 1}</div><button class="btn small" data-act="netUnqueue">Отмена</button></div>`;
+      else online = `<div class="section card mode-card">${modeHead('swords', 'Онлайн против живого игрока', 'Случайный соперник близкого уровня или вызов друга по коду')}
           <button class="btn brass block" data-act="netQueue">Поиск случайного соперника</button>
           <button class="btn block" data-act="netCreate" data-mode="duel">Вызвать друга — создать дуэль</button>
           <div class="row"><input type="text" id="netCode" maxlength="4" placeholder="XXXX" style="text-transform:uppercase;font-family:var(--f-mono)" autocomplete="off" aria-label="Код дуэли"><button class="btn" data-act="netJoin">Войти по коду</button></div>
           ${netStatus(app)}</div>`;
+      const M = K.MAP[L.duelMap] || K.MAPS[0];
       return `<div class="screen">${topbar('Дуэль', coinsChip(p))}<div class="scroll">
-        <div class="section"><div class="kv card"><span>Победы / поражения / ничьи</span><b>${D.w} / ${D.l} / ${D.d}</b><span>Максимальная волна</span><b>${D.maxWave}</b></div></div>
+        <div class="section card"><div class="row"><span class="eyebrow grow">Ваши дуэли</span><span class="note">${games ? 'побед ' + Math.round(100 * D.w / games) + '% · макс. волна ' + D.maxWave : 'ещё не сыграно'}</span></div>
+          <div class="duel-sum"><div><b class="num" style="color:var(--good)">${D.w}</b><span class="note">побед</span></div><div><b class="num" style="color:#ff8fa8">${D.l}</b><span class="note">поражений</span></div><div><b class="num">${D.d}</b><span class="note">ничьих</span></div></div>
+          ${games ? `<div class="duel-bar"><i style="flex:${D.w};background:var(--good)"></i><i style="flex:${D.d};background:var(--mute)"></i><i style="flex:${D.l};background:#ff6b8a"></i></div>` : ''}</div>
         ${online}
-        ${nr && nr.mode === 'duel' ? '' : `<div class="section"><div class="eyebrow">Тренировка против бота · без интернета</div>
-          <div class="card note">Бот подбирается под вас: уровень около ${p.level} (±2) и тот же набор героев. Волны общие: следующая начинается у обоих, только когда оба отбили текущую. Во время матча можно открыть карту соперника.</div>
-          <div class="list">${mapPicker(L.duelMap, true)}</div></div>
-        <div class="section"><div class="eyebrow">Ваш отряд</div>${squadPicker(p)}</div>
-        <div class="section"><button class="btn block" data-act="start">${icon('play')} Тренировка с ботом</button></div>`}
-        <div class="section"><div class="eyebrow">Последние матчи</div><div class="list">${hist}</div></div>
-      </div></div>`;
+        ${inNet ? '' : `<div class="section card mode-card">${modeHead('user', 'Тренировка с ботом', 'Без интернета. Бот около вашего уровня (' + p.level + ' ±2) и с тем же набором героев. Волны общие: следующая начинается у обоих, когда оба отбили текущую.')}</div>
+          ${sec('Карта для тренировки', mapSelect(L.duelMap))}
+          ${sec('Ваш отряд · ' + p.squad.length + ' из ' + K.SQUAD_MAX, squadPicker(p))}`}
+        ${sec('Последние матчи', `<div class="list">${hist}</div>`)}
+      </div>${inNet ? '' : startBar('Тренировка с ботом', `<b>${esc(M.name)}</b> · бот ур. ~${p.level} · героев: ${p.squad.length}`, 'start', { cls: '' })}</div>`;
     },
     act: Object.assign({
       map(app, d) { app.profile.last.duelMap = d.id; app.persist(); app.refresh(); },

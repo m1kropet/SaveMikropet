@@ -1,6 +1,6 @@
 <title>Защити микропета от ковтопа</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;900&family=Manrope:wght@500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Lobster&display=swap">
 <style>
 /* Отель после закрытия: латунные таблички номеров, выцветший обой, мятный свет микропета.
    Вертикальный кадр 9:16 по центру; сверху HUD, по центру 3D-сцена, снизу док. */
@@ -135,9 +135,12 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .lvl > span { position: relative; width: 1.75em; height: 1.75em; border-radius: 50%; display: grid; place-items: center; background: #120f0b; font-size: 0.8em; }
 .menu-main { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 0.7em; padding: 0 1.2em 1.4em; }
 .title-btn { background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: var(--text); margin-bottom: 0.4em; }
-.title-btn .h1 { font-size: 2.35em; }
-.title-btn .h1 em { font-style: normal; color: var(--blood); text-shadow: 0 0 18px #e0445a55; }
-.title-btn .h1 b { color: var(--pet); text-shadow: 0 0 18px #5fffd855; font-weight: 900; }
+.title-btn .h1 { font-size: 2.6em; font-family: 'Lobster', 'Unbounded', 'Arial Black', sans-serif; font-weight: 400; line-height: 1.05; transform: rotate(-3deg); transform-origin: left center; text-shadow: 0 3px 0 #000a, 0 0 14px #0008; }
+.title-btn .h1 em { font-style: normal; color: #ff3d5e; text-shadow: 0 0 6px #ff3d5e, 0 0 22px #ff2a4dcc, 0 3px 0 #000a; animation: neonR 4s infinite; }
+.title-btn .h1 b { color: #5ff7ff; text-shadow: 0 0 6px #5ff7ff, 0 0 22px #2ad8ffcc, 0 3px 0 #000a; font-weight: 400; animation: neonC 5s infinite; }
+@keyframes neonC { 0%, 92%, 100% { opacity: 1; } 93% { opacity: .55; } 95% { opacity: 1; } 96% { opacity: .7; } }
+@media (prefers-reduced-motion: reduce) { .title-btn .h1 b, .title-btn .h1 em { animation: none; } }
+@keyframes neonR { 0%, 60%, 100% { opacity: 1; } 61% { opacity: .6; } 62% { opacity: 1; } }
 .title-btn.wiggle { animation: wig .25s; }
 @keyframes wig { 30% { transform: rotate(-1.2deg) } 70% { transform: rotate(1.2deg) } }
 .play-modes { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .3s; }
@@ -340,6 +343,8 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .opp-t .hero-thumb { width: 1.8em; height: 1.8em; }
 .viewing { position: absolute; left: 0; right: 0; bottom: 0; z-index: 2; text-align: center; padding: 0.35em; font-size: 0.78em; font-weight: 700; color: #ffd0d6; background: linear-gradient(transparent, #4a0a14cc); pointer-events: none; }
 .mapthumb { width: 2.7em; height: 4.5em; border-radius: 0.3em; object-fit: cover; flex: none; border: 1px solid #00000080; background: #111; }
+.mode-btn .ml { display: inline-flex; align-items: center; gap: 0.3em; }
+.mode-btn .ml svg { width: 1.05em; height: 1.05em; }
 .mode-art { width: 100%; aspect-ratio: 2 / 1; object-fit: cover; border-radius: 0.35em; margin-bottom: 0.25em; display: block; }
 .menu-bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
@@ -389,7 +394,6 @@ input[type=text] { width: 100%; min-width: 0; background: #0f0d0a; border: 1px s
 .theme-mine .scroll { background: repeating-linear-gradient(115deg, transparent 0 46px, #ffffff05 46px 48px), radial-gradient(120% 60% at 50% 0%, #2a1d12, transparent 70%); }
 .theme-mine .card, .theme-mine .pick, .theme-mine .hero-card { background: linear-gradient(#21180f, #18120c); }
 .theme-mine .pick.on, .theme-mine .hero-card.on { border-color: var(--brass); box-shadow: 0 0 0 1px var(--brass) inset, 0 0 16px #d9822b33; }
-.theme-mine .title-btn .h1 b { color: #ffb15c; text-shadow: 0 0 18px #ff8a2a66; }
 .theme-mine .eyebrow { color: #c19a6b; }
 
 .no-fx *, .no-fx *::before, .no-fx *::after { animation: none !important; transition: none !important; }

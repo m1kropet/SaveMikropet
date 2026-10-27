@@ -31,6 +31,8 @@
     play: '<path d="M7 4l13 8-13 8z" fill="currentColor"/>',
     shop: '<path d="M4 8h16l-1 12H5z"/><path d="M9 8a3 3 0 016 0"/>',
     trophy: '<path d="M7 4h10v5a5 5 0 01-10 0z"/><path d="M7 6H4a3 3 0 003 4M17 6h3a3 3 0 01-3 4M12 14v4M8 21h8"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/>',
+    swords: '<path d="M4 4l9 9M20 4l-9 9M14 4h6v6M4 4h6v0M4 4v6M8 16l-4 4M16 16l4 4M6 14l4 4M18 14l-4 4"/>',
     people: '<circle cx="9" cy="8" r="3"/><path d="M3 20a6 6 0 0112 0"/><circle cx="17" cy="9" r="2.5"/><path d="M15.5 14.5A5 5 0 0121 19"/>',
     cog: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"/>',
     full: '<path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/>',
@@ -198,7 +200,6 @@
 
   K.Morse = { lampLevel, lampRed, timeline: morseTimeline, unit: MORSE_UNIT };
 
-  // Анимированная сцена главного меню: коридор (или шахта), дверь, Ковтоп в проёме, микропет.
   // Секрет Ковтопа: по нажатию на его экран показываются пять случайных двузначных чисел.
   let kovShow = null, kovTv = null;
   const KOV_SLOT = 1.4, KOV_ON = 1.05, KOV_LEAD = 0.6;
@@ -217,55 +218,220 @@
     return out;
   }
 
-  // Сцена главного меню (общая для меню и превью скинов).
+
+  // ---------- Сцены главного меню: роскошный холл отеля и штольня шахты ----------
+  const lerp = (a, b, k) => a + (b - a) * k;
+  function glow(ctx, x, y, r, rgb, a, add) {
+    if (!(r > 0) || !(a > 0)) return;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(0.35, `rgba(${rgb},${a * 0.35})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    if (add) { ctx.save(); ctx.globalCompositeOperation = 'lighter'; }
+    ctx.fillStyle = g; ctx.fillRect(x - r, y - r, r * 2, r * 2);
+    if (add) ctx.restore();
+  }
+  // отражение источника света на полированном полу: мягкая вертикальная полоса
+  function floorShine(ctx, x, y0, y1, wd, rgb, a) {
+    const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g;
+    ctx.beginPath(); ctx.ellipse(x, (y0 + y1) / 2, wd, (y1 - y0) / 2, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+  }
+  const flick = (t, i) => 0.88 + 0.08 * Math.sin(t * 9 + i * 2.1) * Math.sin(t * 5.3 + i) + 0.04 * Math.sin(t * 23 + i * 7);
+  // глаз-эмблема (как на дверях): моргает раз в несколько секунд
+  function eyeSign(ctx, x, y, r, t, col) {
+    const ph = (t * 0.23 + x * 0.001) % 1, open = ph > 0.96 ? Math.abs(Math.cos((ph - 0.96) / 0.04 * Math.PI)) : 1;
+    ctx.save(); ctx.translate(x, y); ctx.scale(1, Math.max(0.08, open));
+    ctx.strokeStyle = col; ctx.lineWidth = r * 0.16; ctx.shadowColor = col; ctx.shadowBlur = r * 0.8;
+    ctx.beginPath(); ctx.moveTo(-r, 0); ctx.quadraticCurveTo(0, -r * 0.9, r, 0); ctx.quadraticCurveTo(0, r * 0.9, -r, 0); ctx.stroke();
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(0, 0, r * 0.34, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#0a0606'; ctx.beginPath(); ctx.arc(0, 0, r * 0.14, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+  }
+  // люстра: цепь, латунный корпус, свечи. lvl — яркость (для секретной лампы — азбука Морзе)
+  function chandelier(ctx, x, y, s, t, lvl, red, i) {
+    ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = Math.max(1, s * 0.03); ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, y - s * 0.25); ctx.stroke();
+    const sw = Math.sin(t * 0.7 + i) * s * 0.02;
+    ctx.save(); ctx.translate(x + sw, y);
+    const rgb = red ? '255,50,40' : '255,190,110';
+    glow(ctx, 0, 0, s * 3.2, rgb, 0.32 * lvl, true);
+    glow(ctx, 0, -s * 0.15, s * 0.9, rgb, 0.5 * lvl, true);
+    ctx.fillStyle = '#6a4a1c'; ctx.beginPath(); ctx.ellipse(0, 0, s * 0.5, s * 0.12, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#b8893a'; ctx.beginPath(); ctx.ellipse(0, -s * 0.03, s * 0.42, s * 0.08, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#8a6224'; ctx.beginPath(); ctx.moveTo(-s * 0.1, -s * 0.25); ctx.lineTo(s * 0.1, -s * 0.25); ctx.lineTo(s * 0.05, s * 0.18); ctx.lineTo(-s * 0.05, s * 0.18); ctx.fill();
+    for (let k = -2; k <= 2; k++) {
+      const cx = k * s * 0.2, cy = -s * 0.1 - Math.abs(k) * s * 0.02;
+      ctx.fillStyle = '#efe2c4'; ctx.fillRect(cx - s * 0.025, cy - s * 0.12, s * 0.05, s * 0.12);
+      const fl = lvl * flick(t, i * 5 + k);
+      SP().glowDot(ctx, cx, cy - s * 0.15, s * 0.05, red ? 'rgba(255,80,60,1)' : `rgba(255,214,150,${Math.max(0.15, fl)})`, s * 0.35 * fl);
+    }
+    ctx.restore();
+  }
+  const SP = () => K.Sprites;
+
+  function hotelScene(ctx, w, h, t, u, VX, FY, lamp, red) {
+    const bw = w * 0.36, bt = h * 0.07, bb = h * 0.33, bx0 = VX - bw / 2, bx1 = VX + bw / 2, wallB = FY + h * 0.1;
+    // потолок, стены, пол
+    ctx.fillStyle = '#140904'; ctx.fillRect(0, 0, w, h);
+    const poly = (pts, fill) => { ctx.fillStyle = fill; ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.closePath(); ctx.fill(); };
+    poly([[0, 0], [w, 0], [bx1, bt], [bx0, bt]], '#1c0e06');
+    poly([[0, 0], [bx0, bt], [bx0, bb], [0, wallB]], '#4a2210');
+    poly([[w, 0], [bx1, bt], [bx1, bb], [w, wallB]], '#43200e');
+    poly([[bx0, bt], [bx1, bt], [bx1, bb], [bx0, bb]], '#33160a');
+    glow(ctx, w * 0.35, h * 0.12, w * 0.8, '255,150,70', 0.18);
+    // деревянные панели на стенах (линии к точке схода)
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(1, u * 0.04);
+    for (let k = 1; k < 8; k++) {
+      const f = k / 8;
+      [[0, 0, wallB, bx0], [w, 0, wallB, bx1]].forEach(([x0, y0, yb, xb]) => { const x = lerp(x0, xb, f); ctx.beginPath(); ctx.moveTo(x, lerp(y0, bt, f)); ctx.lineTo(x, lerp(yb, bb, f)); ctx.stroke(); });
+      const xb = lerp(bx0, bx1, f); ctx.beginPath(); ctx.moveTo(xb, bt); ctx.lineTo(xb, bb); ctx.stroke();
+    }
+    // золотистый молдинг и тёмные нижние панели
+    ctx.strokeStyle = '#a07a3a'; ctx.lineWidth = Math.max(1, u * 0.035);
+    ctx.beginPath(); ctx.moveTo(0, wallB - h * 0.11); ctx.lineTo(bx0, bb - (bb - bt) * 0.3); ctx.lineTo(bx1, bb - (bb - bt) * 0.3); ctx.lineTo(w, wallB - h * 0.11); ctx.stroke();
+    // пол: тёмное дерево с бликами и красный ковёр
+    poly([[0, wallB], [bx0, bb], [bx1, bb], [w, wallB], [w, h], [0, h]], '#1e0d06');
+    for (let k = 0; k < 14; k++) { const x0 = lerp(bx0, bx1, k / 13), x1 = lerp(-w * 0.6, w * 1.6, k / 13); ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, bb); ctx.lineTo(x1, h); ctx.stroke(); }
+    poly([[VX - bw * 0.22, bb], [VX + bw * 0.22, bb], [w * 1.05, h], [w * 0.05, h]], '#5a0f18');
+    ctx.strokeStyle = '#c9a35a'; ctx.lineWidth = Math.max(1, u * 0.03);
+    ctx.beginPath(); ctx.moveTo(VX - bw * 0.2, bb); ctx.lineTo(w * 0.1, h); ctx.moveTo(VX + bw * 0.2, bb); ctx.lineTo(w * 1.0, h); ctx.stroke();
+    // дальняя дверь в торце коридора с красным светом
+    const dW = bw * 0.24, dH = (bb - bt) * 0.62;
+    ctx.fillStyle = '#0d0503'; ctx.fillRect(VX - dW / 2 - 3, bb - dH - 3, dW + 6, dH + 3);
+    ctx.fillStyle = '#3a0a0e'; ctx.fillRect(VX - dW / 2, bb - dH, dW, dH);
+    glow(ctx, VX, bb - dH * 0.4, dH, '255,40,50', 0.25);
+    // бра на стенах
+    [[0.25, 0], [0.55, 1], [0.78, 2]].forEach(([f, i]) => {
+      const x = lerp(0, bx0, f), y = lerp(h * 0.16, bt + (bb - bt) * 0.35, f), s = lerp(u * 0.5, u * 0.18, f);
+      ctx.fillStyle = '#8a6224'; ctx.fillRect(x - s * 0.08, y, s * 0.16, s * 0.5);
+      SP().glowDot(ctx, x, y - s * 0.05, s * 0.18, `rgba(255,200,130,${flick(t, i + 3)})`, s * 1.2);
+      glow(ctx, x, y, s * 3.5, '255,170,90', 0.3 * flick(t, i + 3), true);
+      const xr = lerp(w, bx1, f + 0.1);
+      SP().glowDot(ctx, xr, y + s * 0.2, s * 0.15, `rgba(255,200,130,${flick(t, i + 9)})`, s);
+      glow(ctx, xr, y + s * 0.2, s * 3, '255,170,90', 0.24 * flick(t, i + 9), true);
+    });
+    // дверь номера справа с табличкой «0000» и глазом над ней
+    const f0 = 0.1, f1 = 0.4;
+    const pt = (f, k) => [lerp(w, bx1, f), lerp(lerp(wallB, bb, f), lerp(0, bt, f), k)];
+    const a = pt(f0, 0), b = pt(f1, 0), c = pt(f1, 0.66), d = pt(f0, 0.66);
+    poly([a, b, c, d], '#120603');
+    const a2 = pt(f0 + 0.02, 0), b2 = pt(f1 - 0.02, 0), c2 = pt(f1 - 0.02, 0.62), d2 = pt(f0 + 0.02, 0.62);
+    poly([a2, b2, c2, d2], '#7a3e1c');
+    // филёнки двери
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = Math.max(1, u * 0.04);
+    [[0.08, 0.3], [0.36, 0.58]].forEach(([k0, k1]) => { const q = (g, k) => pt(lerp(f0, f1, g), k); const p1 = q(0.15, k0), p2 = q(0.85, k0), p3 = q(0.85, k1), p4 = q(0.15, k1); ctx.beginPath(); ctx.moveTo(p1[0], p1[1]); ctx.lineTo(p2[0], p2[1]); ctx.lineTo(p3[0], p3[1]); ctx.lineTo(p4[0], p4[1]); ctx.closePath(); ctx.stroke(); });
+    const kn = pt(f1 - 0.06, 0.3); SP().glowDot(ctx, kn[0], kn[1], u * 0.06, '#e8c070', u * 0.2);
+    const pl = pt((f0 + f1) / 2 + 0.04, 0.7);
+    ctx.fillStyle = '#c9a35a'; ctx.fillRect(pl[0] - u * 0.55, pl[1] - u * 0.22, u * 1.1, u * 0.44);
+    ctx.fillStyle = '#1c1309'; ctx.font = `bold ${Math.round(u * 0.3)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', pl[0], pl[1] + 1);
+    const ey = pt((f0 + f1) / 2 + 0.04, 0.8); glow(ctx, ey[0], ey[1], u * 0.9, '255,190,100', 0.25, true); eyeSign(ctx, ey[0], ey[1], u * 0.36, t, '#f0c878');
+    // фикус слева
+    const px = w * 0.05, py = FY + u * 0.2;
+    ctx.fillStyle = '#3a2410'; ctx.beginPath(); ctx.moveTo(px - u * 0.35, py - u * 0.5); ctx.lineTo(px + u * 0.35, py - u * 0.5); ctx.lineTo(px + u * 0.25, py); ctx.lineTo(px - u * 0.25, py); ctx.fill();
+    for (let k = 0; k < 9; k++) { const an = -Math.PI / 2 + (k - 4) * 0.32 + Math.sin(t * 0.8 + k) * 0.03; ctx.save(); ctx.translate(px, py - u * 0.5); ctx.rotate(an); ctx.fillStyle = k % 2 ? '#1f4a28' : '#2a5e32'; ctx.beginPath(); ctx.ellipse(u * 0.6, 0, u * 0.65, u * 0.14, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+    // багажная тележка справа
+    const cx = w * 0.9, cy = FY + u * 0.1;
+    ctx.strokeStyle = '#c9a35a'; ctx.lineWidth = Math.max(1.5, u * 0.07);
+    ctx.beginPath(); ctx.moveTo(cx - u * 0.7, cy); ctx.lineTo(cx - u * 0.7, cy - u * 2.2); ctx.quadraticCurveTo(cx, cy - u * 2.9, cx + u * 0.7, cy - u * 2.2); ctx.lineTo(cx + u * 0.7, cy); ctx.stroke();
+    ctx.fillStyle = '#5c2e1a'; ctx.fillRect(cx - u * 0.6, cy - u * 0.8, u * 1.2, u * 0.7);
+    ctx.fillStyle = '#2b4a5a'; ctx.fillRect(cx - u * 0.45, cy - u * 1.4, u * 0.9, u * 0.6);
+    ctx.fillStyle = '#c9a35a'; ctx.fillRect(cx - u * 0.75, cy - u * 0.05, u * 1.5, u * 0.08);
+    ctx.fillStyle = '#111'; [[-0.55], [0.55]].forEach(([k]) => { ctx.beginPath(); ctx.arc(cx + k * u, cy + u * 0.08, u * 0.12, 0, Math.PI * 2); ctx.fill(); });
+    // люстры: дальняя, средняя и ближняя (ближняя мигает азбукой Морзе)
+    floorShine(ctx, w * 0.36, FY - h * 0.04, h * 0.62, u * 0.7, '255,170,90', 0.22 * Math.max(0.1, lamp));
+    floorShine(ctx, w * 0.8, FY - h * 0.03, h * 0.58, u * 0.5, '255,170,90', 0.16);
+    chandelier(ctx, VX, bt + (bb - bt) * 0.22, u * 0.6, t, flick(t, 1), false, 1);
+    chandelier(ctx, w * 0.8, h * 0.115, u * 1.1, t, flick(t, 2), false, 2);
+    chandelier(ctx, w * 0.36, h * 0.1, u * 1.6, t, Math.max(0.06, lamp), red, 3);
+  }
+
+  function mineScene(ctx, w, h, t, u, VX, FY, lamp, red) {
+    const VY = h * 0.22, rr = K.rng(11);
+    const bg = ctx.createLinearGradient(0, 0, 0, h); bg.addColorStop(0, '#0b0d14'); bg.addColorStop(0.5, '#17120e'); bg.addColorStop(1, '#0d0906');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
+    // каменные стены с синеватым отливом
+    for (let i = 0; i < 160; i++) {
+      const x = rr() * w, y = rr() * h * 0.55, side = Math.abs(x - VX) / w;
+      ctx.fillStyle = ['#1c2230', '#2a2420', '#151a24', '#332a22'][i % 4];
+      ctx.globalAlpha = 0.25 + side * 0.45;
+      ctx.beginPath(); ctx.ellipse(x, y, u * (0.15 + rr() * 0.45), u * (0.1 + rr() * 0.3), rr() * 3, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    glow(ctx, VX, VY + h * 0.03, h * 0.14, '255,150,70', 0.4, true);
+    // пол и рельсы
+    ctx.fillStyle = '#140e09'; ctx.beginPath(); ctx.moveTo(0, FY + h * 0.04); ctx.lineTo(VX - u * 0.4, VY + h * 0.05); ctx.lineTo(VX + u * 0.4, VY + h * 0.05); ctx.lineTo(w, FY + h * 0.02); ctx.lineTo(w, h); ctx.lineTo(0, h); ctx.fill();
+    const rl = [w * 0.48, w * 0.86], rTop = VY + h * 0.05;
+    for (let k = 0; k < 16; k++) { const f = (k / 15) ** 1.8, y = lerp(rTop, h * 0.62, f), x0 = lerp(VX - u * 0.1, rl[0] - u * 0.3, f), x1 = lerp(VX + u * 0.1, rl[1] + u * 0.3, f); ctx.fillStyle = '#3a2614'; ctx.fillRect(x0, y, x1 - x0, Math.max(1, u * 0.12 * f + 1)); }
+    ctx.strokeStyle = '#8c939e'; ctx.lineWidth = Math.max(1, u * 0.05);
+    rl.forEach((x, k) => { ctx.beginPath(); ctx.moveTo(VX + (k ? 1 : -1) * u * 0.06, rTop); ctx.lineTo(x, h * 0.66); ctx.stroke(); });
+    // крепь: рамы уходят вглубь штольни
+    for (let k = 6; k >= 0; k--) {
+      const d = k / 6, s = 1 - 0.82 * d;
+      const cx = lerp(w * 0.55, VX, d), bot = lerp(FY + h * 0.05, VY + h * 0.05, d), H = h * 0.42 * s, W = w * 0.9 * s;
+      const shade = 1 - d * 0.75;
+      ctx.fillStyle = `rgb(${Math.round(92 * shade)},${Math.round(60 * shade)},${Math.round(32 * shade)})`;
+      const pw = Math.max(2, u * 0.32 * s);
+      ctx.fillRect(cx - W / 2, bot - H, pw, H); ctx.fillRect(cx + W / 2 - pw, bot - H, pw, H);
+      ctx.fillRect(cx - W / 2 - pw * 0.3, bot - H - pw * 0.6, W + pw * 0.6, pw * 0.9);
+      ctx.fillStyle = 'rgba(0,0,0,0.25)'; ctx.fillRect(cx - W / 2 + pw * 0.6, bot - H, pw * 0.15, H);
+      // фонари на крепи (качаются); первый слева на ближней раме — секретный (азбука Морзе)
+      if (k <= 4) {
+        const lx = cx - W / 2 + pw * 1.8, ly = bot - H + pw * 0.9, sw = Math.sin(t * 1.3 + k) * 0.12;
+        const secret = k === 1, lv = secret ? Math.max(0.06, lamp) : flick(t, k + 20);
+        ctx.save(); ctx.translate(lx, ly); ctx.rotate(sw);
+        ctx.strokeStyle = '#1a1209'; ctx.lineWidth = Math.max(1, s * u * 0.03); ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, u * 0.35 * s); ctx.stroke();
+        const ls = u * 0.55 * s;
+        glow(ctx, 0, u * 0.35 * s + ls * 0.5, ls * 6, secret && red ? '255,40,40' : '255,150,60', 0.4 * lv, true);
+        ctx.fillStyle = '#2a1a0c'; ctx.fillRect(-ls * 0.35, u * 0.35 * s, ls * 0.7, ls * 0.15); ctx.fillRect(-ls * 0.35, u * 0.35 * s + ls * 0.9, ls * 0.7, ls * 0.15);
+        SP().glowDot(ctx, 0, u * 0.35 * s + ls * 0.55, ls * 0.3, secret && red ? 'rgba(255,60,50,1)' : `rgba(255,200,120,${Math.max(0.15, lv)})`, ls * 1.5 * lv);
+        ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = Math.max(1, ls * 0.08); ctx.strokeRect(-ls * 0.32, u * 0.35 * s + ls * 0.15, ls * 0.64, ls * 0.75);
+        ctx.restore();
+      }
+      if (k === 1) {
+        // табличка «ШАХТЫ» на верхней балке
+        const sx = cx, sy = bot - H - pw * 0.1;
+        ctx.save(); ctx.translate(sx, sy); ctx.rotate(-0.03);
+        ctx.fillStyle = '#4a3220'; ctx.fillRect(-u * 1.6 * s * 1.35, -u * 0.4 * s * 1.35, u * 3.2 * s * 1.35, u * 0.8 * s * 1.35);
+        ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 2; ctx.strokeRect(-u * 1.6 * s * 1.35, -u * 0.4 * s * 1.35, u * 3.2 * s * 1.35, u * 0.8 * s * 1.35);
+        ctx.fillStyle = '#e8d8b8'; ctx.font = `900 ${Math.round(u * 0.55 * s * 1.35)}px "Unbounded", "Arial Black", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ШАХТЫ', 0, 2);
+        ctx.restore();
+      }
+    }
+    // вагонетка с рудой и ящики «A-60» справа
+    const vx = w * 0.88, vy = FY - u * 0.1;
+    ctx.fillStyle = '#4c5058'; ctx.beginPath(); ctx.moveTo(vx - u * 0.9, vy - u * 1.0); ctx.lineTo(vx + u * 0.9, vy - u * 1.0); ctx.lineTo(vx + u * 0.7, vy - u * 0.2); ctx.lineTo(vx - u * 0.7, vy - u * 0.2); ctx.fill();
+    for (let i = 0; i < 6; i++) { const ox = (i - 2.5) * u * 0.25; SP().glowDot(ctx, vx + ox, vy - u * 1.05 - (i % 2) * u * 0.1, u * 0.12, i % 2 ? 'rgba(120,190,255,0.9)' : 'rgba(90,140,255,0.8)', u * 0.4); }
+    ctx.fillStyle = '#16181c'; [-0.45, 0.45].forEach(k => { ctx.beginPath(); ctx.arc(vx + k * u, vy - u * 0.1, u * 0.18, 0, Math.PI * 2); ctx.fill(); });
+    const bx = w * 0.97, by = h * 0.3;
+    ctx.fillStyle = '#5a3a20'; ctx.fillRect(bx - u * 1.3, by - u * 1.6, u * 1.6, u * 1.6); ctx.fillRect(bx - u * 1.1, by - u * 3.0, u * 1.4, u * 1.35);
+    ctx.strokeStyle = '#2a1a0c'; ctx.lineWidth = 2; ctx.strokeRect(bx - u * 1.3, by - u * 1.6, u * 1.6, u * 1.6); ctx.strokeRect(bx - u * 1.1, by - u * 3.0, u * 1.4, u * 1.35);
+    ctx.fillStyle = '#e8d8b8'; ctx.font = `900 ${Math.round(u * 0.42)}px "Unbounded", "Arial Black", sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('A-60', bx - u * 0.4, by - u * 2.5);
+    eyeSign(ctx, bx - u * 0.5, by - u * 0.8, u * 0.35, t, '#e8d8b8');
+  }
+
+  // Сцена главного меню (общая для меню и превью скинов). Секреты: мигающая лампа (азбука Морзе) и экран Ковтопа.
   function paintMenu(ctx, w, h, t, mine, live) {
-    const SP = K.Sprites, u = w / 10, HZ = 0.42;
+    const u = w / 10, VX = w * 0.6, FY = h * 0.43;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
-    if (mine) {
-      // каменная стена, крепь и рельсы
-      ctx.fillStyle = '#231910'; ctx.fillRect(0, 0, w, h * HZ);
-      const rr = K.rng(7);
-      for (let i = 0; i < 90; i++) { ctx.fillStyle = ['#2f2216', '#1a120b', '#3a2a1b'][i % 3]; ctx.beginPath(); ctx.ellipse(rr() * w, rr() * h * HZ, u * (0.2 + rr() * 0.6), u * (0.15 + rr() * 0.4), rr() * 3, 0, Math.PI * 2); ctx.fill(); }
-      ctx.fillStyle = '#1a120b'; ctx.fillRect(0, h * HZ, w, h * (1 - HZ));
-      ctx.fillStyle = '#4a2e1a'; for (let k = 0; k < 9; k++) { const y = h * HZ + (h * (1 - HZ)) * (k / 9) ** 1.6; const hw = (u * 0.8) + (w * 0.42) * (k / 9) ** 1.6; ctx.fillRect(w / 2 - hw, y, hw * 2, u * 0.08 + k * 0.6); }
-      ctx.strokeStyle = '#9aa0aa'; ctx.lineWidth = Math.max(1, u * 0.05);
-      [-1, 1].forEach(sd => { ctx.beginPath(); ctx.moveTo(w / 2 + sd * u * 0.5, h * HZ); ctx.lineTo(w / 2 + sd * w * 0.32, h); ctx.stroke(); });
-    } else {
-      for (let x = 0; x < w; x += u * 0.8) { ctx.fillStyle = Math.round(x / (u * 0.8)) % 2 ? '#15201a' : '#121a15'; ctx.fillRect(x, 0, u * 0.8, h * HZ); }
-      ctx.fillStyle = '#c9a35a22'; for (let x = 0; x < w; x += u * 0.8) ctx.fillRect(x, 0, 1, h * HZ);
-      for (let i = 0, x = 0; x < w; x += u * 0.9, i++) { ctx.fillStyle = ['#3a2316', '#33200f', '#41291a', '#2e1c10'][i % 4]; ctx.beginPath(); ctx.moveTo(w / 2 + (x - w / 2) * 0.35, h * HZ); ctx.lineTo(w / 2 + (x + u * 0.9 - w / 2) * 0.35, h * HZ); ctx.lineTo(x + u * 0.9 + (x - w / 2) * 0.6, h); ctx.lineTo(x + (x - w / 2) * 0.6, h); ctx.fill(); }
-    }
-    // дверь
-    const dx = w / 2, dw = u * 2.8, dh = u * 4.3, dy = h * HZ - dh;
-    ctx.fillStyle = '#120a05'; ctx.fillRect(dx - dw / 2 - u * 0.2, dy - u * 0.2, dw + u * 0.4, dh + u * 0.2);
-    ctx.fillStyle = '#140003'; ctx.fillRect(dx - dw / 2, dy, dw, dh);
-    const rg = ctx.createRadialGradient(dx, dy + dh * 0.6, 0, dx, dy + dh * 0.6, dh); rg.addColorStop(0, 'rgba(255,42,61,0.35)'); rg.addColorStop(1, 'rgba(255,42,61,0)'); ctx.fillStyle = rg; ctx.fillRect(dx - dw / 2, dy, dw, dh);
-    // в отеле правую часть проёма закрывает приоткрытая створка: за ней (и в щели у петель) Ковтопа не видно
-    ctx.save(); ctx.beginPath(); ctx.rect(dx - dw / 2, dy, mine ? dw : dw * 0.69, dh); ctx.clip();
-    const ks = u * 1.75, kx = dx, ky = dy + dh * 1.02;
+    const lamp = lampLevel(t), red = lampRed(t);
+    if (mine) mineScene(ctx, w, h, t, u, VX, FY, lamp, red); else hotelScene(ctx, w, h, t, u, VX, FY, lamp, red);
+    // герои: микропет и Ковтоп одного роста, на переднем плане
+    const kh = Math.min(h * 0.21, w * 0.44);
+    const ks = kh / 1.93, kx = w * 0.72, ky = FY + u * 0.15;
+    glow(ctx, kx, ky, kh * 0.6, '255,40,60', 0.22);
+    glow(ctx, w * 0.32, ky, kh * 0.6, mine ? '90,200,255' : '120,255,220', 0.16);
     if (live) kovTv = { x0: kx - 0.42 * ks, x1: kx + 0.42 * ks, y0: ky - 1.7 * ks, y1: ky - 1.0 * ks };
-    ctx.translate(kx, ky); ctx.scale(ks, ks); SP.setPx(ks * 0.6); SP.kovtop(ctx, t, false, 1, live ? kovDigits(t) : undefined); ctx.restore();
-    if (mine) {
-      // вход в штольню: деревянная крепь вместо двери
-      ctx.fillStyle = '#5a3a20'; ctx.fillRect(dx - dw / 2 - u * 0.35, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx + dw / 2, dy - u * 0.3, u * 0.35, dh + u * 0.3); ctx.fillRect(dx - dw / 2 - u * 0.5, dy - u * 0.5, dw + u, u * 0.35);
-      ctx.fillStyle = '#ffb15c'; ctx.fillRect(dx - u * 0.6, dy - u * 1.05, u * 1.2, u * 0.4);
-      ctx.fillStyle = '#2a1a0c'; ctx.font = `bold ${Math.round(u * 0.28)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ШТ-0', dx, dy - u * 0.85);
-    } else {
-      ctx.fillStyle = '#2c1a10'; ctx.save(); ctx.translate(dx + dw / 2, dy); ctx.transform(1, 0.12, 0, 1, 0, 0); ctx.fillRect(u * 0.06, 0, -dw * 0.32 - u * 0.06, dh); ctx.restore();
-      ctx.fillStyle = '#c9a35a'; ctx.fillRect(dx - u * 0.6, dy - u * 0.9, u * 1.2, u * 0.45);
-      ctx.fillStyle = '#1c1309'; ctx.font = `bold ${Math.round(u * 0.32)}px "JetBrains Mono", monospace`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('0000', dx, dy - u * 0.67);
+    ctx.save(); ctx.translate(kx, ky); ctx.scale(ks, ks); SP().setPx(ks * 0.6); SP().kovtop(ctx, t, false, 1, live ? kovDigits(t) : undefined); ctx.restore();
+    const ps = kh / 1.34;
+    ctx.save(); ctx.translate(w * 0.32, ky); ctx.scale(ps, ps); SP().setPx(ps * 0.6); SP().pet(ctx, t, 0, 1); ctx.restore();
+    // пылинки (отель) или искры (шахта) в свете
+    const pr = K.rng(mine ? 5 : 3);
+    for (let i = 0; i < 34; i++) {
+      const x0 = pr() * w, sp = 0.02 + pr() * 0.05, ph = pr();
+      const y = (((ph - t * sp) % 1 + 1) % 1) * h * 0.5, x = x0 + Math.sin(t * 0.6 + i) * u * 0.3;
+      const a = 0.25 + 0.35 * Math.sin(t * 2 + i) ** 2;
+      ctx.fillStyle = mine ? `rgba(255,${140 + (i % 4) * 20},60,${a})` : `rgba(255,230,190,${a * 0.7})`;
+      ctx.fillRect(x, y, mine ? 2 : 1.6, mine ? 2 : 1.6);
     }
-    // лампа: мигает азбукой Морзе (секрет)
-    const fl = lampLevel(t), red = lampRed(t);
-    const lc = red ? '255,40,40' : mine ? '255,150,60' : '255,176,90';
-    ctx.strokeStyle = '#1a140e'; ctx.lineWidth = Math.max(1, u * 0.05); ctx.beginPath(); ctx.moveTo(dx, 0); ctx.lineTo(dx, u * 0.45); ctx.stroke();
-    if (mine) { ctx.fillStyle = '#3a2a1a'; ctx.fillRect(dx - u * 0.16, u * 0.42, u * 0.32, u * 0.36); }
-    const lg = ctx.createRadialGradient(dx, u * 0.6, 0, dx, u * 0.6, u * 5); lg.addColorStop(0, `rgba(${lc},${0.35 * fl})`); lg.addColorStop(1, `rgba(${lc},0)`); ctx.fillStyle = lg; ctx.fillRect(0, 0, w, h);
-    SP.glowDot(ctx, dx, u * 0.6, u * 0.18, red ? 'rgba(255,70,60,1)' : `rgba(255,210,138,${Math.max(0.12, fl)})`, u * fl);
-    // микропет на переднем плане
-    // микропет ростом с Ковтопа: высота Ковтопа 1.93·(1.75u), высота спрайта микропета 1.34
-    ctx.save(); ctx.translate(u * 1.95, h * HZ + u * 0.55); const ps = u * 1.75 * 1.93 / 1.34; ctx.scale(ps, ps); SP.setPx(ps * 0.6); SP.pet(ctx, t, 0, 1); ctx.restore();
-    const vg = ctx.createLinearGradient(0, 0, 0, h); vg.addColorStop(0, 'rgba(11,10,9,0.55)'); vg.addColorStop(0.4, 'rgba(11,10,9,0.1)'); vg.addColorStop(0.75, 'rgba(11,10,9,0.7)'); vg.addColorStop(1, 'rgba(11,10,9,0.95)');
+    const vg = ctx.createLinearGradient(0, 0, 0, h); vg.addColorStop(0, 'rgba(8,6,5,0.35)'); vg.addColorStop(0.12, 'rgba(8,6,5,0)'); vg.addColorStop(0.46, 'rgba(8,6,5,0.05)'); vg.addColorStop(0.62, 'rgba(8,6,5,0.6)'); vg.addColorStop(1, 'rgba(8,6,5,0.92)');
     ctx.fillStyle = vg; ctx.fillRect(0, 0, w, h);
   }
 
@@ -352,9 +518,9 @@
             <button class="btn small ghost collapse" data-act="collapse" id="collapseBtn" aria-label="Свернуть выбор режима" ${app.session.playOpen ? '' : 'hidden'}>${icon('x')} Свернуть</button></div>
           <button class="btn brass block" data-act="play" id="playBtn" style="font-size:1.15em;min-height:3.3em" ${app.session.playOpen ? 'hidden' : ''}>${icon('play')} Играть</button>
           <div class="play-modes ${app.session.playOpen ? 'open' : ''}" id="modes"><div>
-            <button class="btn mode-btn" data-act="single"><img class="mode-art" alt="" src="${modeArt('single' + mt)}">Одиночка<small>3 сложности</small></button>
-            <button class="btn mode-btn" data-act="team"><img class="mode-art" alt="" src="${modeArt('team' + mt)}">Команда<small>2–4 игрока</small></button>
-            <button class="btn mode-btn" data-act="duel"><img class="mode-art" alt="" src="${modeArt('duel' + mt)}">Дуэль<small>карта соперника</small></button>
+            <button class="btn mode-btn" data-act="single"><img class="mode-art" alt="" src="${modeArt('single' + mt)}"><span class="ml">${icon('user')} Одиночка</span><small>3 сложности</small></button>
+            <button class="btn mode-btn" data-act="team"><img class="mode-art" alt="" src="${modeArt('team' + mt)}"><span class="ml">${icon('people')} Команда</span><small>2–4 игрока</small></button>
+            <button class="btn mode-btn" data-act="duel"><img class="mode-art" alt="" src="${modeArt('duel' + mt)}"><span class="ml">${icon('swords')} Дуэль</span><small>карта соперника</small></button>
           </div></div>
           <div class="menu-grid">
             <button class="btn" data-act="shop">${icon('shop')} Магазин</button>

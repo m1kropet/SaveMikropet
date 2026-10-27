@@ -701,7 +701,7 @@
       const inc = p.friends.incoming.length;
       const mt = p.settings.theme === 'mine' ? ':mine' : '';
       return `<div class="screen menu">
-        <div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div>
+        <div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div><svg width="0" height="0" style="position:absolute" aria-hidden="true"><filter id="brush" x="-5%" y="-10%" width="110%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.4" xChannelSelector="R" yChannelSelector="G"/></filter></svg>
         <div class="menu-top">
           <button class="profile-chip" data-act="chip" aria-label="Профиль ${esc(p.nick)}, уровень ${p.level}" title="${esc(p.nick)} #${esc(p.tag)}"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span>${p.twitch ? '<i class="lvl-ok tw" title="Подтверждено через Twitch">' + icon('check') + '</i>' : p.google ? '<i class="lvl-ok gg" title="Подтверждено через Google">' + G_LOGO + '</i>' : ''}</span><span class="pc-more"><span class="pc-name"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}${googleBadge(!!p.google)}</span></button>
           <span class="plaque coin" title="Монеты аккаунта">${p.coins}</span>

@@ -40,18 +40,18 @@
     // возврат со страницы входа Google (проверяется первым: свой state)
     K.Google.handleReturn(App.profile).then(r => {
       if (!r) return;
-      if (r.error) { App.go('settings'); K.UI.modal('<div class="h2">Вход через Google не удался</div><div class="banner">' + K.UI.esc(r.error) + '</div><button class="btn block" data-m="close">Понятно</button>', { close: () => K.UI.closeModal() }, { center: true }); return; }
+      if (r.error) { App.go('profile'); K.UI.modal('<div class="h2">Вход через Google не удался</div><div class="banner">' + K.UI.esc(r.error) + '</div><button class="btn block" data-m="close">Понятно</button>', { close: () => K.UI.closeModal() }, { center: true }); return; }
       App.persist();
-      App.go('settings');
+      App.go('profile');
       K.UI.modal('<div class="h2">Google подтверждён</div><div class="banner">Аккаунт <b>' + K.UI.esc(r.user.email || r.user.name) + '</b> привязан к профилю. Рядом с уровнем — значок «G».</div><button class="btn brass block" data-m="close">Отлично</button>', { close: () => K.UI.closeModal() }, { center: true });
       if (K.Net.state === 'open') K.Net.hello(); else if (K.Net.available()) K.Net.connect(App.profile).catch(() => {});
     });
     // возврат со страницы входа Twitch
     K.Twitch.handleReturn(App.profile).then(r => {
       if (!r) return;
-      if (r.error) { App.go('settings'); K.UI.modal('<div class="h2">Вход через Twitch не удался</div><div class="banner">' + K.UI.esc(r.error) + '</div><button class="btn block" data-m="close">Понятно</button>', { close: () => K.UI.closeModal() }, { center: true }); return; }
+      if (r.error) { App.go('profile'); K.UI.modal('<div class="h2">Вход через Twitch не удался</div><div class="banner">' + K.UI.esc(r.error) + '</div><button class="btn block" data-m="close">Понятно</button>', { close: () => K.UI.closeModal() }, { center: true }); return; }
       App.persist();
-      App.go('settings');
+      App.go('profile');
       K.UI.modal('<div class="h2">Twitch подтверждён</div><div class="banner">Аккаунт <b>' + K.UI.esc(r.user.display) + '</b> привязан к профилю. Ник в игре теперь как на Twitch, рядом с уровнем — фиолетовая галочка.</div><button class="btn brass block" data-m="close">Отлично</button>', { close: () => K.UI.closeModal() }, { center: true });
       // токен появился уже после фонового подключения — сообщаем серверу, чтобы он тоже подтвердил вход
       if (K.Net.state === 'open') K.Net.hello(); else if (K.Net.available()) K.Net.connect(App.profile).catch(() => {});

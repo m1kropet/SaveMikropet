@@ -862,7 +862,7 @@
       // свёрнутый профиль: на устройствах с мышью раскрывается при наведении, на касание — первым нажатием
       chip(app, d, b) {
         const hover = window.matchMedia && matchMedia('(hover: hover)').matches;
-        if (hover || b.classList.contains('open')) { app.go('settings'); return; }
+        if (hover || b.classList.contains('open')) { app.go('profile'); return; }
         b.classList.add('open');
         clearTimeout(S.menu.chipT); S.menu.chipT = setTimeout(() => b.classList.remove('open'), 4000);
       },
@@ -1181,17 +1181,20 @@
       const sort = app.session.shopSort || 'rarity';
       const ro = h => K.RARITY_ORDER.indexOf(h.rarity);
       const list = K.HEROES.slice().sort(sort === 'rarity' ? (a, b) => ro(a) - ro(b) || a.price - b.price : sort === 'cheap' ? (a, b) => a.price - b.price || ro(a) - ro(b) : (a, b) => b.price - a.price || ro(b) - ro(a));
-      const sortBar = `<div class="row"><span class="eyebrow grow">Сортировка</span><div class="seg" style="min-width:14em">${[['rarity', 'Редкость'], ['cheap', 'Дешевле'], ['dear', 'Дороже']].map(([k, n]) => `<button class="${sort === k ? 'on' : ''}" data-act="sort" data-id="${k}">${n}</button>`).join('')}</div></div>`;
-      return `<div class="section">${sortBar}<div class="list">${list.map(h => `<button class="hero-card ${sel === h.id ? 'on' : ''} ${p.owned.includes(h.id) ? '' : 'locked'}" data-act="sel" data-id="${h.id}">
-            <span class="hero-thumb" style="background-image:url(${K.thumbs[h.id] || ''})"></span>
-            <span class="grow" style="min-width:0"><span class="rar" style="color:${h.color}">${h.rarity}</span><br><b>${h.name}</b><br><span class="note">${h.role}</span></span>
-            <span style="text-align:right">${p.owned.includes(h.id) ? (p.squad.includes(h.id) ? '<span class="tag" style="color:var(--pet);border-color:#3e8f7c">в отряде</span>' : '<span class="tag">открыт</span>') : `<span class="tag lock">${icon('lock')}</span><br><span class="num coin">${h.price}</span>`}</span></button>`).join('')}</div></div>
-          <div class="section card"><div class="note">${esc(H.desc)}</div>
+      const sortBar = `<div class="seg shop-sort">${[['rarity', 'Редкость'], ['cheap', 'Дешевле'], ['dear', 'Дороже']].map(([k, n]) => `<button class="${sort === k ? 'on' : ''}" data-act="sort" data-id="${k}">${n}</button>`).join('')}</div>`;
+      const status = h => p.owned.includes(h.id) ? (p.squad.includes(h.id) ? '<span class="tag on">в отряде</span>' : '<span class="tag">открыт</span>') : `<span class="num coin">${h.price}</span>`;
+      return `<div class="section card shop-sel">
+            <div class="note">${esc(H.desc)}</div>
             <div class="chips">${traits.map(t => `<span class="tag">${t}</span>`).join('')}<span class="tag">Установка: ${H.cost}</span></div>
-            <div class="cmp">${bars}</div>${action}</div>
-          <div class="section card"><div class="eyebrow">Верхняя ветка · ${H.base.garage ? 'чаще машины и стрелок' : H.base.passive ? 'жизни микропета' : 'дальность и скорость'}</div><div class="blist">${blist(H.top, 0)}</div></div>
-          <div class="section card"><div class="eyebrow">Нижняя ветка · ${H.base.garage ? 'крепче машина, на 5-м уровне танк' : H.base.passive ? 'больше монет' : 'мощный урон'}</div><div class="blist">${blist(H.bottom, 1)}</div></div>
-          <div class="section note">Уровни 1–2 можно купить в обеих ветках всегда. Выше 2-го уровня можно прокачать только одну ветку — вторая остаётся максимум на 2.</div>
+            ${bars ? `<div class="cmp">${bars}</div>` : ''}${action}</div>
+          <div class="section"><div class="row"><span class="eyebrow grow">Герои · ${p.owned.length} / ${K.HEROES.length}</span></div>${sortBar}
+            <div class="shop-grid">${list.map(h => `<button class="hero-tile ${sel === h.id ? 'on' : ''} ${p.owned.includes(h.id) ? '' : 'locked'}" data-act="sel" data-id="${h.id}" aria-pressed="${sel === h.id}">
+              <span class="hero-thumb" style="background-image:url(${K.thumbs[h.id] || ''})">${p.owned.includes(h.id) ? '' : `<span class="tile-lock">${icon('lock')}</span>`}</span>
+              <span class="rar" style="color:${h.color}">${h.rarity}</span><b>${h.name}</b>${status(h)}</button>`).join('')}</div></div>
+          <div class="section card"><div class="eyebrow">Ветки прокачки · ${esc(H.name)}</div>
+            <div class="branch-h" style="color:var(--brass-hi)">Верхняя · ${H.base.garage ? 'чаще машины и стрелок' : H.base.passive ? 'жизни микропета' : 'дальность и скорость'}</div><div class="blist">${blist(H.top, 0)}</div>
+            <div class="branch-h" style="color:#ffb7c0">Нижняя · ${H.base.garage ? 'крепче машина, на 5-м уровне танк' : H.base.passive ? 'больше монет' : 'мощный урон'}</div><div class="blist">${blist(H.bottom, 1)}</div>
+            <div class="note">Уровни 1–2 можно купить в обеих ветках всегда. Выше 2-го уровня можно прокачать только одну ветку — вторая остаётся максимум на 2.</div></div>
           ${this.codeBox(app)}`;
     },
     html(app) {
@@ -1231,7 +1234,7 @@
     },
     unmount() { cancelAnimationFrame(this.raf); this.sc = null; },
     act: {
-      sel(app, d) { app.session.shopSel = d.id; S.shop.update(app); },
+      sel(app, d) { app.session.shopSel = d.id; S.shop.update(app); const bd = app.root.querySelector('#shopBody'); if (bd && bd.scrollTo) bd.scrollTo({ top: 0, behavior: 'smooth' }); },
       buy(app) {
         const p = app.profile, id = app.session.shopSel || 'blaster', H = K.HERO[id];
         if (p.owned.includes(id)) return;
@@ -1387,15 +1390,26 @@
         else if (!found.player) res = '<div class="note">Игрока с таким тегом нет.</div>';
         else { const f = found.player; res = `<div class="card row"><span class="dot ${f.online ? 'on' : ''}"></span><b class="grow">${esc(f.nick)} <span class="ptag">#${esc(f.tag)}</span></b><span class="note">ур. ${f.level}</span>${known.has(f.nick) ? '<span class="tag">уже в списке</span>' : `<button class="btn small" data-act="request" data-n="${esc(f.nick)}" data-tag="${esc(f.tag)}">Добавить</button>`}</div>`; }
       } else if (q) res = results.length ? results.map(d => `<div class="card row"><b class="grow">${esc(d.nick)}</b><span class="tag demo">демо</span>${known.has(d.nick) ? '<span class="tag">уже в списке</span>' : `<button class="btn small" data-act="request" data-n="${esc(d.nick)}">Добавить</button>`}</div>`).join('') : '<div class="note">Никого не нашлось.</div>';
+      const ini = n => esc((String(n || '?').trim()[0] || '?').toUpperCase());
+      const onl = f => f.tag ? null : online(f.nick);
+      const onCount = F.list.filter(f => onl(f)).length;
+      const friendRow = f => { const o = onl(f); return `<div class="card fr-card">
+          <div class="row"><span class="fr-ava">${ini(f.nick)}${o != null ? `<i class="fr-dot ${o ? 'on' : ''}"></i>` : ''}</span>
+            <span class="grow" style="min-width:0"><b>${esc(f.nick)}</b> ${f.tag ? '<span class="ptag">#' + esc(f.tag) + '</span>' : ''}<br><span class="note">${f.tag ? 'друг по тегу' : (o ? 'в сети' : 'не в сети') + ' · демо'}</span></span>
+            <button class="btn small icon-btn" data-act="fprofile" data-n="${esc(f.nick)}" aria-label="Профиль ${esc(f.nick)}" title="Профиль">${icon('user')}</button></div>
+          <div class="fr-acts"><button class="btn small" data-act="invite" data-n="${esc(f.nick)}">${icon('people')} В команду</button><button class="btn small" data-act="challenge" data-n="${esc(f.nick)}">${icon('swords')} Дуэль</button><button class="btn small danger icon-btn" data-act="remove" data-n="${esc(f.nick)}" aria-label="Удалить ${esc(f.nick)}" title="Удалить">${icon('x')}</button></div></div>`; };
       return `<div class="screen">${topbar('Друзья')}<div class="scroll">
-        <div class="section card row"><div class="grow"><div class="eyebrow">Ваш тег</div><span class="plaque" style="font-size:1.2em">#${esc(p.tag)}</span></div><button class="btn small" data-act="copyTag">Скопировать</button></div>
-        ${net ? '' : '<div class="section"><div class="banner">Сервер не подключён: игроки ниже — демонстрационные профили. Поиск по тегу работает, когда игра открыта с сервера.</div></div>'}
-        <div class="section"><div class="eyebrow">${net ? 'Поиск по тегу' : 'Поиск по никнейму'}</div><div class="row"><input type="text" id="fq" value="${esc(app.session.fq || '')}" placeholder="${net ? '#GRJ' : 'Например, Фонарик'}" autocomplete="off" style="${net ? 'text-transform:uppercase;font-family:var(--f-mono)' : ''}"><button class="btn" data-act="search">Найти</button></div>
-          <div class="list">${res}</div></div>
-        ${F.incoming.length ? `<div class="section"><div class="eyebrow">Заявки в друзья · ${F.incoming.length}</div><div class="list">${F.incoming.map(r => `<div class="card row"><b class="grow">${esc(r.nick)}</b><button class="btn small pet" data-act="accept" data-n="${esc(r.nick)}">Принять</button><button class="btn small" data-act="decline" data-n="${esc(r.nick)}">Отклонить</button></div>`).join('')}</div></div>` : ''}
-        ${F.outgoing.length ? `<div class="section"><div class="eyebrow">Отправленные</div><div class="list">${F.outgoing.map(r => `<div class="card row"><b class="grow">${esc(r.nick)}</b><span class="note">ожидает ответа · нужен сервер</span><button class="btn small" data-act="cancelReq" data-n="${esc(r.nick)}">Отозвать</button></div>`).join('')}</div></div>` : ''}
-        <div class="section"><div class="eyebrow">Список друзей · ${F.list.length}</div><div class="list">${F.list.length ? F.list.map(f => `<div class="card"><div class="row"><span class="dot ${online(f.nick) ? 'on' : ''}"></span><b class="grow">${esc(f.nick)} ${f.tag ? '<span class="ptag">#' + esc(f.tag) + '</span>' : ''}</b><span class="note">${f.tag ? '' : (online(f.nick) ? 'в сети' : 'не в сети') + ' · демо'}</span></div>
-          <div class="row" style="margin-top:.5em;flex-wrap:wrap"><button class="btn small" data-act="fprofile" data-n="${esc(f.nick)}">Профиль</button><button class="btn small" data-act="invite" data-n="${esc(f.nick)}">В команду</button><button class="btn small" data-act="challenge" data-n="${esc(f.nick)}">Дуэль</button><button class="btn small danger" data-act="remove" data-n="${esc(f.nick)}">Удалить</button></div></div>`).join('') : '<div class="note">Пока пусто. Найдите игроков через поиск.</div>'}</div></div>
+        <div class="section card fr-head">
+          <div class="row"><div class="grow"><div class="eyebrow">Ваш тег</div><span class="plaque fr-tag">#${esc(p.tag)}</span></div><button class="btn small" data-act="copyTag">Скопировать</button></div>
+          <div class="fr-stats"><div><b class="num">${F.list.length}</b><span class="note">друзей</span></div><div><b class="num" style="color:var(--good)">${onCount}</b><span class="note">в сети</span></div><div><b class="num" style="color:${F.incoming.length ? 'var(--brass-hi)' : 'inherit'}">${F.incoming.length}</b><span class="note">заявок</span></div></div>
+          <div class="note">Дайте тег другу — по нему он найдёт вас в поиске.</div>
+        </div>
+        <div class="section"><div class="eyebrow">${net ? 'Найти по тегу' : 'Найти по никнейму'}</div><div class="card"><div class="row"><input type="text" id="fq" value="${esc(app.session.fq || '')}" placeholder="${net ? '#GRJ' : 'Например, Фонарик'}" autocomplete="off" aria-label="Поиск игрока" style="${net ? 'text-transform:uppercase;font-family:var(--f-mono)' : ''}"><button class="btn" data-act="search">Найти</button></div>
+          ${res ? `<div class="list fr-res">${res}</div>` : ''}
+          ${net ? '' : '<div class="note" style="margin-top:.5em">Сервер не подключён: в поиске демонстрационные профили. Поиск по тегу работает, когда игра открыта с сервера.</div>'}</div></div>
+        ${F.incoming.length ? `<div class="section"><div class="eyebrow">Заявки в друзья · ${F.incoming.length}</div><div class="list">${F.incoming.map(r => `<div class="card row fr-req"><span class="fr-ava">${ini(r.nick)}</span><b class="grow">${esc(r.nick)}</b><button class="btn small pet" data-act="accept" data-n="${esc(r.nick)}">Принять</button><button class="btn small icon-btn" data-act="decline" data-n="${esc(r.nick)}" aria-label="Отклонить" title="Отклонить">${icon('x')}</button></div>`).join('')}</div></div>` : ''}
+        <div class="section"><div class="eyebrow">Друзья · ${F.list.length}</div><div class="list">${F.list.length ? F.list.map(friendRow).join('') : '<div class="card fr-empty"><span class="fr-ava">' + icon('people') + '</span><div class="note">Пока пусто. Найдите игроков через поиск выше или поделитесь своим тегом.</div></div>'}</div></div>
+        ${F.outgoing.length ? `<div class="section"><div class="eyebrow">Отправленные заявки · ${F.outgoing.length}</div><div class="list">${F.outgoing.map(r => `<div class="card row"><span class="fr-ava">${ini(r.nick)}</span><span class="grow"><b>${esc(r.nick)}</b><br><span class="note">ожидает ответа · нужен сервер</span></span><button class="btn small" data-act="cancelReq" data-n="${esc(r.nick)}">Отозвать</button></div>`).join('')}</div></div>` : ''}
       </div></div>`;
     },
     mount(el, app) {
@@ -1436,39 +1450,90 @@
     }
   };
 
-  // Настройки и профиль
-  S.settings = {
+  // Профиль игрока: отдельный экран (открывается кружком уровня в меню)
+  S.profile = {
     html(app) {
-      const p = app.profile, st = p.settings;
+      const p = app.profile;
       const need = K.Profile.xpNeed(p.level);
-      const inf = K.Save.info(p);
-      const sw = (key, label, sub) => `<div class="toggle"><div><b>${label}</b>${sub ? `<div class="note">${sub}</div>` : ''}</div><button class="switch" role="switch" aria-checked="${!!st[key]}" data-act="sw" data-k="${key}" aria-label="${label}"></button></div>`;
       const achGot = K.ACHIEVEMENTS.filter(a => p.achievements[a.id]).length;
-      return `<div class="screen">${topbar('Профиль и настройки')}<div class="scroll">
-        <div class="section card">
-          <div class="row"><div class="lvl" style="--p:${Math.round(100 * p.xp / need)};font-size:1.3em"><span>${p.level}</span></div><div class="grow"><div class="h2">${esc(p.nick)}${eyeBadge(p.eye)} <span class="ptag">#${esc(p.tag)}</span></div><div class="note">Тег выдаётся один раз и не меняется${p.tagVerified ? '' : ' (подтвердится при подключении к серверу)'} · Опыт ${p.xp} / ${need} · до уровня ${need - p.xp}</div><div class="bar" style="margin-top:.3em"><i style="width:${100 * p.xp / need}%"></i></div></div></div>
-          <div class="kv"><span>Открыто башен</span><b>${p.owned.length} / ${K.HEROES.length}</b><span>Максимальная волна</span><b>${p.maxWave}</b><span>Рекорд бесконечного</span><b>${p.endless.best}${p.endless.bestTime ? ' · ' + fmtTime(p.endless.bestTime) : ''}</b><span>Дуэли: победы / поражения / ничьи</span><b>${p.duel.w} / ${p.duel.l} / ${p.duel.d}</b><span>Всего уничтожено</span><b>${p.stats.kills}</b><span>Время в игре</span><b>${fmtHours(p.playTime)}</b><span>Монеты аккаунта</span><b class="coin">${p.coins}</b></div>
+      const duels = p.duel.w + p.duel.l + p.duel.d;
+      const wr = duels ? Math.round(100 * p.duel.w / duels) : 0;
+      const tile = (ic, v, label) => `<div class="ptile"><span class="ptile-ic">${icon(ic)}</span><b class="num">${v}</b><span class="note">${label}</span></div>`;
+      const verified = p.twitch ? 'Twitch подтверждён' : p.google ? 'Google подтверждён' : 'Локальный профиль';
+      return `<div class="screen">${topbar('Профиль', coinsChip(p))}<div class="scroll">
+        <div class="section card prof-head">
+          <div class="lvl prof-lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></div>
+          <div class="grow" style="min-width:0">
+            <div class="h2 prof-name">${esc(p.nick)}${eyeBadge(p.eye)}${p.twitch ? ' <span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''} ${googleBadge(!!p.google)}</div>
+            <div class="row" style="gap:.5em;margin-top:.15em"><span class="ptag">#${esc(p.tag)}</span><span class="tag">${verified}</span></div>
+          </div>
         </div>
+        <div class="section card prof-xp"><div class="row"><span class="eyebrow grow">Уровень ${p.level} → ${p.level + 1}</span><span class="num note">${p.xp} / ${need} опыта</span></div><div class="bar"><i style="width:${100 * p.xp / need}%"></i></div><div class="note">До следующего уровня: ${need - p.xp} опыта. Тег выдаётся один раз и не меняется${p.tagVerified ? '' : ' (подтвердится при подключении к серверу)'}.</div></div>
+
+        <div class="section"><div class="eyebrow">Статистика</div><div class="ptiles">
+          ${tile('flame', p.maxWave, 'макс. волна')}
+          ${tile('nova', p.endless.best + (p.endless.bestTime ? ' · ' + fmtTime(p.endless.bestTime) : ''), 'рекорд бесконечного')}
+          ${tile('burst', p.stats.kills, 'уничтожено')}
+          ${tile('radar', fmtHours(p.playTime), 'время в игре')}
+          ${tile('gear', p.owned.length + ' / ' + K.HEROES.length, 'башен открыто')}
+          ${tile('coin', p.coins, 'монет')}
+        </div></div>
+
+        <div class="section card"><div class="row"><span class="eyebrow grow">Дуэли</span><span class="note">${duels ? 'побед ' + wr + '%' : 'ещё не сыграно'}</span></div>
+          <div class="duel-sum"><div><b class="num" style="color:var(--good)">${p.duel.w}</b><span class="note">побед</span></div><div><b class="num" style="color:#ff8fa8">${p.duel.l}</b><span class="note">поражений</span></div><div><b class="num">${p.duel.d}</b><span class="note">ничьих</span></div></div>
+          ${duels ? `<div class="duel-bar"><i style="flex:${p.duel.w};background:var(--good)"></i><i style="flex:${p.duel.d};background:var(--mute)"></i><i style="flex:${p.duel.l};background:#ff6b8a"></i></div>` : ''}
+        </div>
+
         <button class="section card ach-link" data-act="achs"><span class="medal">${icon('trophy')}</span><span class="grow"><b>Достижения</b><span class="bar"><i style="width:${100 * achGot / K.ACHIEVEMENTS.length}%"></i></span></span><b class="num">${achGot} / ${K.ACHIEVEMENTS.length}</b>${icon('back')}</button>
-        <div class="section"><div class="eyebrow">Twitch</div>${twitchBlock(p)}</div>
-        <div class="section"><div class="eyebrow">Google</div>${googleBlock(p)}</div>
-        <div class="section note" style="display:flex;flex-wrap:wrap;gap:.3em 1em"><a style="display:inline" href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a><a style="display:inline" href="terms.html" target="_blank" rel="noopener">Условия использования</a></div>
-        <div class="section"><div class="eyebrow">Никнейм</div>${p.twitch ? `<div class="card note">Никнейм взят из Twitch: <b>${esc(p.twitch.display)}</b>. Чтобы сменить его вручную, отвяжите Twitch.</div>` : `<div class="row"><input type="text" id="nick" value="${esc(p.nick)}" maxlength="16" autocomplete="off"><button class="btn" data-act="nick">Сохранить</button></div><div class="err" id="nickErr"></div>`}</div>
-        <div class="section"><div class="eyebrow">Игра</div>
-          ${sw('sound', 'Звук')}
-          <div class="note">Автозапуск волн и скорость игры — в меню паузы во время матча.</div>
-          ${sw('effects', 'Дополнительные эффекты', 'Мерцание ламп, пыль, частицы, покачивание камеры. Отключите для стабильности трансляции.')}
-          <div class="toggle"><b>Качество графики</b><div class="seg" style="min-width:12em">${[['low', 'Низкое'], ['mid', 'Среднее'], ['high', 'Высокое']].map(([k, n]) => `<button class="${st.quality === k ? 'on' : ''}" data-act="q" data-id="${k}">${n}</button>`).join('')}</div></div>
-          <div class="toggle"><div><b>Оформление</b><div class="note">${p.themes.length > 1 ? 'Скины также выбираются в магазине' : 'Другие скины открываются секретными кодами в магазине'}</div></div><div class="seg" style="min-width:10em">${p.themes.map(t => `<button class="${st.theme === t ? 'on' : ''}" data-act="theme" data-id="${t}">${K.THEMES[t].name}</button>`).join('')}</div></div>
-          <div class="toggle"><div><b>Полный экран</b><div class="note">Удобно для браузерной версии</div></div><button class="btn small" data-act="full">${icon('full')} Включить</button></div>
-        </div>
-        <div class="section"><div class="eyebrow">Сохранение</div><div class="card kv"><span>Формат</span><b>v${inf.version}</b><span>Хранилище</span><b>${inf.storage ? 'браузер (localStorage)' : 'недоступно — прогресс не сохранится'}</b><span>Размер</span><b>${(inf.size / 1024).toFixed(1)} КБ</b><span>Последнее сохранение</span><b>${new Date(inf.savedAt).toLocaleString('ru-RU')}</b></div>
-          <div class="note">Прогресс хранится только в этом браузере. Рейтинговые результаты будут засчитываться сервером, а не клиентом.</div>
-          <button class="btn danger block" data-act="reset">Сбросить весь прогресс</button></div>
+
+        <div class="section"><div class="row"><span class="eyebrow grow">Коллекция башен</span><button class="btn small" data-act="toShop">${icon('shop')} Магазин</button></div>
+          <div class="card coll">${K.HEROES.map(h => { const own = p.owned.includes(h.id), sq = p.squad.includes(h.id); return `<span class="coll-it ${own ? '' : 'locked'} ${sq ? 'sq' : ''}" title="${esc(h.name)}"><span class="hero-thumb" style="background-image:url(${K.thumbs[h.id] || ''})"></span><span class="note">${esc(h.name)}</span>${sq ? '<span class="coll-sq">отряд</span>' : ''}</span>`; }).join('')}</div></div>
+
+        <div class="section"><div class="eyebrow">Никнейм</div>${p.twitch ? `<div class="card note">Никнейм взят из Twitch: <b>${esc(p.twitch.display)}</b>. Чтобы сменить его вручную, отвяжите Twitch.</div>` : `<div class="card"><div class="row"><input type="text" id="nick" value="${esc(p.nick)}" maxlength="16" autocomplete="off" aria-label="Никнейм"><button class="btn" data-act="nick">Сохранить</button></div><div class="err" id="nickErr"></div></div>`}</div>
+        <div class="section"><div class="eyebrow">Аккаунты</div>${twitchBlock(p)}${googleBlock(p)}</div>
       </div></div>`;
     },
     act: {
-      achs(app) { app.go('achievements', { back: 'settings' }); },
+      achs(app) { app.go('achievements', { back: 'profile' }); },
+      toShop(app) { app.go('shop'); },
+      twLogin(app) { S.settings.act.twLogin(app); },
+      ggLogin(app) { S.settings.act.ggLogin(app); },
+      twLogout(app) { S.settings.act.twLogout(app); },
+      ggLogout(app) { S.settings.act.ggLogout(app); },
+      nick(app, d, b) { S.settings.act.nick(app, d, b); }
+    }
+  };
+
+  // Настройки (без профиля)
+  S.settings = {
+    html(app) {
+      const p = app.profile, st = p.settings;
+      const inf = K.Save.info(p);
+      const sw = (key, label, sub, ic) => `<div class="toggle"><span class="set-ic">${icon(ic)}</span><div class="grow"><b>${label}</b>${sub ? `<div class="note">${sub}</div>` : ''}</div><button class="switch" role="switch" aria-checked="${!!st[key]}" data-act="sw" data-k="${key}" aria-label="${label}"></button></div>`;
+      const need = K.Profile.xpNeed(p.level);
+      return `<div class="screen">${topbar('Настройки')}<div class="scroll">
+        <button class="section card set-prof" data-act="toProfile"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span></span><span class="grow" style="min-width:0"><b>${esc(p.nick)}</b> <span class="ptag">#${esc(p.tag)}</span><br><span class="note">Профиль, статистика, аккаунты и никнейм</span></span>${icon('back')}</button>
+
+        <div class="section"><div class="eyebrow">Звук и эффекты</div><div class="card set-group">
+          ${sw('sound', 'Звук', 'Выстрелы, волны и сигналы', 'bolt')}
+          ${sw('effects', 'Дополнительные эффекты', 'Мерцание ламп, пыль, частицы, покачивание камеры. Отключите для стабильности трансляции.', 'nova')}
+        </div><div class="note">Автозапуск волн и скорость игры — в меню паузы во время матча.</div></div>
+
+        <div class="section"><div class="eyebrow">Изображение</div><div class="card set-group">
+          <div class="toggle set-col"><div class="row"><span class="set-ic">${icon('eye')}</span><b class="grow">Качество графики</b></div><div class="seg">${[['low', 'Низкое'], ['mid', 'Среднее'], ['high', 'Высокое']].map(([k, n]) => `<button class="${st.quality === k ? 'on' : ''}" data-act="q" data-id="${k}">${n}</button>`).join('')}</div></div>
+          <div class="toggle set-col"><div class="row"><span class="set-ic">${icon('star')}</span><div class="grow"><b>Оформление</b><div class="note">${p.themes.length > 1 ? 'Скины также выбираются в магазине' : 'Другие скины открываются секретными кодами в магазине'}</div></div></div><div class="seg">${p.themes.map(t => `<button class="${st.theme === t ? 'on' : ''}" data-act="theme" data-id="${t}">${K.THEMES[t].name}</button>`).join('')}</div></div>
+          <div class="toggle"><span class="set-ic">${icon('full')}</span><div class="grow"><b>Полный экран</b><div class="note">Удобно для браузерной версии</div></div><button class="btn small" data-act="full">${icon('full')} Включить</button></div>
+        </div></div>
+
+        <div class="section"><div class="eyebrow">Сохранение</div><div class="card"><div class="kv"><span>Формат</span><b>v${inf.version}</b><span>Хранилище</span><b>${inf.storage ? 'браузер' : 'недоступно'}</b><span>Размер</span><b>${(inf.size / 1024).toFixed(1)} КБ</b><span>Последнее сохранение</span><b>${new Date(inf.savedAt).toLocaleString('ru-RU')}</b></div>
+          <div class="note" style="margin-top:.5em">${inf.storage ? 'Прогресс хранится только в этом браузере.' : 'Браузер не даёт сохранять — прогресс пропадёт после закрытия вкладки.'} Рейтинговые результаты засчитываются сервером, а не клиентом.</div></div></div>
+
+        <div class="section"><div class="eyebrow">Опасная зона</div><div class="card set-danger"><div class="note">Сброс удалит уровень, монеты, героев и достижения. Резервная копия останется в браузере.</div><button class="btn danger block" data-act="reset">Сбросить весь прогресс</button></div></div>
+        <div class="section note set-links"><a href="privacy.html" target="_blank" rel="noopener">Политика конфиденциальности</a><a href="terms.html" target="_blank" rel="noopener">Условия использования</a></div>
+      </div></div>`;
+    },
+    act: {
+      toProfile(app) { app.go('profile', { back: 'settings' }); },
       sw(app, d) {
         const st = app.profile.settings;
         st[d.k] = !st[d.k];
@@ -1570,7 +1635,7 @@
       N.on('unqueued', () => { ses.queued = false; if (lobbyScreen()) this.refresh(); });
       N.on('error', m => { ses.netErr = m.reason; toast(m.reason, 'bad'); if (lobbyScreen()) this.refresh(); });
       N.on('publics', m => { ses.publics = m; if (this.curName === 'team' && !(ses.netRoom && ses.netRoom.mode === 'team')) this.refresh(); });
-      N.on('tag', m => { const p = this.profile; if (p.tag !== m.tag) toast('Ваш тег: #' + m.tag, 'gold'); p.tag = m.tag; p.tagVerified = true; this.persist(); if (this.curName === 'menu' || this.curName === 'settings') this.refresh(); });
+      N.on('tag', m => { const p = this.profile; if (p.tag !== m.tag) toast('Ваш тег: #' + m.tag, 'gold'); p.tag = m.tag; p.tagVerified = true; this.persist(); if (this.curName === 'menu' || this.curName === 'settings' || this.curName === 'profile') this.refresh(); });
       N.on('grant', m => {
         const p = this.profile, add = (m.heroes || []).filter(h => K.HERO[h] && !p.owned.includes(h));
         if (!add.length) return;

@@ -108,12 +108,13 @@ ok(Math.abs(d1.a.waveNum-d1.b.waveNum)<=0 || d1.over,'sync waves');
   const sp=f.layout.spots[0], t=f.cmd({type:'place',hero:'piggy',x:sp.x,z:sp.z}).tower;
   ok(t.s.passive && t.s.dmg===0,'piggy passive');
   f.cmd({type:'upgrade',tower:t.id,branch:0}); f.cmd({type:'upgrade',tower:t.id,branch:0});
-  ok(f.maxHp===35 && f.hp===35,'petMax +5');
+  ok(f.maxHp===30 && f.hp===30,'petMax not applied on upgrade');
   ok(!f.cmd({type:'skill',tower:t.id,skill:'aa'}).ok,'no skills for piggy');
   f.hp=20; const c0=f.coins; f.startNextWave(true);
   ok(f.coins>=c0+30 && f.events.some(e=>e.t==='piggy'),'piggy pays at wave start');
+  ok(f.maxHp===35 && f.hp===26,'petMax +5 and heal +1 at wave start');
   for(let i=0;i<60*120 && f.active.length;i++){ f.enemies.forEach(x=>f.damage(x,1e9,null,null)); f.step(1/60); }
-  ok(f.hp===21,'heal 1 per wave'); ok(f.coins>c0+30,'income to owner');
+  ok(f.hp===26,'no extra heal on wave clear'); ok(f.coins>c0+30,'income to owner');
   ok(f.projectiles.length===0 && t.dealt===0,'piggy never fires');
   f.cmd({type:'upgrade',tower:t.id,branch:0}); f.cmd({type:'upgrade',tower:t.id,branch:0}); f.startNextWave(true);
   ok(f.shieldLeft===2,'shield charges'); const hp=f.hp; const e=f.spawn({type:'normal',hpMul:1,spMul:1},f.waveNum,0,f.paths[0].length-0.01); f.step(1/60);
@@ -178,7 +179,7 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',10],['duel'
   const f=new K.Field({map:'lobby',diff:'normal',seed:21,squad:['garage','blaster'],players:P,autoWave:false}); f.wallets.p1=f.wallets.p2=1e6;
   const free=f.layout.spots.filter(q=>f.canPlace(q.x,q.z).ok); let i=0; const put=(h,o)=>{ while(i<free.length){ const q=free[i++]; if(!f.canPlace(q.x,q.z).ok) continue; return f.cmd({type:'place',hero:h,x:q.x,z:q.z,owner:o}); } };
   for(let k=0;k<4;k++) ok(put('garage','p1').ok,'garage '+(k+1));
-  const r5=put('garage','p1'); ok(!r5.ok && /Гаражей/.test(r5.reason),'max 4 garages per player');
+  const r5=put('garage','p1'); ok(!r5.ok && /Гараж: не больше 4/.test(r5.reason),'max 4 garages per player');
   ok(put('garage','p2').ok,'other player has own garage limit');
   let n=f.towers.filter(t=>t.owner==='p1').length; while(n<20){ if(put('blaster','p1').ok) n++; else break; }
   const rc=put('blaster','p1'); ok(n===20 && !rc.ok && /20/.test(rc.reason),'2 players: 20 towers each'); ok(K.towerCap(1)===25&&K.towerCap(3)===18&&K.towerCap(4)===15,'tower caps'); }
@@ -234,4 +235,14 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',10],['duel'
   const base=(d,W)=>{ const D=K.DIFFS[d], w=W-1; let h=(1+0.09*w+0.0025*w*w)*D.hpMul; if(W>40) h*=Math.pow(1.035,W-40); return h; };
   for (const d of ['easy','normal','hard','endless','duel']) { ok(Math.abs(hp(d,10)[0]-base(d,10))<1e-9 && Math.abs(hp(d,11)[0]-base(d,11)*1.035)<1e-9 && Math.abs(hp(d,20)[0]-base(d,20)*1.35)<1e-9,'+3.5%/wave from 11: '+d); }
   ok(hp('normal',20)[1][0]===5000 && hp('hard',40)[1][0]===25000,'bosses unaffected'); }
+// Свинки: не больше 4, щит одноразовый
+{ const f=new K.Field({map:'lobby',diff:'normal',seed:31,squad:['piggy'],autoWave:false}); f.coins=1e6;
+  const free=f.layout.spots.filter(q=>f.canPlace(q.x,q.z).ok); let i=0, n=0, last=null;
+  const put=()=>{ while(i<free.length){ const q=free[i++]; if(!f.canPlace(q.x,q.z).ok) continue; return f.cmd({type:'place',hero:'piggy',x:q.x,z:q.z}); } };
+  for(let k=0;k<4;k++){ const r=put(); if(r.ok){n++; last=r.tower;} }
+  const r5=put(); ok(n===4 && !r5.ok && /не больше 4/.test(r5.reason),'max 4 piggies per player');
+  const t=last; for(let k=0;k<4;k++) f.cmd({type:'upgrade',tower:t.id,branch:0}); ok(f.shieldLeft===2,'shield +2 once on upgrade');
+  f.startNextWave(true); ok(f.shieldLeft===2,'shield not refilled at wave start');
+  f.shieldLeft=0; f.cmd({type:'upgrade',tower:t.id,branch:0}); ok(f.shieldLeft===3,'spent shield: next upgrade adds only its 3');
+  const e=f.spawn({type:'normal',hpMul:1,spMul:1},f.waveNum,0,f.paths[0].length-0.01); const hp0=f.hp; f.step(1/60); ok(f.hp===hp0 && f.shieldLeft===2,'shield blocks a leak and is used up'); }
 console.log('OK', n, 'checks');

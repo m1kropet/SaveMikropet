@@ -245,7 +245,7 @@
     }
 
     handle(evs) {
-      const A = K.Audio;
+      const A = K.Audio, f = this.field;
       for (const ev of evs) {
         switch (ev.t) {
           case 'shot': A.play(ev.tower.hero, ev.tower.hero === 'blaster' ? 70 : 90); break;
@@ -262,7 +262,9 @@
           case 'piggyTotal': A.play('buy', 200); this.setHint('Свинки принесли +' + ev.amount + ' монет'); break;
           case 'obstacle': this.setHint('Появилось препятствие: ' + K.OBSTACLES[ev.o.kind].name.toLowerCase() + '. Оно закрывает место и обзор башням.', 5); break;
           case 'spawn': this.noticeType(ev.e); break;
-          case 'shield': this.setHint('Пушистый щит Свинки спас микропета!', 3); break;
+          case 'shield': this.setHint('Пушистый щит Свинки спас микропета!' + (f.shieldLeft > 0 ? ' Зарядов осталось: ' + f.shieldLeft : ' Щит израсходован.'), 3); break;
+          case 'shieldUp': this.setHint('Щит Свинки: +' + ev.n + ' заряда', 3); break;
+          case 'petHeal': this.setHint('Свинки подлечили микропета: +' + ev.n, 3); break;
           case 'enrage': this.setHint('Ковтоп в ярости: экран покраснел, скорость выросла!'); break;
         }
       }
@@ -330,7 +332,7 @@
       const f = this.field;
       this.$('hWave').textContent = pad4(f.waveNum);
       this.$('hWaveOf').textContent = isFinite(f.finalWave) ? ' / ' + f.finalWave : ' / ∞';
-      this.$('hHp').textContent = f.hp + ' / ' + f.maxHp;
+      this.$('hHp').textContent = f.hp + ' / ' + f.maxHp + (f.shieldLeft > 0 ? ' · щит ' + f.shieldLeft : '');
       this.$('hHpBar').style.width = (100 * f.hp / f.maxHp) + '%';
       this.$('hHpBox').classList.toggle('low', f.hp / f.maxHp <= 0.3);
       this.$('hCoins').textContent = Math.floor(this.wallet());

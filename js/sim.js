@@ -436,7 +436,8 @@
       const mine = this.towers.filter(t => t.owner === owner);
       const cap = K.towerCap(this.players.length);
       if (mine.length >= cap) return { ok: false, reason: 'Лимит башен: не больше ' + cap + ' на игрока' };
-      if (K.HERO[heroId] && K.HERO[heroId].base.garage && mine.filter(t => t.hero === heroId).length >= K.GARAGE_MAX) return { ok: false, reason: 'Гаражей не больше ' + K.GARAGE_MAX + ' на игрока' };
+      const H = K.HERO[heroId], max = H && (H.base.maxPerPlayer || (H.base.garage ? K.GARAGE_MAX : 0));
+      if (max && mine.filter(t => t.hero === heroId).length >= max) return { ok: false, reason: H.name + ': не больше ' + max + ' на игрока' };
       return { ok: true };
     }
 
@@ -506,8 +507,10 @@
       if (!this.trySpend(st.cost, pid)) return { ok: false, reason: 'Не хватает монет' };
       t.up[br]++;
       t.spent += st.cost;
+      const shield0 = t.s.shield || 0;
       t.s = towerStats(t.hero, t.up, t.skills);
-      if (t.s.passive) this.recalcPet();
+      // щит одноразовый: улучшение добавляет к запасу только новые заряды (жизни микропета прибавятся в начале волны)
+      if ((t.s.shield || 0) > shield0) { this.shieldLeft += t.s.shield - shield0; this.emit({ t: 'shieldUp', tower: t, n: t.s.shield - shield0 }); }
       if (t.up[br] === 5) this.maxTierHit = true;
       this.emit({ t: 'upgrade', tower: t, branch: br, level: t.up[br] });
       return { ok: true };
@@ -568,7 +571,10 @@
       if (manual && !this.canStartWave()) return { ok: false, reason: 'Волна уже идёт' };
       if (this.over || this.waveNum >= this.finalWave) return { ok: false, reason: 'Волн больше нет' };
       this.waveNum++;
-      this.shieldLeft = this.towers.reduce((n, t) => n + (t.s.shield || 0), 0);
+      // жизни и лечение от Свинок — в начале волны, как и доход
+      this.recalcPet();
+      const heal = this.towers.reduce((a, t) => a + (t.s.heal || 0), 0);
+      if (heal > 0 && this.hp > 0 && this.hp < this.maxHp) { this.hp = Math.min(this.maxHp, this.hp + heal); this.emit({ t: 'petHeal', n: heal }); }
       const w = genWave(this.diffKey, this.waveNum, this.seed, this.map);
       this.active.push({ n: w.n, spawns: w.spawns, idx: 0, t: 0, remaining: w.spawns.length, bonus: w.bonus, boss: w.boss });
       this.autoTimer = -1;
@@ -1011,10 +1017,7 @@
           if (!this.rewarded.has(w.n)) {
             this.rewarded.add(w.n);
             this.wavesCleared++;
-            let heal = 0;
             this.gainShared(w.bonus);
-            for (const t of this.towers) heal += t.s.heal;
-            if (heal > 0 && this.hp > 0) this.hp = Math.min(this.maxHp, this.hp + heal);
             this.emit({ t: 'waveClear', n: w.n, bonus: w.bonus, income: 0 });
             if (w.n % 4 === 0 && w.n !== this.finalWave) { this.spawnObstacle(w.n); if (w.n >= 20) this.spawnObstacle(w.n); }
             if (w.n === this.finalWave && this.hp > 0) { this.finish('win'); }

@@ -27,6 +27,8 @@
       case 'car': case 'carGone': case 'carBoom': return { t: ev.t, car: { id: ev.car.id, x: r2(ev.car.x), z: r2(ev.car.z), tank: ev.car.tank } };
       case 'carShot': return { t: 'carShot', car: { id: ev.car.id, x: r2(ev.car.x), z: r2(ev.car.z) }, to: { x: r2(ev.to.x), z: r2(ev.to.z) }, tank: ev.tank };
       case 'ram': return { t: 'ram', x: r2(ev.x), z: r2(ev.z) };
+      case 'shieldUp': return { t: 'shieldUp', n: ev.n };
+      case 'petHeal': return { t: 'petHeal', n: ev.n };
       case 'piggyTotal': return { t: 'piggyTotal', amount: ev.amount };
       case 'piggy': return { t: 'piggy', tid: ev.tid, x: r2(ev.x), z: r2(ev.z), amount: ev.amount };
       case 'over': return { t: 'over', result: ev.result };

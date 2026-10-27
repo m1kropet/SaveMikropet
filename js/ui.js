@@ -408,7 +408,7 @@
   }
 
   // Фоны скинов по макету игрока (картинка 653×518). Поверх — живой свет, секреты и частицы.
-  const MENU_IMG = {}, IMG_W = 653, IMG_H = 518;
+  const MENU_IMG = {}, IMG_W = 653, IMG_H = 1199, SCENE_H = 518;
   ['hotel', 'mine'].forEach(k => { if (typeof Image === 'undefined') return; const im = new Image(); im.decoding = 'async'; im.src = 'img/menu-' + k + '.jpg'; MENU_IMG[k] = im; });
   const SPOTS = {
     hotel: {
@@ -426,7 +426,8 @@
   };
   function paintImageScene(ctx, w, h, t, mine, live) {
     const im = MENU_IMG[mine ? 'mine' : 'hotel'], S = SPOTS[mine ? 'mine' : 'hotel'];
-    const s = Math.max(w / IMG_W, (h * 0.45) / IMG_H), ox = (w - IMG_W * s) / 2;
+    // картинка на весь экран (пол продолжается за кнопками), как на макете
+    const s = Math.max(w / IMG_W, h / IMG_H), ox = (w - IMG_W * s) / 2;
     const P = (x, y) => [ox + x * s, y * s];
     ctx.fillStyle = '#0c0705'; ctx.fillRect(0, 0, w, h);
     ctx.drawImage(im, 0, 0, IMG_W, IMG_H, ox, 0, IMG_W * s, IMG_H * s);
@@ -455,15 +456,11 @@
     const pr = K.rng(mine ? 5 : 3), u = w / 10;
     for (let i = 0; i < 30; i++) {
       const x0 = pr() * w, sp = 0.02 + pr() * 0.05, p0 = pr();
-      const y = (((p0 - t * sp) % 1 + 1) % 1) * IMG_H * s, x = x0 + Math.sin(t * 0.6 + i) * u * 0.3;
+      const y = (((p0 - t * sp) % 1 + 1) % 1) * SCENE_H * s, x = x0 + Math.sin(t * 0.6 + i) * u * 0.3;
       const a = 0.25 + 0.4 * Math.sin(t * 2 + i) ** 2;
       ctx.fillStyle = mine ? `rgba(255,${150 + (i % 4) * 20},70,${a})` : `rgba(255,225,180,${a * 0.7})`;
       ctx.fillRect(x, y, mine ? 2 : 1.6, mine ? 2 : 1.6);
     }
-    // плавный переход картинки в тёмный низ под меню
-    const y0 = IMG_H * s * 0.78, y1 = IMG_H * s;
-    const vg = ctx.createLinearGradient(0, y0, 0, y1 + 4); vg.addColorStop(0, 'rgba(12,7,5,0)'); vg.addColorStop(1, 'rgba(12,7,5,1)');
-    ctx.fillStyle = vg; ctx.fillRect(0, y0, w, h - y0);
     const tg = ctx.createLinearGradient(0, 0, 0, h * 0.1); tg.addColorStop(0, 'rgba(8,5,4,0.35)'); tg.addColorStop(1, 'rgba(8,5,4,0)'); ctx.fillStyle = tg; ctx.fillRect(0, 0, w, h * 0.1);
   }
 
@@ -573,7 +570,7 @@
       const need = K.Profile.xpNeed(p.level);
       const inc = p.friends.incoming.length;
       const mt = p.settings.theme === 'mine' ? ':mine' : '';
-      return `<div class="screen">
+      return `<div class="screen menu">
         <div class="menu-bg"><canvas id="menuArt" aria-hidden="true"></canvas></div>
         <div class="menu-top">
           <button class="profile-chip" data-act="chip" aria-label="Профиль ${esc(p.nick)}, уровень ${p.level}" title="${esc(p.nick)} #${esc(p.tag)}"><span class="lvl" style="--p:${Math.round(100 * p.xp / need)}"><span>${p.level}</span>${p.twitch ? '<i class="lvl-ok tw" title="Подтверждено через Twitch">' + icon('check') + '</i>' : p.google ? '<i class="lvl-ok gg" title="Подтверждено через Google">' + G_LOGO + '</i>' : ''}</span><span class="pc-more"><span class="pc-name"><b>${esc(p.nick)}</b><br><span class="ptag">#${esc(p.tag)}</span></span>${eyeBadge(p.eye)}${p.twitch ? '<span class="tw-badge" title="Подтверждено через Twitch">' + icon('check') + '</span>' : ''}${googleBadge(!!p.google)}</span></button>

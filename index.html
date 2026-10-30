@@ -53,6 +53,11 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible { outline: 2
 .btn.small { min-height: 2.3em; padding: 0.4em 0.7em; font-size: 0.86em; }
 .btn.block { width: 100%; }
 .skip-top { min-height: 2.6em; padding: 0 0.7em; white-space: nowrap; flex: none; }
+.skip-top svg { width: 0.9em; height: 0.9em; vertical-align: -0.1em; }
+.skip-top.wave-top { font-size: 0.86em; padding: 0 0.75em; }
+.skip-top.wave-top.first { animation: wavepulse 1.6s ease-in-out infinite; }
+@keyframes wavepulse { 50% { box-shadow: 0 0 22px #ff9a2acc, inset 0 0 14px #ffb84a66; } }
+.wave-info .wi-head { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bossbar { position: absolute; left: 0.8em; right: 0.8em; top: 0.5em; z-index: 2; padding: 0.35em 0.6em 0.45em; border-radius: 0.5em; background: #12080acc; border: 1px solid #6a1a24; pointer-events: none; }
 .bossbar .bb-row { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6em; font-size: 0.82em; color: #ffd0d6; }
 .bossbar .bb-row .eta { flex: 1; color: #ffb0b8; font-size: 0.92em; }

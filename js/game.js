@@ -135,7 +135,7 @@
               <div class="nt-msg" id="ntMsg" hidden><b id="ntT"></b> <span id="ntS"></span></div>
             </div>
             ${this.mode === 'duel' ? '<button class="btn small" data-act="view" id="viewBtn">Карта соперника</button>' : this.online ? '<span class="tag" title="Сетевой матч">онлайн</span>' : '<button class="btn small" data-act="speed" id="speedBtn" aria-label="Скорость игры">×1</button>'}
-            ${this.duel ? '' : '<button class="btn small pet skip-top" data-act="skip" id="skipTop" hidden title="Следующая волна начнётся сразу">⏩ Пропуск</button>'}
+            ${this.duel ? '' : '<button class="btn small skip-top" data-act="skip" id="skipTop" hidden></button>'}
             <button class="btn small icon-btn" data-act="pause" aria-label="Пауза">${K.UI.icon('pause')}</button>
           </div>
           ${this.mode === 'duel' ? `<div class="opp"><div class="side"><div class="eyebrow">Вы</div><div id="dA" class="num"></div></div><div class="timer" id="dT">00:00</div><div class="side bot"><div class="eyebrow">Соперник</div><div id="dB" class="num"></div><div class="st" id="dS"></div></div></div>` : ''}
@@ -190,7 +190,7 @@
       this.renderDock(true);
       this.updateHud();
       if (this.mode === 'duel') this.announce('Дуэль началась', 'Волны общие: следующая начнётся, когда оба отобьют текущую.');
-      else this.setHint('Выберите героя внизу и коснитесь любого места рядом с дорогой. ' + (this.field.autoWave ? 'Волны пойдут сами.' : 'Затем начните волну.'), 6);
+      else this.setHint('Выберите героя внизу и коснитесь любого места рядом с дорогой. ' + (this.field.autoWave ? 'Волны пойдут сами.' : 'Затем нажмите «Волна 1» вверху.'), 6);
       this.last = performance.now();
       this.raf = requestAnimationFrame(t => this.loop(t));
     }
@@ -270,24 +270,39 @@
       }
     }
 
-    // Вместо «Идёт волна N»: что сейчас на поле и к чему готовиться в следующей волне
+    // Важная информация внизу (на месте кнопки волны): что на поле сейчас и к чему готовиться
     waveInfo() {
-      const f = this.field, n = f.waveNum;
-      const alive = f.enemies.filter(e => !e.dead).length;
-      const bonus = Math.ceil(f.peekWave(n).bonus / Math.max(1, f.players.length));
-      let next = '', warn = '';
-      if (n < f.finalWave) {
-        const w = f.peekWave(n + 1), c = K.waveSummary(w);
-        next = Object.keys(c).sort((a, b) => c[b] - c[a]).slice(0, 3).map(k => K.ENEMIES[k.split('+')[0]].name + ' ×' + c[k]).join(', ');
+      const f = this.field, active = f.active.length > 0;
+      const n = active ? f.waveNum : f.waveNum + 1;
+      const share = v => Math.ceil(v / Math.max(1, f.players.length));
+      if (f.over || n > f.finalWave) return `<div class="wave-info" role="status"><div><b>Волн больше нет</b> · ♥ ${f.hp} / ${f.maxHp}</div><div class="wi-next">Микропет отбит — ждём итогов матча</div></div>`;
+      // состав и угрозы волны m
+      const intel = m => {
+        if (m > f.finalWave) return { text: '', warn: '' };
+        const w = f.peekWave(m), c = K.waveSummary(w);
+        const text = Object.keys(c).sort((a, b) => c[b] - c[a]).slice(0, 3).map(k => K.ENEMIES[k.split('+')[0]].name + (k.includes('+') ? ' (невид.)' : '') + ' ×' + c[k]).join(', ');
         const fly = w.spawns.some(s => s.type === 'flyer' || s.flying), inv = w.spawns.some(s => s.type === 'ghost' || s.invisible);
-        const w2 = [];
-        if (w.boss) w2.push('Ковтоп');
-        if (fly && !f.towers.some(t => t.s.aa)) w2.push('нужно ПВО');
-        if (inv && !f.towers.some(t => t.s.vision)) w2.push('нужен Вижен');
-        warn = w2.join(' · ');
+        const ws = [];
+        if (w.boss) ws.push('Ковтоп');
+        if (fly && !f.towers.some(t => t.s.aa)) ws.push('нужно ПВО');
+        if (inv && !f.towers.some(t => t.s.vision)) ws.push('нужен Вижен');
+        return { text, warn: ws.join(' · ') };
+      };
+      let head, it;
+      if (active) {
+        const alive = f.enemies.filter(e => !e.dead).length;
+        head = `<b>Волна ${n}</b> · на поле ${alive} · за волну <span class="coin mcoin">+${share(f.peekWave(n).bonus)}</span>`;
+        it = intel(n + 1);
+        if (!it.text) it.text = 'это последняя волна — держитесь!';
+        else it.text = 'дальше: ' + it.text;
+      } else {
+        const auto = f.autoWave && f.autoTimer > 0 ? ` · старт через ${Math.ceil(f.autoTimer)} с` : '';
+        head = `<b>Впереди волна ${n}</b> · за неё <span class="coin mcoin">+${share(f.peekWave(n).bonus)}</span>${auto}`;
+        it = intel(n);
+        it.text = it.text ? 'состав: ' + it.text : '';
       }
-      return `<div class="wave-info" role="status"><div><b>Волна ${n}</b> · на поле ${alive} · за волну <span class="coin mcoin">+${bonus}</span></div>
-        <div class="wi-next">${warn ? `<span class="wi-warn">⚠ ${esc(warn)}</span> · ` : ''}${next ? 'дальше: ' + esc(next) : 'Это последняя волна — держитесь!'}</div></div>`;
+      return `<div class="wave-info" role="status"><div class="wi-head">${head}</div>
+        <div class="wi-next">${it.warn ? `<span class="wi-warn">⚠ ${esc(it.warn)}</span>${it.text ? ' · ' : ''}` : ''}${esc(it.text)}</div></div>`;
     }
 
     waveNote(n) {
@@ -358,13 +373,20 @@
           this.$('notice').classList.toggle('rage', bosses.some(e => e.enraged));
         }
       }
-      // пропуск волны — рядом с паузой
+      // кнопка волны — вверху рядом с паузой: «Волна N» между волнами, «Пропуск» во время волны
       const st = this.$('skipTop');
       if (st) {
         const sv = this.online && this.skipVotes ? this.skipVotes : null, voted = sv && sv[0].includes(this.ui.player);
-        st.hidden = !(f.active.length && f.canSkip());
+        const votes = sv && sv[1] > 1 ? ' · ' + sv[0].length + '/' + sv[1] : '';
+        let mode = null, label = '';
+        if (!f.over && (f.canStartWave() || (!f.active.length && f.canSkip()))) { mode = 'start'; label = K.UI.icon('play') + ' Волна ' + (f.waveNum + 1) + (f.autoWave && f.autoTimer > 0 ? ' · ' + Math.ceil(f.autoTimer) + ' с' : ''); }
+        else if (!f.over && f.active.length && f.canSkip()) { mode = 'skip'; label = '⏩ Пропуск'; }
+        st.hidden = !mode;
         st.disabled = !!voted;
-        st.innerHTML = '⏩ Пропуск' + (sv && sv[1] > 1 ? ' ' + sv[0].length + '/' + sv[1] : '');
+        const html = label + votes, cls = 'btn small skip-top ' + (mode === 'start' ? 'brass wave-top' + (f.waveNum === 0 ? ' first' : '') : 'pet');
+        if (st.dataset.h !== html) { st.dataset.h = html; st.innerHTML = html; }
+        if (st.className !== cls) st.className = cls;
+        st.title = mode === 'start' ? 'Начать волну ' + (f.waveNum + 1) + ' (пробел)' : 'Следующая волна начнётся сразу';
       }
     }
 
@@ -504,7 +526,7 @@
           sig = 'T' + t.id + t.up.join('') + t.skills.vision + t.skills.aa + t.targeting + JSON.stringify(ui.tier) + ui.sellArm + aff + f.over;
         } else {
           const gap = this.duel ? (this.duel.gap == null ? 'w' + this.duel.waiting() : Math.ceil(this.duel.gap)) : '';
-          sig = 'B' + ui.placing + f.squad.map(h => this.wallet() >= K.placeCost(h, f.mode) ? 1 : 0).join('') + f.canStartWave() + f.canSkip() + f.waveNum + f.active.length + '/' + (f.active.length ? f.enemies.length + '' + f.towers.filter(t => t.s.aa || t.s.vision).length : '') + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over + JSON.stringify(this.skipVotes || '');
+          sig = 'B' + ui.placing + f.squad.map(h => this.wallet() >= K.placeCost(h, f.mode) ? 1 : 0).join('') + f.canStartWave() + f.canSkip() + f.waveNum + f.active.length + '/' + (f.active.length ? f.enemies.filter(e => !e.dead).length : '') + '/' + f.towers.filter(t => t.s.aa).length + '' + f.towers.filter(t => t.s.vision).length + f.hp + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over + JSON.stringify(this.skipVotes || '');
         }
       }
       if (!force && sig === this.dockSig) return;
@@ -530,19 +552,8 @@
           <span class="hero-thumb" style="background-image:url(${K.thumbs[id] || ''})"></span>
           <span class="nm">${esc(H.name)}</span><span class="num coin mcoin" style="font-size:.78em">${K.placeCost(id, this.field.mode)}</span></button>`);
       }
-      let waveBtn = '';
-      // в дуэли волны идут сами, а номер волны уже есть в верхней панели — кнопка не нужна
-      if (this.duel) waveBtn = '';
-      else {
-        // онлайн: пропуск по голосам (1–2 игрока — 1 голос, 3–4 — 2 голоса)
-        const sv = this.online && this.skipVotes ? this.skipVotes : null;
-        const voted = sv && sv[0].includes(ui.player);
-        const votes = sv && sv[1] > 1 ? ` · ${sv[0].length}/${sv[1]}` : '';
-        if (f.canStartWave() || (!f.active.length && f.canSkip())) waveBtn = `<button class="btn brass" data-act="skip" ${voted ? 'disabled' : ''}>${f.autoWave && f.autoTimer > 0 ? 'Волна ' + (f.waveNum + 1) + ' · авто ' + Math.ceil(f.autoTimer) + ' с' : 'Начать волну ' + (f.waveNum + 1)}${votes}</button>`;
-        else if (f.active.length) waveBtn = this.waveInfo();
-        else waveBtn = '<button class="btn" disabled>Волн больше нет</button>';
-      }
-      const ctrl = waveBtn || ui.placing ? `<div class="ctrl">${waveBtn}${ui.placing ? '<button class="btn" data-act="cancel">Отмена</button>' : ''}</div>` : '';
+      // кнопка волны теперь вверху; здесь — сводка по волне (в дуэли волны идут сами, сводка тоже полезна)
+      const ctrl = `<div class="ctrl">${this.waveInfo()}${ui.placing ? '<button class="btn" data-act="cancel">Отмена</button>' : ''}</div>`;
       return `<div class="build">${slots.join('')}</div>${ctrl}`;
     }
 

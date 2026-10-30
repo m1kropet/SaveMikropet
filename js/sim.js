@@ -235,7 +235,15 @@
       proj: b.proj, projSpeed: b.projSpeed || 0,
       // гараж: машины, стрелок на машине, танк
       garage: !!b.garage, carHp: b.carHp || 0, carInt: b.carInt || 0, carSpeed: b.carSpeed || 0,
-      gunDmg: 0, gunRate: 0, gunRange: 0, tank: false, tankDmg: 0, tankRate: 0, tankRange: 0, tankSplash: 0
+      gunDmg: 0, gunRate: 0, gunRange: 0, tank: false, tankDmg: 0, tankRate: 0, tankRange: 0, tankSplash: 0,
+      // новые механики
+      mineMax: b.mineMax || 0, knock: b.knock || 0, bossKnock: b.bossKnock || 0,
+      poison: b.poison || 0, poisonMax: b.poisonMax || 0, poisonDur: b.poisonDur || 0, poisonSpread: 0,
+      markAmp: b.markAmp || 0, markDur: b.markDur || 0, markSlow: 0, markExec: 0,
+      minRange: b.minRange || 0, lob: !!b.lob, cone: b.cone || 0, heatMax: b.heatMax || 0, heatStep: b.heatStep || 0,
+      lineW: b.lineW || 0, back: b.back || 0, silDur: b.silDur || 0, bossBonus: b.bossBonus || 0, unveil: false,
+      aura: !!b.aura, auraRate: b.auraRate || 0, auraDmg: 0, auraPierce: 0, auraCrit: 0, auraVision: !!b.auraVision,
+      auraSlow: b.auraSlow || 0, stopInt: b.stopInt || 0, stopDur: b.stopDur || 0, ageDmg: 0
     };
     let dmgMul = 1, rateMul = 1, carHpMul = 1, gunDmgMul = 1, gunRateMul = 1;
     const apply = fx => {
@@ -248,8 +256,8 @@
         else if (k === 'tank') s.tank = !!v;
         else if (k === 'rateMul') rateMul *= v;
         else if (k === 'multi') s.multi += v;
-        else if (k === 'critM' || k === 'slow' || k === 'freezeDur' || k === 'stunDur' || k === 'execute' || k === 'interestCap') s[k] = Math.max(s[k], v);
-        else if (k === 'aoeAll' || k === 'bossFreeze') s[k] = !!v;
+        else if (k === 'critM' || k === 'slow' || k === 'freezeDur' || k === 'stunDur' || k === 'execute' || k === 'interestCap' || k === 'markSlow' || k === 'markExec' || k === 'bossKnock') s[k] = Math.max(s[k], v);
+        else if (k === 'aoeAll' || k === 'bossFreeze' || k === 'unveil' || k === 'auraVision' || k === 'lob') s[k] = !!v;
         else s[k] += v;
       }
     };
@@ -262,8 +270,26 @@
       s.carInt = Math.max(25, s.carInt);
       s.gunDmg *= gunDmgMul; s.gunRate *= gunRateMul;
     }
+    s.minRange = Math.max(0, s.minRange);
+    s.cone = Math.min(1.3, s.cone);
+    s.auraSlow = Math.min(0.6, s.auraSlow);
+    if (s.stopInt) s.stopInt = Math.max(4, s.stopInt);
+    if (s.aura) s.auraRange = s.range;
     s.dps = s.dmg * s.rate * (1 + s.critC * (s.critM - 1));
+    // мины, яд и огонь: оценка урона для подсказок и бота
+    if (s.poison) s.dps += s.poison * Math.min(s.poisonMax, 3) * Math.min(s.multi, 3) * 0.5;
+    if (s.cone) s.dps *= 1 + Math.min(s.heatMax * s.heatStep, 3) * 0.5;
     return s;
+  }
+
+  // Свет прожектора: копия характеристик башни с усилениями (не складываются — берётся лучший прожектор)
+  function buffedStats(s, b) {
+    const o = Object.assign({}, s);
+    o.rate *= 1 + b.rate; o.dmg *= 1 + b.dmg; o.pierce += b.pierce;
+    if (b.crit) { o.critC += b.crit; o.critM = Math.max(o.critM, 2); }
+    if (b.vision) o.vision = true;
+    o.dps = o.dmg * o.rate * (1 + o.critC * (o.critM - 1));
+    return o;
   }
 
   // Правила блокировки веток: вне зависимости от интерфейса.
@@ -317,6 +343,7 @@
       this.towers = [];
       this.cars = [];
       this.projectiles = [];
+      this.mines = [];
       this.events = [];
       this.kills = 0;
       this.leaks = 0;
@@ -549,6 +576,7 @@
       const t = this.towers[i];
       const own = this.ownCheck(t, pid); if (own) return own;
       this.towers.splice(i, 1);
+      if (this.mines.length) this.mines = this.mines.filter(m => m.tower !== t.id);
       const refund = Math.floor(t.spent * K.SELL_RATE);
       this.wallets[t.owner] = (this.wallets[t.owner] || 0) + refund;
       if (t.s.passive) this.recalcPet();
@@ -653,7 +681,13 @@
         const armor = Math.max(0, e.armor - s.pierce);
         dmg = Math.max(amount * 0.25, amount - armor);
         if (s.bonusSlowed && (e.slowT > 0 || e.stunT > 0)) dmg *= 1 + s.bonusSlowed;
+        if (s.bossBonus && (e.boss || e.elite)) dmg *= 1 + s.bossBonus;
         if (s.execute && !e.boss && (e.hp - dmg) / e.maxHp < s.execute) dmg = e.hp;
+      }
+      // проклятие Вуду: усиливает урон от любых источников (башни, машины, огонь, яд)
+      if (e.markT > 0) {
+        dmg *= 1 + (e.markAmp || 0);
+        if (e.markExec && !e.boss && (e.hp - dmg) / e.maxHp < e.markExec) dmg = e.hp;
       }
       // деньги за урон: 5 урона = 1 монета (без учёта «перебора» по добитой цели)
       const eff = Math.max(0, Math.min(dmg, e.hp));
@@ -692,6 +726,17 @@
       this.kills++;
       if (tower) tower.kills++;
       if (e.boss) { this.bossKills++; if (e.eta != null && e.eta < 3) this.feats.add('bossClose'); }
+      // споры Плюща: яд погибшего переходит на соседей
+      if (e.pSpread > 0 && e.pst > 0) {
+        const n = Math.max(1, Math.ceil(e.pst * Math.min(1, e.pSpread)));
+        let any = false;
+        for (const o of this.enemies) {
+          if (o.dead || o === e || (o.x - e.x) ** 2 + (o.z - e.z) ** 2 > 2.56) continue;
+          o.pst = Math.min(e.pMax || n, (o.pst || 0) + n); o.pDps = Math.max(o.pDps || 0, e.pDps); o.pT = Math.max(o.pT || 0, 3);
+          o.pSrc = e.pSrc; o.pSpread = e.pSpread; o.pMax = e.pMax; any = true;
+        }
+        if (any) this.emit({ t: 'boom', x: e.x, y: 0, z: e.z, r: 1.6, kind: 'thorn' });
+      }
       this.removeEnemy(e);
       this.emit({ t: 'die', e, reward: Math.round(e.maxHp / this.dmgPerCoin()), bonus: false });
     }
@@ -718,6 +763,29 @@
         this.emit({ t: 'stun', e });
       }
       if (s.burn > 0) { e.burn = Math.max(e.burn, s.burn); e.burnT = 2; e.burnSrc = tower; e.burnS = s; }
+      // Пылесос: назад по дороге; каждая следующая затяжка той же сущности слабее
+      if (s.knock > 0) {
+        e.kn = (e.kn || 0) + 1;
+        const k = s.knock * (e.boss ? s.bossKnock : 1) / (1 + 0.35 * (e.kn - 1));
+        if (k > 0.01) { e.d = Math.max(0, e.d - k); this.place3(e); }
+      }
+      // Плющ: порции яда копятся до предела
+      if (s.poison > 0) {
+        e.pst = Math.min(s.poisonMax, (e.pst || 0) + 1);
+        e.pDps = Math.max(e.pDps || 0, s.poison); e.pT = Math.max(e.pT || 0, s.poisonDur);
+        e.pSrc = tower; e.pSpread = Math.max(e.pSpread || 0, s.poisonSpread); e.pMax = Math.max(e.pMax || 0, s.poisonMax);
+      }
+      // Вуду: проклятие
+      if (s.markAmp > 0) {
+        e.markT = Math.max(e.markT || 0, s.markDur);
+        e.markAmp = Math.max(e.markAmp || 0, s.markAmp * (e.boss ? 0.6 : 1));
+        e.markSlow = Math.max(e.markSlow || 0, s.markSlow); e.markExec = Math.max(e.markExec || 0, s.markExec);
+      }
+      // Экзорцист: немота (без лечения, рывков и призыва) и снятие невидимости
+      if (s.silDur > 0) {
+        e.silT = Math.max(e.silT || 0, s.silDur * (e.boss ? 0.5 : 1));
+        if (s.unveil && e.invisible && !e.boss) { e.invisible = false; e.revealed = true; }
+      }
     }
 
     rollDmg(s) {
@@ -726,15 +794,15 @@
     }
 
     acquire(t, n, exclude) {
-      const s = t.s, r2 = s.range * s.range;
+      const s = t.es || t.s, r2 = s.range * s.range, mr2 = s.minRange * s.minRange;
       const list = [];
       let hidden = null;
       for (const e of this.enemies) {
         if (e.dead || (exclude && exclude.has(e.id))) continue;
         if (!this.canTarget(s, e)) continue;
         const d2 = (e.x - t.x) ** 2 + (e.z - t.z) ** 2;
-        if (d2 > r2) continue;
-        if (!K.HERO[t.hero].base.perch && !this.los(t.x, t.z, e.x, e.z, e.flying)) { if (!hidden || e.d > hidden.d) hidden = e; continue; }
+        if (d2 > r2 || (mr2 && d2 < mr2)) continue;
+        if (!K.HERO[t.hero].base.perch && !s.lob && !this.los(t.x, t.z, e.x, e.z, e.flying)) { if (!hidden || e.d > hidden.d) hidden = e; continue; }
         list.push([e, d2]);
       }
       t.blocked = !list.length && !!hidden;
@@ -753,7 +821,10 @@
     }
 
     fire(t) {
-      const s = t.s;
+      const s = t.es || t.s;
+      if (s.proj === 'trap') return this.layMine(t, s);
+      if (s.cone > 0) return this.fireCone(t, s);
+      if (s.proj === 'line') return this.fireLine(t, s);
       if (s.aoeAll) {
         const targets = this.acquire(t, 999);
         if (!targets.length) return false;
@@ -791,14 +862,14 @@
       this.aimAt(t, targets[0]);
       for (const e of targets) {
         const roll = this.rollDmg(s);
-        if (s.proj === 'beam') {
+        if (s.proj === 'beam' || s.proj === 'ray') {
           this.hit(e, s, roll.d, t);
-          this.emit({ t: 'beam', tower: t, to: { x: e.x, y: e.y + 0.5, z: e.z }, crit: roll.crit });
+          this.emit({ t: s.proj, tower: t, to: { x: e.x, y: e.y + 0.5, z: e.z }, crit: roll.crit });
         } else {
           const p = {
             id: this.nextId++, kind: s.proj, x: t.x, y: t.y + 1.0, z: t.z,
             tid: e.id, tx: e.x, ty: e.y + 0.4, tz: e.z, speed: s.projSpeed, dmg: roll.d, crit: roll.crit,
-            s, tower: t, owner: t.owner, air: e.flying
+            s, tower: t, owner: t.owner, air: e.flying, lob: s.lob
           };
           this.projectiles.push(p);
         }
@@ -808,6 +879,129 @@
     }
 
     aimAt(t, e) { t.aim = Math.atan2(e.x - t.x, e.z - t.z); }
+
+    // Капкан: ставит мину на дорогу в радиусе (пока мин меньше предела)
+    layMine(t, s) {
+      let mine = 0;
+      for (const m of this.mines) if (m.tower === t.id) mine++;
+      if (mine >= s.mineMax) return true;
+      for (let k = 0; k < 16; k++) {
+        const pi = Math.floor(this.rand() * this.paths.length), P = this.paths[Math.min(pi, this.paths.length - 1)];
+        const p = pointAt(P, 0.6 + this.rand() * Math.max(0, P.length - 1.8), 0);
+        if ((p.x - t.x) ** 2 + (p.z - t.z) ** 2 > s.range * s.range) continue;
+        if (this.mines.some(m => (m.x - p.x) ** 2 + (m.z - p.z) ** 2 < 0.36)) continue;
+        const m = { id: this.nextId++, tower: t.id, owner: t.owner, x: +p.x.toFixed(3), z: +p.z.toFixed(3), armT: 0.6 };
+        this.mines.push(m);
+        this.emit({ t: 'mine', x: m.x, z: m.z, tower: t });
+        return true;
+      }
+      return true;
+    }
+    stepMines(dt) {
+      if (!this.mines.length) return;
+      for (const m of this.mines) {
+        if (m.armT > 0) { m.armT -= dt; continue; }
+        const t = this.getTower(m.tower);
+        if (!t) { m.dead = true; continue; }
+        // мина реагирует на любую наземную сущность, даже невидимую
+        if (!this.enemies.some(e => !e.dead && !e.flying && (e.x - m.x) ** 2 + (e.z - m.z) ** 2 < 0.2)) continue;
+        const base = t.es || t.s;
+        if (t.mineBase !== base) { t.mineBase = base; t.mineS = Object.assign({}, base, { vision: true, aa: false }); }
+        const ms = t.mineS, r2 = ms.splash * ms.splash, roll = this.rollDmg(ms);
+        for (const e of this.enemies) if (!e.dead && !e.flying && (e.x - m.x) ** 2 + (e.z - m.z) ** 2 <= r2) this.hit(e, ms, roll.d, t);
+        m.dead = true;
+        this.emit({ t: 'boom', x: m.x, y: 0, z: m.z, r: ms.splash, kind: 'trap', crit: roll.crit });
+      }
+      if (this.mines.some(m => m.dead)) this.mines = this.mines.filter(m => !m.dead);
+    }
+
+    // Котельная: огонь по всем в конусе; разогрев растёт, пока огонь не прерывается
+    fireCone(t, s) {
+      const first = this.acquire(t, 1);
+      if (!first.length) { t.heat = 0; return false; }
+      const e0 = first[0];
+      this.aimAt(t, e0);
+      const a0 = Math.atan2(e0.z - t.z, e0.x - t.x), r2 = s.range * s.range;
+      t.heat = Math.min(s.heatMax, (t.heat || 0) + 1);
+      const mul = 1 + t.heat * s.heatStep;
+      for (const e of this.enemies) {
+        if (!this.canTarget(s, e)) continue;
+        const dx = e.x - t.x, dz = e.z - t.z, d2 = dx * dx + dz * dz;
+        if (d2 > r2) continue;
+        let da = Math.atan2(dz, dx) - a0;
+        while (da > Math.PI) da -= 2 * Math.PI; while (da < -Math.PI) da += 2 * Math.PI;
+        if (Math.abs(da) > s.cone && d2 > 0.16) continue;
+        if (!this.los(t.x, t.z, e.x, e.z, e.flying)) continue;
+        this.hit(e, s, s.dmg * mul, t);
+      }
+      this.emit({ t: 'flame', tower: t, a: a0, r: s.range, arc: s.cone, heat: s.heatMax ? t.heat / s.heatMax : 0 });
+      this.emit({ t: 'shot', tower: t });
+      return true;
+    }
+
+    // Ключник: бумеранг летит до конца дальности по линии и возвращается — два удара по всем на линии
+    fireLine(t, s) {
+      const targets = this.acquire(t, s.multi);
+      if (!targets.length) return false;
+      this.aimAt(t, targets[0]);
+      const w2 = s.lineW * s.lineW;
+      for (const e0 of targets) {
+        const dx = e0.x - t.x, dz = e0.z - t.z, L = Math.hypot(dx, dz) || 1;
+        const ux = dx / L, uz = dz / L, ex = t.x + ux * s.range, ez = t.z + uz * s.range;
+        const roll = this.rollDmg(s);
+        for (const e of this.enemies) {
+          if (!this.canTarget(s, e)) continue;
+          const px = e.x - t.x, pz = e.z - t.z, along = px * ux + pz * uz;
+          if (along < -0.2 || along > s.range + 0.2) continue;
+          const perp2 = px * px + pz * pz - along * along;
+          if (perp2 > w2) continue;
+          if (!this.los(t.x, t.z, e.x, e.z, e.flying)) continue;
+          this.hit(e, s, roll.d, t);
+          if (!e.dead && s.back > 0) this.hit(e, s, roll.d * s.back, t);
+        }
+        this.emit({ t: 'ray', tower: t, to: { x: ex, y: 0.5, z: ez }, crit: roll.crit, key: true });
+      }
+      this.emit({ t: 'shot', tower: t });
+      return true;
+    }
+
+    // Ауры: свет прожекторов усиливает башни, часы замедляют и останавливают время
+    stepAuras(dt) {
+      let lamps = null, clocks = null;
+      for (const t of this.towers) if (t.s.aura) { if (t.s.auraSlow || t.s.stopInt || t.s.ageDmg) (clocks = clocks || []).push(t); else (lamps = lamps || []).push(t); }
+      for (const t of this.towers) {
+        if (t.s.passive) { t.es = null; continue; }
+        let b = null;
+        if (lamps) for (const L of lamps) {
+          const ls = L.s;
+          if ((L.x - t.x) ** 2 + (L.z - t.z) ** 2 > ls.range * ls.range) continue;
+          b = b || { rate: 0, dmg: 0, pierce: 0, crit: 0, vision: false };
+          b.rate = Math.max(b.rate, ls.auraRate); b.dmg = Math.max(b.dmg, ls.auraDmg); b.pierce = Math.max(b.pierce, ls.auraPierce);
+          b.crit = Math.max(b.crit, ls.auraCrit); b.vision = b.vision || ls.auraVision;
+        }
+        const key = b ? b.rate + ',' + b.dmg + ',' + b.pierce + ',' + b.crit + ',' + b.vision : '';
+        if (key !== t.bufKey || t.esBase !== t.s) { t.bufKey = key; t.esBase = t.s; t.es = b ? buffedStats(t.s, b) : null; t.lit = !!b; }
+      }
+      if (!clocks) return;
+      for (const C of clocks) {
+        const s = C.s, r2 = s.range * s.range;
+        let any = false;
+        for (const e of this.enemies) {
+          if (e.dead || (e.x - C.x) ** 2 + (e.z - C.z) ** 2 > r2) continue;
+          any = true;
+          if (s.auraSlow) { e.slowF = Math.max(e.slowT > 0 ? e.slowF : 0, s.auraSlow * (e.boss ? 0.5 : 1)); e.slowT = Math.max(e.slowT, 0.12); }
+          if (s.ageDmg) this.damage(e, e.maxHp * s.ageDmg * (e.boss ? 0.15 : 1) * dt, null, C);
+        }
+        if (s.stopInt > 0) {
+          C.stopCd = (C.stopCd == null ? 2 : C.stopCd) - dt;
+          if (C.stopCd <= 0 && any) {
+            C.stopCd = s.stopInt;
+            for (const e of this.enemies) if (!e.dead && (e.x - C.x) ** 2 + (e.z - C.z) ** 2 <= r2) e.stunT = Math.max(e.stunT, s.stopDur * (e.boss ? 0.4 : 1));
+            this.emit({ t: 'tstop', tower: C, r: s.range });
+          } else if (C.stopCd < 0) C.stopCd = 0;
+        }
+      }
+    }
 
     // ---- Машины гаражей: едут от микропета к двери и давят сущностей ----
     spawnCar(t) {
@@ -932,10 +1126,19 @@
           this.damage(e, e.burn * dt, null, e.burnSrc);
           if (e.dead) continue;
         }
+        if (e.pT > 0) {
+          e.pT -= dt;
+          this.damage(e, e.pst * e.pDps * dt, null, e.pSrc);
+          if (e.dead) continue;
+          if (e.pT <= 0) e.pst = 0;
+        }
+        if (e.markT > 0) e.markT -= dt;
+        if (e.silT > 0) e.silT -= dt;
         if (e.stunT > 0) { e.stunT -= dt; continue; }
         let v = e.speed;
         if (e.slowT > 0) { e.slowT -= dt; v *= 1 - e.slowF; if (e.slowT <= 0) e.slowF = 0; }
-        e.dashing = !!(e.dash && this.map.dash && this.map.dash.includes(e.seg));
+        if (e.markT > 0 && e.markSlow) v *= 1 - e.markSlow * (e.boss ? 0.5 : 1);
+        e.dashing = !!(e.dash && !(e.silT > 0) && this.map.dash && this.map.dash.includes(e.seg));
         if (e.dashing) v *= e.dash;
         if (this.map.hazard && this.map.hazard.includes(e.seg)) v *= 1.3;
         if (e.enraged) v *= 1.4;
@@ -955,7 +1158,7 @@
           continue;
         }
         this.place3(e);
-        if (e.elite) {
+        if (e.elite && !(e.silT > 0)) {
           e.healT -= dt;
           if (e.healT <= 0) {
             e.healT = 4;
@@ -968,7 +1171,7 @@
         }
         if (e.boss) {
           if (!e.enraged && e.hp < e.maxHp * 0.5) { e.enraged = true; this.emit({ t: 'enrage', e }); }
-          e.summonT -= dt;
+          if (!(e.silT > 0)) e.summonT -= dt;
           if (e.summonT <= 0) {
             e.summonT = 6;
             const w = this.waveOf(e.wave);
@@ -983,11 +1186,13 @@
       }
 
       this.stepCars(dt);
+      this.stepMines(dt);
+      this.stepAuras(dt);
 
       // обнаружение невидимок (для отрисовки и подсказок)
       for (const e of this.enemies) {
         if (e.dead || !e.invisible) continue;
-        e.revealed = this.towers.some(t => t.s.vision && (t.x - e.x) ** 2 + (t.z - e.z) ** 2 <= (t.s.range + 0.5) ** 2);
+        e.revealed = this.towers.some(t => { const ts = t.es || t.s; return ts.vision && (t.x - e.x) ** 2 + (t.z - e.z) ** 2 <= (ts.range + 0.5) ** 2; });
       }
 
       // башни
@@ -995,7 +1200,7 @@
         if (t.s.passive) continue;
         t.cd -= dt;
         if (t.cd <= 0) {
-          if (this.fire(t)) t.cd += 1 / t.s.rate;
+          if (this.fire(t)) t.cd += 1 / (t.es || t.s).rate;
           else t.cd = 0;
           if (t.cd < -0.5) t.cd = 0;
         }
@@ -1023,7 +1228,7 @@
           }
         } else {
           const nx = p.x + (dx / dist) * stepLen, nz = p.z + (dz / dist) * stepLen;
-          const ob = this.obstacles.find(o => o.los && (o.tall || !p.air) && (nx - o.x) ** 2 + (nz - o.z) ** 2 < (o.r * 0.85) ** 2);
+          const ob = p.lob ? null : this.obstacles.find(o => o.los && (o.tall || !p.air) && (nx - o.x) ** 2 + (nz - o.z) ** 2 < (o.r * 0.85) ** 2);
           if (ob) { p.done = true; this.emit({ t: 'blocked', x: nx, y: p.y, z: nz, kind: p.kind }); continue; }
           p.x = nx; p.y += (dy / dist) * stepLen; p.z = nz;
         }

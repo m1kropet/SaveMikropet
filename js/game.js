@@ -32,8 +32,32 @@
     ['carInt', 'Машина каждые', v => v + ' с', v => v > 0],
     ['gunDmg', 'Урон стрелка', v => v.toFixed(0), v => v > 0],
     ['gunRate', 'Выстр./с', v => v.toFixed(2), v => v > 0],
-    ['tankDmg', 'Пушка танка', v => v + ' по обл.', v => v > 0]
+    ['tankDmg', 'Пушка танка', v => v + ' по обл.', v => v > 0],
+    // новые механики
+    ['mineMax', 'Мин', v => v, v => v > 0],
+    ['knock', 'Отброс', v => v.toFixed(1), v => v > 0],
+    ['poison', 'Яд/порция', v => v + '/с', v => v > 0],
+    ['poisonMax', 'Порций', v => v, v => v > 0],
+    ['markAmp', 'Проклятие', v => '+' + Math.round(v * 100) + '%', v => v > 0],
+    ['markDur', 'На', v => v + ' с', v => v > 0],
+    ['minRange', 'Мёртв. зона', v => v.toFixed(1), v => v > 0],
+    ['cone', 'Конус', v => Math.round(v * 2 * 57.3) + '°', v => v > 0],
+    ['heatMax', 'Разогрев до', v => '+' + Math.round(v * 100) + '%', v => v > 0],
+    ['back', 'Обратный удар', v => Math.round(v * 100) + '%', v => v > 0],
+    ['silDur', 'Немота', v => v.toFixed(1) + ' с', v => v > 0],
+    ['bossBonus', 'По боссам', v => '×' + (1 + v).toFixed(1), v => v > 0],
+    ['auraRange', 'Радиус', v => v.toFixed(1), v => v > 0],
+    ['auraRate', 'Скорость башен', v => '+' + Math.round(v * 100) + '%', v => v > 0],
+    ['auraDmg', 'Урон башен', v => '+' + Math.round(v * 100) + '%', v => v > 0],
+    ['auraPierce', 'Пробив. башен', v => '+' + v, v => v > 0],
+    ['auraSlow', 'Замедление', v => Math.round(v * 100) + '%', v => v > 0],
+    ['stopInt', 'Стоп каждые', v => v + ' с', v => v > 0],
+    ['stopDur', 'Стоп на', v => v.toFixed(1) + ' с', v => v > 0],
+    ['ageDmg', 'Старение', v => (v * 100).toFixed(0) + '%/с', v => v > 0]
   ];
+  // порядок характеристик в панели: базовые, затем особые механики, затем прочее
+  const SPECIAL = ['mineMax', 'knock', 'poison', 'poisonMax', 'markAmp', 'markDur', 'minRange', 'cone', 'heatMax', 'back', 'silDur', 'bossBonus'];
+  const statRank = k => ['dmg', 'rate', 'range', 'dps'].includes(k) ? 0 : SPECIAL.includes(k) ? 1 : 2;
   const TARGETS = [['first', 'Первый'], ['last', 'Последний'], ['strong', 'Сильный'], ['close', 'Ближний']];
 
   class Match {
@@ -248,7 +272,11 @@
       const A = K.Audio, f = this.field;
       for (const ev of evs) {
         switch (ev.t) {
-          case 'shot': A.play(ev.tower.hero, ev.tower.hero === 'blaster' ? 70 : 90); break;
+          case 'shot': A.play(ev.tower.hero, ev.tower.hero === 'blaster' ? 70 : ev.tower.hero === 'flame' ? 130 : 90); break;
+          case 'ray': A.play(ev.key ? 'keys' : ev.tower.hero, 110); break;
+          case 'tstop': A.play('clock', 300); this.setHint('Часовщик остановил время!', 2); break;
+          case 'mine': A.play('trap', 120); break;
+          case 'boom': if (ev.kind === 'trap' || ev.kind === 'shell') A.play('mortar', 90); break;
           case 'beam': A.play('prism', 120); break;
           case 'chain': A.play('storm', 100); break;
           case 'pulse': A.play('ice', 120); break;
@@ -523,7 +551,7 @@
         if (ui.selected != null && !t) ui.selected = null;
         if (t) {
           const aff = [0, 1].map(br => K.upgradeState(t.hero, t.up, br, this.wallet(), f.mode).ok ? 1 : 0).join('') + ['vision', 'aa'].map(k => this.wallet() >= K.SKILLS[k].cost ? 1 : 0).join('');
-          sig = 'T' + t.id + t.up.join('') + t.skills.vision + t.skills.aa + t.targeting + JSON.stringify(ui.tier) + ui.sellArm + aff + f.over;
+          sig = 'T' + t.id + (t.s.mineMax ? 'm' + (f.mines || []).filter(m => m.tower === t.id).length : '') + t.up.join('') + t.skills.vision + t.skills.aa + t.targeting + JSON.stringify(ui.tier) + ui.sellArm + aff + f.over;
         } else {
           const gap = this.duel ? (this.duel.gap == null ? 'w' + this.duel.waiting() : Math.ceil(this.duel.gap)) : '';
           sig = 'B' + ui.placing + f.squad.map(h => this.wallet() >= K.placeCost(h, f.mode) ? 1 : 0).join('') + f.canStartWave() + f.canSkip() + f.waveNum + f.active.length + '/' + (f.active.length ? f.enemies.filter(e => !e.dead).length : '') + '/' + f.towers.filter(t => t.s.aa).length + '' + f.towers.filter(t => t.s.vision).length + f.hp + (f.autoTimer > 0 ? Math.ceil(f.autoTimer) : '') + gap + f.over + JSON.stringify(this.skipVotes || '');
@@ -564,9 +592,9 @@
       const coins = readOnly ? 0 : this.wallet(), passive = !!t.s.passive;
       const owner = f.players.find(p => p.id === t.owner);
       const lvl = t.up[0] + t.up[1];
-      const PASSIVE = ['income', 'interest', 'interestCap', 'petMax', 'heal', 'shield'];
+      const PASSIVE = ['income', 'interest', 'interestCap', 'petMax', 'heal', 'shield', 'auraRange', 'auraRate', 'auraDmg', 'auraPierce', 'auraSlow', 'stopInt', 'stopDur', 'ageDmg'];
       const GARAGE = ['carHp', 'carInt', 'gunDmg', 'gunRate', 'tankDmg'];
-      const chips = t.s.garage ? STAT_LABELS.filter(s => GARAGE.includes(s[0]) && (!s[3] || s[3](t.s[s[0]]))).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('') : STAT_LABELS.filter(s => passive ? PASSIVE.includes(s[0]) && (!s[3] || s[3](t.s[s[0]])) : !PASSIVE.slice(1).includes(s[0]) && (!s[3] || s[3](t.s[s[0]]))).slice(0, 6).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('');
+      const chips = t.s.garage ? STAT_LABELS.filter(s => GARAGE.includes(s[0]) && (!s[3] || s[3](t.s[s[0]]))).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('') : STAT_LABELS.filter(s => passive ? PASSIVE.includes(s[0]) && (!s[3] || s[3](t.s[s[0]])) : !PASSIVE.slice(1).includes(s[0]) && (!s[3] || s[3](t.s[s[0]]))).sort((a, b) => statRank(a[0]) - statRank(b[0])).slice(0, passive ? 8 : 7).map(s => `<span><i>${s[1]}</i> ${s[2](t.s[s[0]])}</span>`).join('');
       const skill = k => {
         const S = K.SKILLS[k], ic = K.UI.icon(k === 'vision' ? 'eye' : 'radar');
         if (H.base[k] || t.skills[k]) return `<button class="btn mini pet" disabled>${ic} ${S.name}${H.base[k] ? '' : ' ✓'}</button>`;
@@ -607,6 +635,7 @@
           }
           detail = `<div class="detail"><div class="row"><b class="grow">${br === 0 ? 'Верх' : 'Низ'} ${L + 1}: ${esc(u.name)}</b>${action}</div><div class="note">${esc(u.desc)}</div>${diffs ? `<div class="diffs">${diffs}</div>` : ''}${note ? '<div>' + note + '</div>' : ''}</div>`;
         } else if (t.s.garage) detail = '<div class="note small-note">Гараж выпускает машины, пока идёт волна. Верхняя ветка — чаще машины и стрелок на крыше, нижняя — крепче машина, на 5-м уровне танк. Уровни 1–2 доступны в обеих ветках всегда.</div>';
+        else if (passive && t.s.aura) detail = '<div class="note small-note">' + (t.s.auraSlow || t.s.stopInt ? 'Часовщик не атакует. Верхняя ветка — остановка времени чаще и дольше, нижняя — сильнее замедление и старение.' : 'Прожектор не атакует. Верхняя ветка — скорость башен и Вижен в свете, нижняя — урон, пробивание и криты.') + ' Уровни 1–2 доступны в обеих ветках всегда.</div>';
         else if (passive) detail = '<div class="note small-note">Свинка не атакует. Верхняя ветка бережёт микропета, нижняя приносит больше монет. Уровни 1–2 доступны в обеих ветках всегда.</div>';
         else detail = '<div class="note small-note">Нажмите на улучшение, чтобы выбрать его. Уровни 1–2 доступны в обеих ветках всегда. Выше 2-го можно прокачать только одну ветку.</div>';
       }
@@ -616,7 +645,7 @@
         <div class="ph"><span class="hero-thumb" style="background-image:url(${K.thumbs[t.hero] || ''})"></span>
           <div class="grow" style="min-width:0"><b>${esc(H.name)}</b> <span class="mute">ур. ${lvl}${owner && f.players.length > 1 ? ' · <span style="color:' + owner.color + '">' + esc(owner.name) + '</span>' : ''}</span><div class="chipline">${chips}</div></div>
           <button class="btn small icon-btn" data-act="${readOnly === 'opp' ? 'oppClose' : 'close'}" aria-label="Закрыть">${K.UI.icon('x')}</button></div>
-        <div class="tools">${t.s.garage ? `<span class="tag">Гаражей: ${f.towers.filter(x => x.owner === t.owner && x.s.garage).length} / ${K.GARAGE_MAX}</span>` : passive ? `<span class="tag">Доход идёт ${t.owner === ui.player || !readOnly ? 'вам' : 'владельцу'}</span>` : skill('vision') + skill('aa') + (readOnly ? `<button class="btn mini" disabled>Цель: ${target}</button>` : `<button class="btn mini" data-act="target" title="Сменить приоритет цели">Цель: ${target}</button>`)}
+        <div class="tools">${t.s.garage ? `<span class="tag">Гаражей: ${f.towers.filter(x => x.owner === t.owner && x.s.garage).length} / ${K.GARAGE_MAX}</span>` : t.s.aura ? `<span class="tag">${t.s.auraSlow || t.s.stopInt ? 'Поле замедляет сущностей в радиусе' : 'Свет усиливает башни в радиусе'}</span>` : passive ? `<span class="tag">Доход идёт ${t.owner === ui.player || !readOnly ? 'вам' : 'владельцу'}</span>` : t.s.mineMax ? `<span class="tag">Мин на дороге: ${(f.mines || []).filter(m => m.tower === t.id).length} / ${t.s.mineMax}</span><span class="tag">Ловят и невидимых</span>` : skill('vision') + skill('aa') + (readOnly ? `<button class="btn mini" disabled>Цель: ${target}</button>` : `<button class="btn mini" data-act="target" title="Сменить приоритет цели">Цель: ${target}</button>`)}
           ${readOnly ? '' : ui.sellArm ? `<button class="btn mini danger" data-act="sellYes">Точно? +${refund}</button>` : `<button class="btn mini ghost" data-act="sell">Продать +${refund}</button>`}</div>
         ${row(0)}${row(1)}${readOnly === 'foreign' ? '<div class="note small-note">Это башня товарища: улучшать и продавать её может только он.</div>' : detail}</div>`;
     }

@@ -476,6 +476,16 @@
           case 'sell': this.spark(ev.tower.x, ev.tower.z, '#ffc53d', 16, 2, 0.6); break;
           case 'shot': { const s = this.towerState.get(ev.tower.id); if (s) s.recoil = 1; break; }
           case 'beam': this.fx.push({ k: 'line', pts: [{ x: ev.tower.x, z: ev.tower.z }, ev.to], color: ev.crit ? '#ffffff' : '#ffe36b', w: ev.crit ? 0.11 : 0.07, t: 0, life: 0.18 }); this.spark(ev.to.x, ev.to.z, '#ffe36b', 6, 1.5, 0.3); { const s = this.towerState.get(ev.tower.id); if (s) s.recoil = 1; } break;
+          case 'ray': {
+            const col = (K.HERO[ev.tower.hero] || {}).color || '#ffffff';
+            if (ev.key) { this.fx.push({ k: 'key', x0: ev.tower.x, z0: ev.tower.z, x1: ev.to.x, z1: ev.to.z, t: 0, life: 0.45 }); }
+            else if (ev.tower.hero === 'vacuum') { this.fx.push({ k: 'suck', x0: ev.tower.x, z0: ev.tower.z, x1: ev.to.x, z1: ev.to.z, color: col, t: 0, life: 0.3 }); this.spark(ev.to.x, ev.to.z, '#ffd8b0', 5, 1.2, 0.3); }
+            else { this.fx.push({ k: 'line', pts: [{ x: ev.tower.x, z: ev.tower.z }, ev.to], color: col, w: 0.05, t: 0, life: 0.22, glow: true }); this.spark(ev.to.x, ev.to.z, col, 6, 1.2, 0.4, 1); }
+            const s = this.towerState.get(ev.tower.id); if (s) s.recoil = 1; break;
+          }
+          case 'flame': this.fx.push({ k: 'cone', x: ev.tower.x, z: ev.tower.z, a: ev.a, r: ev.r, arc: ev.arc, heat: ev.heat || 0, t: 0, life: 0.16 }); break;
+          case 'tstop': this.fx.push({ k: 'tstop', x: ev.tower.x, z: ev.tower.z, r: ev.r, t: 0, life: 0.9 }); this.spark(ev.tower.x, ev.tower.z, '#c8b6ff', 20, 2.5, 0.8, 0.6); break;
+          case 'mine': this.spark(ev.x, ev.z, '#d9a85a', 8, 1.4, 0.35); break;
           case 'chain': {
             const pts = [];
             ev.pts.forEach((p, i) => { if (i) { const a = ev.pts[i - 1]; for (let k = 1; k < 3; k++) pts.push({ x: a.x + (p.x - a.x) * k / 3 + (Math.random() - 0.5) * 0.3, z: a.z + (p.z - a.z) * k / 3 + (Math.random() - 0.5) * 0.3 }); } pts.push({ x: p.x, z: p.z }); });
@@ -483,8 +493,13 @@
             { const s = this.towerState.get(ev.tower.id); if (s) s.recoil = 1; }
             break;
           }
-          case 'boom': this.fx.push({ k: 'boom', x: ev.x, z: ev.z, r: ev.r, color: ev.kind === 'orb' ? '#c070ff' : ev.kind === 'shard' ? '#9feaff' : '#ffd25e', t: 0, life: 0.35 }); this.spark(ev.x, ev.z, ev.kind === 'orb' ? '#e070ff' : '#bff6ff', 10, 2.5, 0.45); break;
-          case 'impact': this.spark(ev.x, ev.z, ev.kind === 'coin' ? '#ffc53d' : ev.crit ? '#ffffff' : '#ff9ad8', ev.crit ? 8 : 3, ev.crit ? 2.6 : 1.6, 0.3); break;
+          case 'boom': {
+            const BC = { orb: ['#c070ff', '#e070ff'], shard: ['#9feaff', '#bff6ff'], trap: ['#ff9a3d', '#ffd25e'], shell: ['#ff7a2a', '#ffc070'], thorn: ['#6bdc4a', '#c8ff9a'], holy: ['#e8f4ff', '#ffffff'] }[ev.kind] || ['#ffd25e', '#bff6ff'];
+            this.fx.push({ k: 'boom', x: ev.x, z: ev.z, r: ev.r, color: BC[0], t: 0, life: ev.kind === 'shell' || ev.kind === 'trap' ? 0.5 : 0.35 }); this.spark(ev.x, ev.z, BC[1], ev.kind === 'shell' ? 18 : 10, 2.5, 0.45);
+            if (ev.kind === 'shell' || ev.kind === 'trap') this.shake = Math.max(this.shake, 0.12);
+            break;
+          }
+          case 'impact': this.spark(ev.x, ev.z, ev.kind === 'coin' ? '#ffc53d' : ev.kind === 'thorn' ? '#9dff6b' : ev.kind === 'holy' ? '#ffffff' : ev.crit ? '#ffffff' : '#ff9ad8', ev.crit || ev.kind === 'holy' ? 8 : 3, ev.crit ? 2.6 : 1.6, 0.3); break;
           case 'blocked': this.spark(ev.x, ev.z, '#bbbbbb', 5, 1.4, 0.3); break;
           case 'pulse': this.fx.push({ k: 'ring', x: ev.tower.x, z: ev.tower.z, r0: 0.3, r1: ev.r, color: '#9feaff', t: 0, life: 0.45 }); break;
           case 'freeze': this.spark(ev.e.x, ev.e.z, '#dff9ff', 8, 1.2, 0.5); break;
@@ -546,6 +561,34 @@
       const W = () => { this.world(ctx); if (sx || sy) ctx.translate(sx, sy); };
       W();
 
+      // поле Часовщика и свет Прожектора — под фигурами
+      for (const tw of field.towers) {
+        const s = tw.s;
+        if (!s || !s.aura) continue;
+        ctx.save();
+        if (s.auraSlow || s.stopInt) {
+          const g = ctx.createRadialGradient(tw.x, tw.z, 0, tw.x, tw.z, s.range);
+          g.addColorStop(0, 'rgba(200,182,255,0.10)'); g.addColorStop(0.85, 'rgba(200,182,255,0.06)'); g.addColorStop(1, 'rgba(200,182,255,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(tw.x, tw.z, s.range, 0, TAU); ctx.fill();
+          ctx.strokeStyle = 'rgba(200,182,255,0.35)'; ctx.lineWidth = 0.03; ctx.setLineDash([0.15, 0.15]); ctx.lineDashOffset = -t * 0.3;
+          ctx.beginPath(); ctx.arc(tw.x, tw.z, s.range, 0, TAU); ctx.stroke();
+        } else {
+          const g = ctx.createRadialGradient(tw.x, tw.z, 0, tw.x, tw.z, s.range);
+          g.addColorStop(0, 'rgba(255,241,168,0.16)'); g.addColorStop(1, 'rgba(255,241,168,0)');
+          ctx.fillStyle = g; ctx.beginPath(); ctx.arc(tw.x, tw.z, s.range, 0, TAU); ctx.fill();
+        }
+        ctx.restore();
+      }
+      for (const m of field.mines || []) {
+        ctx.save(); ctx.translate(m.x, m.z); ctx.scale(1.35, 1.35);
+        ctx.fillStyle = 'rgba(0,0,0,0.4)'; ctx.beginPath(); ctx.ellipse(0.03, 0.04, 0.2, 0.12, 0, 0, TAU); ctx.fill();
+        ctx.fillStyle = '#5a5a62'; ctx.beginPath(); ctx.ellipse(0, 0, 0.18, 0.11, 0, 0, TAU); ctx.fill();
+        ctx.strokeStyle = '#c9ccd4'; ctx.lineWidth = 0.025;
+        for (const sg of [-1, 1]) { ctx.beginPath(); for (let k = 0; k <= 6; k++) { const x = -0.16 + k * 0.053, y = sg * (0.07 + (k % 2) * 0.03); k ? ctx.lineTo(x, y) : ctx.moveTo(x, y); } ctx.stroke(); }
+        S2.glowDot(ctx, 0, 0, 0.025, Math.sin(t * 6 + m.id) > 0 ? '#ff3b3b' : '#6a1414', PX * 0.15);
+        ctx.restore();
+      }
+
       // глубинная сортировка: препятствия, башни, сущности
       const list = [];
       for (const o of field.obstacles) list.push({ z: o.z + o.r * 0.3, o });
@@ -597,6 +640,9 @@
         else if (p.kind === 'orb') S2.glowDot(ctx, p.x, p.z - 0.4, 0.15, '#c070ff', PX * 0.4);
         else if (p.kind === 'shard') { ctx.save(); ctx.translate(p.x, p.z - 0.4); ctx.rotate(t * 10); ctx.fillStyle = '#dff9ff'; ctx.fillRect(-0.06, -0.06, 0.12, 0.12); ctx.restore(); }
         else if (p.kind === 'coin') S2.glowDot(ctx, p.x, p.z - 0.4, 0.08, '#ffc53d', PX * 0.15);
+        else if (p.kind === 'shell') { ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.ellipse(p.x, p.z, 0.12, 0.06, 0, 0, TAU); ctx.fill(); ctx.restore(); S2.glowDot(ctx, p.x, p.z - 0.9, 0.12, '#3a3a44', PX * 0.1); S2.glowDot(ctx, p.x + 0.04, p.z - 0.94, 0.04, '#ff9a3d', PX * 0.3); }
+        else if (p.kind === 'holy') S2.glowDot(ctx, p.x, p.z - 0.4, 0.09, '#f4fbff', PX * 0.45);
+        else if (p.kind === 'thorn') { ctx.save(); ctx.translate(p.x, p.z - 0.4); ctx.rotate(t * 8); ctx.fillStyle = '#6bdc4a'; ctx.beginPath(); ctx.moveTo(0, -0.08); ctx.lineTo(0.04, 0.05); ctx.lineTo(-0.04, 0.05); ctx.closePath(); ctx.fill(); ctx.restore(); }
       }
       // эффекты
       for (let i = this.fx.length - 1; i >= 0; i--) {
@@ -611,6 +657,27 @@
           ctx.globalAlpha = 0.55 * (1 - k); ctx.fillStyle = f.color; ctx.beginPath(); ctx.arc(f.x, f.z - 0.3, 0.2 + f.r * Math.sqrt(k), 0, TAU); ctx.fill();
         } else if (f.k === 'ring') {
           ctx.globalAlpha = 0.8 * (1 - k); ctx.strokeStyle = f.color; ctx.lineWidth = 0.06; ctx.beginPath(); ctx.arc(f.x, f.z, f.r0 + (f.r1 - f.r0) * Math.sqrt(k), 0, TAU); ctx.stroke();
+        } else if (f.k === 'cone') {
+          const g = ctx.createRadialGradient(f.x, f.z, 0.1, f.x, f.z, f.r);
+          const hot = f.heat || 0;
+          g.addColorStop(0, `rgba(255,${240 - hot * 60},${170 - hot * 120},0.85)`); g.addColorStop(0.5, `rgba(255,${130 - hot * 40},30,0.55)`); g.addColorStop(1, 'rgba(200,40,10,0)');
+          ctx.globalAlpha = 1 - k * 0.6; ctx.globalCompositeOperation = 'lighter'; ctx.fillStyle = g;
+          ctx.beginPath(); ctx.moveTo(f.x, f.z); ctx.arc(f.x, f.z, f.r, f.a - f.arc, f.a + f.arc); ctx.closePath(); ctx.fill();
+        } else if (f.k === 'key') {
+          // ключ летит до конца и возвращается
+          const q = k < 0.5 ? k * 2 : 2 - k * 2, x = f.x0 + (f.x1 - f.x0) * q, z = f.z0 + (f.z1 - f.z0) * q;
+          ctx.globalAlpha = 0.35 * (1 - k); ctx.strokeStyle = '#ffd25e'; ctx.lineWidth = 0.08; ctx.beginPath(); ctx.moveTo(f.x0, f.z0 - 0.4); ctx.lineTo(f.x1, f.z1 - 0.4); ctx.stroke();
+          ctx.globalAlpha = 1; ctx.translate(x, z - 0.45); ctx.rotate(f.t * 22); ctx.fillStyle = '#ffd25e'; ctx.shadowColor = '#ffd25e'; ctx.shadowBlur = PX * 0.3;
+          ctx.beginPath(); ctx.arc(0, -0.08, 0.07, 0, TAU); ctx.fill(); ctx.fillRect(-0.02, -0.03, 0.04, 0.2); ctx.fillRect(0, 0.1, 0.06, 0.03);
+        } else if (f.k === 'suck') {
+          ctx.globalAlpha = 0.8 * (1 - k); ctx.strokeStyle = f.color; ctx.lineWidth = 0.04; ctx.setLineDash([0.12, 0.1]); ctx.lineDashOffset = f.t * 3;
+          ctx.beginPath(); ctx.moveTo(f.x1, f.z1 - 0.4); ctx.lineTo(f.x0, f.z0 - 0.45); ctx.stroke();
+          ctx.setLineDash([]); ctx.beginPath(); ctx.arc(f.x1, f.z1 - 0.4, 0.15 + 0.25 * (1 - k), 0, TAU); ctx.stroke();
+        } else if (f.k === 'tstop') {
+          ctx.globalAlpha = 0.7 * (1 - k); ctx.strokeStyle = '#c8b6ff'; ctx.lineWidth = 0.08;
+          ctx.beginPath(); ctx.arc(f.x, f.z, f.r * Math.min(1, k * 3), 0, TAU); ctx.stroke();
+          ctx.fillStyle = 'rgba(200,182,255,0.18)'; ctx.fill();
+          ctx.lineWidth = 0.05; ctx.beginPath(); ctx.moveTo(f.x, f.z); ctx.lineTo(f.x + Math.cos(-k * 8) * f.r * 0.5, f.z + Math.sin(-k * 8) * f.r * 0.5); ctx.stroke();
         }
         ctx.restore();
       }
@@ -628,7 +695,8 @@
         hole(L.x, L.z, L.r, Math.max(0, fl));
       });
       hole(end.x, end.z, 2.6, 1);
-      field.towers.forEach(tw => hole(tw.x, tw.z, 1.9, 0.85));
+      field.towers.forEach(tw => hole(tw.x, tw.z, tw.s && tw.s.aura && !tw.s.auraSlow && !tw.s.stopInt ? tw.s.range + 0.4 : 1.9, 0.85));
+      this.fx.forEach(f => { if (f.k === 'cone') hole(f.x, f.z, f.r + 0.6, 0.5 * (1 - f.t / f.life)); });
       this.fx.forEach(f => { if (f.k === 'boom') hole(f.x, f.z, f.r + 1, 0.6 * (1 - f.t / f.life)); });
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(this.dark, 0, 0, this.canvas.width, this.canvas.height);
@@ -651,6 +719,13 @@
       for (const e of field.enemies) {
         if (e.dead) continue;
         ctx.save(); ctx.translate(e.x, e.z); S2.enemy(ctx, e, t, 'eyes'); ctx.restore();
+        if ((e.markT > 0 || e.pst > 0 || e.silT > 0) && (!e.invisible || e.revealed)) {
+          const hy = e.boss ? -2.75 : e.flying ? -1.75 : -1.42;
+          let ix = e.x - 0.16;
+          if (e.markT > 0) { ctx.save(); ctx.translate(ix, e.z + hy); ctx.strokeStyle = '#ff2d6a'; ctx.lineWidth = 0.03; ctx.beginPath(); ctx.moveTo(-0.06, 0.06); ctx.lineTo(0.06, -0.06); ctx.stroke(); S2.glowDot(ctx, 0.06, -0.06, 0.035, '#ff2d6a', PX * 0.2); ctx.restore(); ix += 0.16; }
+          if (e.pst > 0) { ctx.save(); ctx.translate(ix, e.z + hy); ctx.fillStyle = '#6bdc4a'; ctx.beginPath(); ctx.moveTo(0, -0.08); ctx.quadraticCurveTo(0.06, 0, 0, 0.05); ctx.quadraticCurveTo(-0.06, 0, 0, -0.08); ctx.fill(); ctx.restore(); ix += 0.16; }
+          if (e.silT > 0) { ctx.save(); ctx.translate(ix, e.z + hy); ctx.strokeStyle = '#e8f4ff'; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.arc(0, 0, 0.055, 0, TAU); ctx.moveTo(-0.04, -0.04); ctx.lineTo(0.04, 0.04); ctx.stroke(); ctx.restore(); }
+        }
         const frac = e.hp / e.maxHp;
         if ((frac < 0.999 || e.boss || e.elite) && (!e.invisible || e.revealed)) {
           const w = e.boss ? 1.6 : e.elite ? 0.9 : 0.6, y = e.boss ? -2.55 : e.flying ? -1.55 : e.elite ? -1.6 : e.type === 'jumper' ? -1.65 : e.type === 'fast' ? -0.5 : e.type === 'armored' ? -1.05 : -1.2;

@@ -359,6 +359,135 @@
       ctx.fillStyle = '#ffd25e'; for (let i = 0; i < 4; i++) ctx.fillRect(-0.2 + i * 0.1, 0.22, 0.05, 0.025);
       glowDot(ctx, 0, -0.2, 0.035, Math.sin(o.t * 5) > 0 ? (tank ? '#ff5a3d' : '#7cff6b') : '#2a3a2a', PX * 0.2);
       if (o.up && o.up[0] >= 3) { ctx.fillStyle = '#ffd25e'; circle(ctx, 0.24, -0.16, 0.035); ctx.fill(); }
+    },
+    // Капкан: стальная плита с раскрытыми зубчатыми дугами и красным огоньком
+    trap(ctx, o) {
+      ctx.fillStyle = '#4a4a52'; circle(ctx, 0, 0, 0.3); ctx.fill();
+      ctx.strokeStyle = '#2a2a30'; ctx.lineWidth = 0.025; circle(ctx, 0, 0, 0.22); ctx.stroke();
+      ctx.strokeStyle = '#c9ccd4'; ctx.lineWidth = 0.035;
+      for (const sgn of [-1, 1]) {
+        ctx.beginPath(); ctx.arc(0, 0, 0.27, sgn > 0 ? 0.25 : Math.PI + 0.25, sgn > 0 ? Math.PI - 0.25 : TAU - 0.25); ctx.stroke();
+        for (let k = 0; k < 6; k++) { const a = (sgn > 0 ? 0.35 : Math.PI + 0.35) + k * 0.47; ctx.beginPath(); ctx.moveTo(Math.cos(a) * 0.27, Math.sin(a) * 0.27); ctx.lineTo(Math.cos(a + 0.12) * 0.17, Math.sin(a + 0.12) * 0.17); ctx.lineTo(Math.cos(a + 0.24) * 0.27, Math.sin(a + 0.24) * 0.27); ctx.stroke(); }
+      }
+      ctx.fillStyle = '#d9a85a'; rrect(ctx, -0.07, -0.05, 0.14, 0.1, 0.02); ctx.fill();
+      glowDot(ctx, 0, 0, 0.035, Math.sin(o.t * 4) > 0 ? '#ff3b3b' : '#5a1010', PX * 0.25);
+    },
+    // Прожектор: корпус на треноге и широкий светящийся объектив, медленно водит лучом
+    lamp(ctx, o) {
+      ctx.strokeStyle = '#2a2620'; ctx.lineWidth = 0.04;
+      for (let k = 0; k < 3; k++) { const a = k / 3 * TAU + 0.5; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(a) * 0.33, Math.sin(a) * 0.33); ctx.stroke(); }
+      ctx.rotate(Math.sin(o.t * 0.6) * 0.6);
+      ctx.fillStyle = 'rgba(255,241,168,0.18)'; ctx.beginPath(); ctx.moveTo(-0.12, -0.2); ctx.lineTo(-0.34, -0.7); ctx.lineTo(0.34, -0.7); ctx.lineTo(0.12, -0.2); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = '#3a3428'; rrect(ctx, -0.17, -0.2, 0.34, 0.36, 0.06); ctx.fill();
+      ctx.fillStyle = '#c9a35a'; ctx.fillRect(-0.19, 0.08, 0.38, 0.05);
+      ctx.save(); ctx.shadowColor = '#fff1a8'; ctx.shadowBlur = PX * 0.5; ctx.fillStyle = '#fff6cc'; ctx.beginPath(); ctx.ellipse(0, -0.2, 0.15, 0.06, 0, 0, TAU); ctx.fill(); ctx.restore();
+    },
+    // Пылесос: оранжевый бак со шлангом-раструбом и вихрем у входа
+    vacuum(ctx, o) {
+      ctx.rotate(o.aim);
+      const k = o.recoil * 0.04;
+      ctx.fillStyle = '#c45a1a'; ctx.beginPath(); ctx.ellipse(0, 0.08, 0.22, 0.24, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ff8a3d'; ctx.beginPath(); ctx.ellipse(0, 0.06, 0.17, 0.19, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#2a2420'; circle(ctx, 0, 0.08, 0.07); ctx.fill();
+      ctx.strokeStyle = '#3a3430'; ctx.lineWidth = 0.08; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(0, -0.1); ctx.quadraticCurveTo(0.1, -0.3, 0, -0.42 + k); ctx.stroke();
+      ctx.fillStyle = '#5a5450'; ctx.beginPath(); ctx.moveTo(-0.12, -0.5 + k); ctx.lineTo(0.12, -0.5 + k); ctx.lineTo(0.05, -0.4 + k); ctx.lineTo(-0.05, -0.4 + k); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,220,180,0.55)'; ctx.lineWidth = 0.02;
+      for (let i = 0; i < 3; i++) { const a = o.t * 8 + i * 2.1; ctx.beginPath(); ctx.arc(0, -0.58 + k, 0.06 + i * 0.03, a, a + 2); ctx.stroke(); }
+    },
+    // Плющ: горшок, из которого расходятся колючие лозы с листьями
+    ivy(ctx, o) {
+      ctx.fillStyle = '#6a3a1e'; circle(ctx, 0, 0, 0.22); ctx.fill();
+      ctx.fillStyle = '#2a170c'; circle(ctx, 0, 0, 0.16); ctx.fill();
+      for (let i = 0; i < 6; i++) {
+        const a = i / 6 * TAU + Math.sin(o.t * 1.5 + i) * 0.12, L = 0.36 + (i % 2) * 0.06;
+        ctx.strokeStyle = '#2f7a32'; ctx.lineWidth = 0.035; ctx.beginPath(); ctx.moveTo(0, 0);
+        ctx.quadraticCurveTo(Math.cos(a + 0.5) * L * 0.6, Math.sin(a + 0.5) * L * 0.6, Math.cos(a) * L, Math.sin(a) * L); ctx.stroke();
+        ctx.fillStyle = i % 2 ? '#6bdc4a' : '#4fb83a'; ctx.save(); ctx.translate(Math.cos(a) * L, Math.sin(a) * L); ctx.rotate(a); ctx.beginPath(); ctx.ellipse(0, 0, 0.08, 0.04, 0, 0, TAU); ctx.fill(); ctx.restore();
+        ctx.fillStyle = '#e8ffd0'; circle(ctx, Math.cos(a + 0.3) * L * 0.55, Math.sin(a + 0.3) * L * 0.55, 0.015); ctx.fill();
+      }
+      glowDot(ctx, 0, 0, 0.05, '#9dff6b', PX * 0.3);
+    },
+    // Вуду-кукла: тряпичное тельце, пуговицы-глаза, шов-рот и булавки
+    voodoo(ctx, o) {
+      ctx.rotate(o.aim * 0.3);
+      const sw = Math.sin(o.t * 2) * 0.03;
+      ctx.fillStyle = '#9a7a52'; ctx.beginPath(); ctx.ellipse(0, 0.1, 0.15, 0.2, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = '#9a7a52'; ctx.lineWidth = 0.08; ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(-0.13, 0.02); ctx.lineTo(-0.3, -0.05 + sw); ctx.moveTo(0.13, 0.02); ctx.lineTo(0.3, -0.05 - sw); ctx.moveTo(-0.07, 0.27); ctx.lineTo(-0.12, 0.38); ctx.moveTo(0.07, 0.27); ctx.lineTo(0.12, 0.38); ctx.stroke();
+      ctx.fillStyle = '#b08c60'; circle(ctx, 0, -0.18, 0.15); ctx.fill();
+      ctx.strokeStyle = '#3a2410'; ctx.lineWidth = 0.02; ctx.beginPath();
+      [[-0.06, -0.2], [0.06, -0.2]].forEach(([x, y]) => { ctx.moveTo(x - 0.03, y - 0.03); ctx.lineTo(x + 0.03, y + 0.03); ctx.moveTo(x + 0.03, y - 0.03); ctx.lineTo(x - 0.03, y + 0.03); });
+      ctx.moveTo(-0.06, -0.1); for (let i = 1; i <= 4; i++) ctx.lineTo(-0.06 + i * 0.03, -0.1 + (i % 2 ? 0.015 : 0)); ctx.stroke();
+      [['#e0446a', 0.05, 0.05], ['#ffd25e', -0.06, 0.14], ['#7fe3ff', 0.08, 0.2]].forEach(([c, x, y]) => { ctx.strokeStyle = '#d9d9e0'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 0.1, y - 0.1); ctx.stroke(); ctx.fillStyle = c; circle(ctx, x + 0.1, y - 0.1, 0.03); ctx.fill(); });
+      glowDot(ctx, 0, 0.05, 0.03, '#ff2d6a', PX * 0.3 * (0.6 + 0.4 * Math.sin(o.t * 3)));
+    },
+    // Часовщик: циферблат в латунной оправе со стрелками и маятником
+    clock(ctx, o) {
+      const sw = Math.sin(o.t * 2.2) * 0.35;
+      ctx.strokeStyle = '#c9a35a'; ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(0, 0.05); ctx.lineTo(Math.sin(sw) * 0.3, 0.05 + Math.cos(sw) * 0.3); ctx.stroke();
+      ctx.fillStyle = '#e8c070'; circle(ctx, Math.sin(sw) * 0.3, 0.05 + Math.cos(sw) * 0.3, 0.05); ctx.fill();
+      ctx.fillStyle = '#5a3a1e'; circle(ctx, 0, -0.04, 0.27); ctx.fill();
+      ctx.fillStyle = '#c9a35a'; circle(ctx, 0, -0.04, 0.24); ctx.fill();
+      ctx.fillStyle = '#f2ead6'; circle(ctx, 0, -0.04, 0.2); ctx.fill();
+      ctx.fillStyle = '#3a2a1a'; for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; ctx.fillRect(Math.cos(a) * 0.16 - 0.01, -0.04 + Math.sin(a) * 0.16 - 0.01, i % 3 ? 0.02 : 0.03, i % 3 ? 0.02 : 0.03); }
+      ctx.strokeStyle = '#1a1208'; ctx.lineCap = 'round';
+      ctx.lineWidth = 0.025; ctx.beginPath(); ctx.moveTo(0, -0.04); ctx.lineTo(Math.cos(-o.t * 0.3) * 0.1, -0.04 + Math.sin(-o.t * 0.3) * 0.1); ctx.stroke();
+      ctx.lineWidth = 0.015; ctx.beginPath(); ctx.moveTo(0, -0.04); ctx.lineTo(Math.cos(-o.t * 2) * 0.15, -0.04 + Math.sin(-o.t * 2) * 0.15); ctx.stroke();
+      glowDot(ctx, 0, -0.04, 0.025, '#c8b6ff', PX * 0.3);
+    },
+    // Мортира: толстый короткий ствол на лафете, жерло дымится после выстрела
+    mortar(ctx, o) {
+      ctx.fillStyle = '#4a3a2a'; rrect(ctx, -0.26, -0.08, 0.52, 0.34, 0.05); ctx.fill();
+      ctx.fillStyle = '#2a2018'; circle(ctx, -0.24, 0.2, 0.08); ctx.fill(); circle(ctx, 0.24, 0.2, 0.08); ctx.fill();
+      ctx.rotate(o.aim);
+      const k = o.recoil * 0.06;
+      ctx.fillStyle = '#6a6a78'; ctx.beginPath(); ctx.ellipse(0, -0.1 + k, 0.17, 0.26, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#8a8a9a'; ctx.beginPath(); ctx.ellipse(0, -0.14 + k, 0.13, 0.2, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#4a4a56'; ctx.fillRect(-0.17, -0.02 + k, 0.34, 0.04);
+      ctx.fillStyle = '#121216'; circle(ctx, 0, -0.26 + k, 0.1); ctx.fill();
+      if (o.recoil > 0.2) { ctx.fillStyle = `rgba(200,190,170,${o.recoil * 0.5})`; circle(ctx, 0, -0.34, 0.12 * (1.5 - o.recoil)); ctx.fill(); }
+    },
+    // Котельная: медный котёл с манометром и соплом, из которого вырывается огонь
+    flame(ctx, o) {
+      ctx.rotate(o.aim);
+      ctx.fillStyle = '#7a4420'; circle(ctx, 0, 0.06, 0.25); ctx.fill();
+      ctx.fillStyle = '#b8682e'; circle(ctx, 0, 0.06, 0.2); ctx.fill();
+      ctx.strokeStyle = '#5a3018'; ctx.lineWidth = 0.02; for (let i = 0; i < 8; i++) { const a = i / 8 * TAU; ctx.beginPath(); ctx.arc(Math.cos(a) * 0.2, 0.06 + Math.sin(a) * 0.2, 0.015, 0, TAU); ctx.stroke(); }
+      ctx.fillStyle = '#f2ead6'; circle(ctx, 0.08, 0.12, 0.05); ctx.fill();
+      ctx.strokeStyle = '#c42a1a'; ctx.lineWidth = 0.012; ctx.beginPath(); ctx.moveTo(0.08, 0.12); ctx.lineTo(0.08 + Math.cos(o.t * 3) * 0.04, 0.12 + Math.sin(o.t * 3) * 0.04); ctx.stroke();
+      ctx.fillStyle = '#5a3018'; ctx.fillRect(-0.05, -0.42, 0.1, 0.3);
+      ctx.fillStyle = '#c9a35a'; ctx.fillRect(-0.07, -0.44, 0.14, 0.05);
+      const f = 0.6 + 0.4 * Math.sin(o.t * 20);
+      ctx.save(); ctx.shadowColor = '#ff6a2a'; ctx.shadowBlur = PX * 0.4;
+      ctx.fillStyle = `rgba(255,${120 + Math.floor(80 * f)},40,0.9)`; ctx.beginPath(); ctx.moveTo(-0.05, -0.45); ctx.quadraticCurveTo(0, -0.62 - f * 0.08, 0.05, -0.45); ctx.fill();
+      ctx.restore();
+    },
+    // Ключник: латунное кольцо, на котором вращаются ключи
+    keys(ctx, o) {
+      ctx.strokeStyle = '#c9a35a'; ctx.lineWidth = 0.04; circle(ctx, 0, 0, 0.12); ctx.stroke();
+      const sp = o.t * 2.5 + o.recoil * 2;
+      for (let i = 0; i < 4; i++) {
+        ctx.save(); ctx.rotate(sp + i * TAU / 4); ctx.translate(0, -0.12);
+        ctx.fillStyle = i % 2 ? '#ffd25e' : '#e8b84a';
+        circle(ctx, 0, -0.06, 0.06); ctx.fill(); ctx.fillStyle = '#1d1c22'; circle(ctx, 0, -0.06, 0.025); ctx.fill();
+        ctx.fillStyle = i % 2 ? '#ffd25e' : '#e8b84a'; ctx.fillRect(-0.017, -0.02, 0.034, 0.22);
+        ctx.fillRect(0, 0.12, 0.05, 0.025); ctx.fillRect(0, 0.17, 0.035, 0.025);
+        ctx.restore();
+      }
+      glowDot(ctx, 0, 0, 0.03, '#fff3c4', PX * 0.2);
+    },
+    // Экзорцист: фигура в белом капюшоне со светящимся знаком и свечой
+    exorcist(ctx, o) {
+      ctx.rotate(o.aim);
+      ctx.fillStyle = '#c8d4e2'; ctx.beginPath(); ctx.ellipse(0, 0.08, 0.22, 0.25, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#eef4fb'; ctx.beginPath(); ctx.ellipse(0, 0.06, 0.18, 0.2, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#dfe8f2'; circle(ctx, 0, -0.18, 0.14); ctx.fill();
+      ctx.fillStyle = '#1a1e28'; ctx.beginPath(); ctx.ellipse(0, -0.21, 0.08, 0.06, 0, 0, TAU); ctx.fill();
+      glowDot(ctx, -0.03, -0.21, 0.015, '#bfe6ff', PX * 0.15); glowDot(ctx, 0.03, -0.21, 0.015, '#bfe6ff', PX * 0.15);
+      ctx.save(); ctx.shadowColor = '#fff6c8'; ctx.shadowBlur = PX * 0.4; ctx.strokeStyle = '#ffe9a0'; ctx.lineWidth = 0.03;
+      ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(0, 0.18); ctx.moveTo(-0.06, 0.06); ctx.lineTo(0.06, 0.06); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = '#f2e6c8'; ctx.fillRect(0.2, -0.12, 0.04, 0.1);
+      glowDot(ctx, 0.22, -0.15 + Math.sin(o.t * 9) * 0.005, 0.025, '#ffd28a', PX * 0.3);
     }
   };
 

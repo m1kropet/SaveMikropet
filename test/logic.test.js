@@ -284,4 +284,68 @@ for (const [d,r] of [['easy',5],['normal',10],['hard',15],['endless',10],['duel'
   // старое сохранение без новых полей
   const old=K.Save.sanitize({v:K.Save.VERSION, stats:{kills:5}}); ok(old.stats.mapWins && Array.isArray(old.stats.tier5) && old.stats.bossKills===0,'sanitize old stats');
 }
+
+// ---------- Новые башни: механики ----------
+{ const NEW=['trap','lamp','vacuum','ivy','voodoo','clock','mortar','flame','keys','exorcist'];
+  ok(NEW.every(id=>K.HERO[id]) && K.HEROES.length===17,'17 heroes');
+  // характеристики без NaN при любой допустимой прокачке
+  for (const id of NEW) for (let a=0;a<=5;a++) for (let b=0;b<=5;b++) { if (a>2&&b>2) continue;
+    const s=K.towerStats(id,[a,b],{vision:true,aa:true}); for (const k in s) if (typeof s[k]==='number') ok(isFinite(s[k]),id+' '+k+' finite at '+a+b); }
+  // поле с врагами в заданных местах
+  const mk=(squad,seed)=>{ const f=new K.Field({map:'lobby',diff:'normal',seed:seed||3,squad,autoWave:false}); f.coins=1e6; f.wallets[f.me]=1e6; return f; };
+  const enemyAt=(f,d,type)=>{ const e=f.spawn({type:type||'normal',hpMul:50,spMul:0},1,0,d); return e; };
+  const nearRoad=(f,d)=>{ const P=f.paths[0], p=K.pointAt?null:null; const pt=f.layout.spots.map(q=>q).sort((A,B)=>{ const a=pa(f,d); return Math.hypot(A.x-a.x,A.z-a.z)-Math.hypot(B.x-a.x,B.z-a.z); }).find(q=>f.canPlace(q.x,q.z).ok); return pt; };
+  const pa=(f,d)=>{ const e=f.spawn({type:'normal',hpMul:1,spMul:0},1,0,d); const r={x:e.x,z:e.z}; e.dead=true; f.enemies=f.enemies.filter(x=>!x.dead); return r; };
+  const run=(f,sec)=>{ for(let i=0;i<sec*60;i++) f.step(1/60); };
+  // Капкан ставит мины и они взрываются от наземной сущности
+  { const f=mk(['trap']); const q=nearRoad(f,6); const t=f.cmd({type:'place',hero:'trap',x:q.x,z:q.z}).tower; f.startNextWave(true); f.active=[]; f.enemies=[];
+    run(f,8); ok(f.mines.length===3 && f.mines.every(m=>Math.hypot(m.x-t.x,m.z-t.z)<=t.s.range+0.01),'trap lays 3 mines in range');
+    const m=f.mines[0]; const e=f.spawn({type:'ghost',hpMul:1,spMul:0},1,0,0); e.x=m.x; e.z=m.z; const hp=e.hp; e.place3=null;
+    f.stepMines(1/60); ok(e.hp<hp && f.mines.length===2,'mine triggers on invisible ground enemy');
+    f.cmd({type:'sell',tower:t.id}); ok(f.mines.length===0,'mines removed on sell'); }
+  // Пылесос отбрасывает назад, с затуханием
+  { const f=mk(['vacuum']); const q=nearRoad(f,8); const t=f.cmd({type:'place',hero:'vacuum',x:q.x,z:q.z}).tower; const e=enemyAt(f,8);
+    f.hit(e,t.s,1,t); const d1=8-e.d; f.hit(e,t.s,1,t); const d2=(8-d1)-e.d; ok(d1>1 && d2>0 && d2<d1,'vacuum knock back with falloff');
+    const b=enemyAt(f,8,'boss'); f.hit(b,t.s,1,t); ok(8-b.d<0.3,'boss barely moves'); }
+  // Плющ: яд копится и тикает, перекидывается при смерти
+  { const f=mk(['ivy']); const t={id:999,owner:f.me,dealt:0,kills:0,s:K.towerStats('ivy',[5,2],{})}; const e=enemyAt(f,5); const o=enemyAt(f,5.3);
+    for(let i=0;i<10;i++) f.hit(e,t.s,0.01,t); ok(e.pst===t.s.poisonMax,'poison stacks to max');
+    const hp=e.hp; run(f,1); ok(e.hp<hp-e.pst*t.s.poison*0.9,'poison ticks ignoring armor');
+    f.damage(e,1e9,null,t); ok(o.pst>0,'poison spreads on death'); }
+  // Вуду: проклятие усиливает урон от любых источников
+  { const f=mk(['voodoo']); const t={id:998,owner:f.me,dealt:0,kills:0,s:K.towerStats('voodoo',[0,0],{})}; const e=enemyAt(f,5); const c=enemyAt(f,6);
+    f.hit(e,t.s,0,t); const h0=e.hp; f.damage(e,100,null,null); const h1=c.hp; f.damage(c,100,null,null); ok(Math.abs((h0-e.hp)-(h1-c.hp)*1.25)<0.01,'mark amplifies +25%');
+    const x=K.towerStats('voodoo',[2,5],{}); const g=enemyAt(f,7); f.hit(g,x,0,t); f.damage(g,g.maxHp*0.9,null,null); ok(g.dead,'death sentence executes below 12%'); }
+  // Прожектор: башня в свете стреляет быстрее и видит невидимых
+  { const f=mk(['lamp','blaster']); const q=f.layout.spots.find(s=>f.canPlace(s.x,s.z).ok); const b=f.cmd({type:'place',hero:'blaster',x:q.x,z:q.z}).tower;
+    const q2=f.layout.spots.find(s=>f.canPlace(s.x,s.z).ok && Math.hypot(s.x-q.x,s.z-q.z)<2); const L=f.cmd({type:'place',hero:'lamp',x:q2.x,z:q2.z}).tower;
+    f.stepAuras(0.01); ok(b.es && Math.abs(b.es.rate-b.s.rate*1.15)<1e-9 && !b.es.vision,'lamp +15% rate');
+    f.cmd({type:'upgrade',tower:L.id,branch:0}); f.cmd({type:'upgrade',tower:L.id,branch:0}); f.cmd({type:'upgrade',tower:L.id,branch:0}); f.stepAuras(0.01); ok(b.es.vision,'lamp UV gives vision');
+    f.cmd({type:'sell',tower:L.id}); f.stepAuras(0.01); ok(!b.es,'no buff after lamp sold'); }
+  // Часовщик: замедление в поле и остановка времени
+  { const f=mk(['clock']); const q=nearRoad(f,8); const C=f.cmd({type:'place',hero:'clock',x:q.x,z:q.z}).tower; const p=pa(f,8);
+    const e=f.spawn({type:'normal',hpMul:50,spMul:1},1,0,8); f.active=[{n:1,spawns:[],idx:0,remaining:1}]; f.stepAuras(0.1); ok(e.slowF>=0.2,'clock slows');
+    C.stopCd=0.01; f.stepAuras(0.05); ok(e.stunT>=0.9 && f.events.some(v=>v.t==='tstop'),'clock stops time'); }
+  // Мортира: мёртвая зона и стрельба поверх препятствий
+  { const f=mk(['mortar']); const q=nearRoad(f,8); const t=f.cmd({type:'place',hero:'mortar',x:q.x,z:q.z}).tower; const near=enemyAt(f,8);
+    const dn=Math.hypot(near.x-t.x,near.z-t.z); ok(dn<2 ? f.acquire(t,1).length===0 : true,'mortar ignores close targets');
+    ok(t.s.lob && K.towerStats('mortar',[4,0],{}).minRange<t.s.minRange,'battery shrinks dead zone'); }
+  // Котельная: конус бьёт нескольких, разогрев растёт
+  { const f=mk(['flame']); const q=nearRoad(f,8); const t=f.cmd({type:'place',hero:'flame',x:q.x,z:q.z}).tower; const a=enemyAt(f,8), b=enemyAt(f,8.2);
+    const ha=a.hp, hb=b.hp; f.fire(t); f.fire(t); f.fire(t); ok(a.hp<ha && b.hp<hb && t.heat===3,'cone hits group and heats up'); }
+  // Ключник: бумеранг бьёт дважды по всем на линии
+  { const f=mk(['keys']); const q=nearRoad(f,8); const t=f.cmd({type:'place',hero:'keys',x:q.x,z:q.z}).tower; const a=enemyAt(f,8);
+    const h=a.hp; f.fire(t); const exp=t.s.dmg*(1+t.s.back); ok(Math.abs((h-a.hp)-exp)<0.01,'boomerang hits twice'); }
+  // Экзорцист: немота останавливает лечение Сика и призыв Ковтопа, снимает невидимость
+  { const f=mk(['exorcist']); const t={id:997,owner:f.me,dealt:0,kills:0,s:K.towerStats('exorcist',[4,0],{})}; const el=enemyAt(f,5,'elite'); const gh=enemyAt(f,6,'ghost');
+    f.hit(el,t.s,0,t); ok(el.silT>0,'silenced'); el.healT=0.01; const dmgd=enemyAt(f,5.2); dmgd.hp=dmgd.maxHp*0.5; run(f,0.2); ok(dmgd.hp===dmgd.maxHp*0.5 || dmgd.dead,'silenced elite does not heal');
+    f.hit(gh,t.s,0,t); ok(!gh.invisible,'unveil strips invisibility');
+    const s0=K.towerStats('exorcist',[0,0],{}); const b1=enemyAt(f,7,'boss'), n1=enemyAt(f,7.5); const hb=b1.hp, hn=n1.hp; f.damage(b1,100,Object.assign({},s0,{pierce:99}),null); f.damage(n1,100,Object.assign({},s0,{pierce:99}),null); ok(Math.abs((hb-b1.hp)-(hn-n1.hp)*1.5)<0.01,'boss bonus x1.5'); }
+  // Полные матчи с каждой новой башней: без ошибок и NaN
+  for (const id of NEW) { const f=new K.Field({map:'mine',diff:'normal',seed:7,squad:[id,'blaster','dragon','ice'],autoWave:true,record:false}); const bot=new K.Bot(f,0.8); f.wallets[f.me]=4000;
+    let placed=0; for (const q of f.layout.spots) { if (placed>=3) break; if (f.cmd({type:'place',hero:id,x:q.x,z:q.z}).ok) placed++; }
+    f.towers.forEach(t=>{ f.cmd({type:'upgrade',tower:t.id,branch:0}); f.cmd({type:'upgrade',tower:t.id,branch:1}); });
+    for (let i=0;i<60*240 && !f.over;i++) { bot.tick(1/60); f.step(1/60); }
+    ok(f.enemies.every(e=>isFinite(e.hp)&&isFinite(e.d)) && isFinite(f.wallet(f.me)),id+' full match sane, wave '+f.waveNum); }
+}
 console.log('OK', n, 'checks');

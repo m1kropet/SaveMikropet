@@ -4,7 +4,7 @@
   'use strict';
   const TYPES = Object.keys(K.ENEMIES);
   const HEROES = K.HEROES.map(h => h.id);
-  const KINDS = ['bolt', 'orb', 'shard', 'coin'];
+  const KINDS = ['bolt', 'orb', 'shard', 'coin', 'shell', 'holy', 'thorn'];
   const TARGETS = ['first', 'last', 'strong', 'close'];
   const r2 = v => Math.round(v * 100) / 100;
 
@@ -16,6 +16,10 @@
       case 'place': case 'upgrade': case 'skill': case 'sell': return { t: ev.t, tower: towerRef(ev.tower), branch: ev.branch, skill: ev.skill, refund: ev.refund };
       case 'shot': return { t: 'shot', tower: { id: ev.tower.id, hero: ev.tower.hero } };
       case 'beam': return { t: 'beam', tower: towerRef(ev.tower), to: { x: r2(ev.to.x), z: r2(ev.to.z) }, crit: ev.crit };
+      case 'ray': return { t: 'ray', tower: towerRef(ev.tower), to: { x: r2(ev.to.x), z: r2(ev.to.z) }, crit: ev.crit, key: ev.key };
+      case 'flame': return { t: 'flame', tower: towerRef(ev.tower), a: r2(ev.a), r: r2(ev.r), arc: r2(ev.arc), heat: r2(ev.heat) };
+      case 'tstop': return { t: 'tstop', tower: towerRef(ev.tower), r: r2(ev.r) };
+      case 'mine': return { t: 'mine', x: r2(ev.x), z: r2(ev.z) };
       case 'chain': return { t: 'chain', tower: towerRef(ev.tower), pts: ev.pts.map(p => ({ x: r2(p.x), z: r2(p.z) })) };
       case 'pulse': return { t: 'pulse', tower: towerRef(ev.tower), r: ev.r };
       case 'boom': case 'impact': case 'blocked': return { t: ev.t, x: r2(ev.x), z: r2(ev.z), r: ev.r, kind: ev.kind, crit: ev.crit };
@@ -43,9 +47,10 @@
       act: f.active.length, at: r2(f.autoTimer), ov: f.over ? 1 : 0, rs: f.result, wc: f.wavesCleared, k: f.kills, lk: f.leaks, mt: f.maxTierHit ? 1 : 0,
       tw: f.towers.map(t => [t.id, HEROES.indexOf(t.hero), r2(t.x), r2(t.z), t.owner, t.up[0], t.up[1], (t.skills.vision ? 1 : 0) | (t.skills.aa ? 2 : 0), TARGETS.indexOf(t.targeting), r2(t.aim), t.blocked ? 1 : 0, t.spent, Math.round(t.dealt), t.kills]),
       en: f.enemies.filter(e => !e.dead).map(e => [e.id, TYPES.indexOf(e.type), r2(e.x), r2(e.z), Math.ceil(e.hp), e.maxHp,
-        (e.flying ? 1 : 0) | (e.invisible ? 2 : 0) | (e.revealed ? 4 : 0) | (e.boss ? 8 : 0) | (e.elite ? 16 : 0) | (e.enraged ? 32 : 0) | (e.stunT > 0 ? 64 : 0) | (e.hitT > 0 ? 128 : 0) | (e.dashing ? 256 : 0) | (e.burnT > 0 ? 512 : 0) | (e.slowT > 0 ? 1024 : 0),
+        (e.flying ? 1 : 0) | (e.invisible ? 2 : 0) | (e.revealed ? 4 : 0) | (e.boss ? 8 : 0) | (e.elite ? 16 : 0) | (e.enraged ? 32 : 0) | (e.stunT > 0 ? 64 : 0) | (e.hitT > 0 ? 128 : 0) | (e.dashing ? 256 : 0) | (e.burnT > 0 ? 512 : 0) | (e.slowT > 0 ? 1024 : 0) | (e.markT > 0 ? 2048 : 0) | (e.pst > 0 ? 4096 : 0) | (e.silT > 0 ? 8192 : 0),
         r2(e.dx), r2(e.dz), e.path, r2(e.d), e.boss ? Math.round((e.eta || 0) * 10) / 10 : 0]),
       ob: f.obstacles.filter(o => o.dyn).map(o => [o.kind, o.x, o.z]),
+      mn: (f.mines || []).map(m => [m.id, r2(m.x), r2(m.z), m.owner]),
       cr: (f.cars || []).map(c => [c.id, r2(c.x), r2(c.z), Math.ceil(c.hp), c.maxHp, r2(c.dx), r2(c.dz), (c.gun ? 1 : 0) | (c.tank ? 2 : 0), c.owner, r2(c.aim)])
     };
     if (opts.proj !== false) s.pr = f.projectiles.map(p => [p.id, KINDS.indexOf(p.kind), r2(p.x), r2(p.z)]);
@@ -95,12 +100,13 @@
         if (!e) { e = { id: a[0], x: a[2], z: a[3], y: 0 }; this.emapR.set(a[0], e); }
         Object.assign(e, {
           type: TYPES[a[1]], tx: a[2], tz: a[3], hp: a[4], maxHp: a[5], flying: !!(fl & 1), invisible: !!(fl & 2), revealed: !!(fl & 4),
-          boss: !!(fl & 8), elite: !!(fl & 16), enraged: !!(fl & 32), stunT: fl & 64 ? 0.2 : 0, hitT: fl & 128 ? 0.12 : 0, dashing: !!(fl & 256), burnT: fl & 512 ? 0.5 : 0, slowT: fl & 1024 ? 0.5 : 0,
+          boss: !!(fl & 8), elite: !!(fl & 16), enraged: !!(fl & 32), stunT: fl & 64 ? 0.2 : 0, hitT: fl & 128 ? 0.12 : 0, dashing: !!(fl & 256), burnT: fl & 512 ? 0.5 : 0, slowT: fl & 1024 ? 0.5 : 0, markT: fl & 2048 ? 1 : 0, pst: fl & 4096 ? 1 : 0, silT: fl & 8192 ? 1 : 0,
           dx: a[7], dz: a[8], path: a[9], d: a[10], eta: (fl & 8) ? a[11] : undefined, dead: false
         });
         return e;
       });
       for (const id of [...this.emapR.keys()]) if (!seen.has(id)) this.emapR.delete(id);
+      this.mines = (s.mn || []).map(a => ({ id: a[0], x: a[1], z: a[2], owner: a[3] }));
       // машины гаражей
       const seenC = new Set();
       this.cars = (s.cr || []).map(a => {
